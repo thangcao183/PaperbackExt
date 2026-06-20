@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "TritiniaScans",
   description: "TritiniaScans - Madara source (tritinia.org). Converted from keiyoushi.",
-  version: "1.0.0-alpha.1",
+  version: "1.4.55",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

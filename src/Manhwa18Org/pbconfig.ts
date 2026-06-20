@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Manhwa18.org",
   description: "Manhwa18.org - Madara source (manhwa18.org). Converted from keiyoushi.",
-  version: "1.0.0-alpha.1",
+  version: "1.4.53",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

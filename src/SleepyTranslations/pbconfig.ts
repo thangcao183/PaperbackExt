@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Sleepy Translations",
   description: "Sleepy Translations - Madara source (sleepytranslations.com). Converted from keiyoushi.",
-  version: "1.0.0-alpha.1",
+  version: "1.4.52",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
