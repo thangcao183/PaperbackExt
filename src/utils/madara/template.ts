@@ -14,6 +14,7 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
+  Form,
   MangaProviding,
   Metadata,
   PagedResults,
@@ -23,6 +24,8 @@ import {
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
+  SettingsFormProviding,
+  SortingOption,
   SourceManga,
   TagSection,
 } from "@paperback/types";
@@ -32,6 +35,7 @@ import type { Element } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../url-builder/base";
 import { MadaraSearchForm, MadaraSearchMeta } from "./forms";
+import { getBaseUrlOverride, MadaraSettingsForm } from "./settings";
 
 export interface MadaraConfig {
   name: string;
@@ -51,16 +55,17 @@ interface MadaraMetadata {
 class MadaraInterceptor extends PaperbackInterceptor {
   constructor(
     id: string,
-    private readonly baseUrl: string,
+    private readonly getBaseUrl: () => string,
   ) {
     super(id);
   }
 
   override async interceptRequest(request: Request): Promise<Request> {
+    const baseUrl = this.getBaseUrl();
     request.headers = {
       ...request.headers,
-      referer: `${this.baseUrl}/`,
-      origin: this.baseUrl,
+      referer: `${baseUrl}/`,
+      origin: baseUrl,
       "user-agent": await Application.getDefaultUserAgent(),
       accept:
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -96,17 +101,28 @@ type MadaraImplementation = Extension &
   MangaProviding &
   ChapterProviding &
   CloudflareBypassRequestProviding &
+  SettingsFormProviding &
   DiscoverSectionProviding;
 
 export class MadaraExtension implements MadaraImplementation {
   // Maximum number of pages to fetch when paginating search results.
   static readonly MAX_SEARCH_PAGES = 5;
 
-  readonly baseUrl: string;
+  readonly sourceName: string;
+  readonly defaultBaseUrl: string;
   readonly mangaSubString: string;
   readonly useNewChapterEndpoint: boolean;
   readonly contentRating: ContentRating;
   readonly langCode: string;
+
+  /**
+   * Effective base URL: a user-configured override (set via the settings
+   * form) takes precedence over the bundled default. This lets users follow
+   * a site that has changed domain without waiting for an extension update.
+   */
+  get baseUrl(): string {
+    return getBaseUrlOverride(this.sourceName) ?? this.defaultBaseUrl;
+  }
 
   requestManager: MadaraInterceptor;
   cookieStorageInterceptor = new CookieStorageInterceptor({
@@ -119,12 +135,17 @@ export class MadaraExtension implements MadaraImplementation {
   });
 
   constructor(config: MadaraConfig) {
-    this.baseUrl = config.baseUrl.replace(/\/+$/, "");
+    this.sourceName = config.name;
+    this.defaultBaseUrl = config.baseUrl.replace(/\/+$/, "");
     this.mangaSubString = config.mangaSubString ?? "manga";
     this.useNewChapterEndpoint = config.useNewChapterEndpoint ?? false;
     this.contentRating = config.contentRating ?? ContentRating.EVERYONE;
     this.langCode = config.langCode ?? "🇬🇧";
-    this.requestManager = new MadaraInterceptor("main", this.baseUrl);
+    this.requestManager = new MadaraInterceptor("main", () => this.baseUrl);
+  }
+
+  async getSettingsForm(): Promise<Form> {
+    return new MadaraSettingsForm(this.sourceName, this.defaultBaseUrl);
   }
 
   async initialise(): Promise<void> {
@@ -226,9 +247,22 @@ export class MadaraExtension implements MadaraImplementation {
   // Search
   // ----------------------------------------------------------------
 
+  async getSortingOptions(): Promise<SortingOption[]> {
+    return [
+      { id: "", label: "Relevance" },
+      { id: "latest", label: "Latest" },
+      { id: "alphabet", label: "A-Z" },
+      { id: "rating", label: "Rating" },
+      { id: "trending", label: "Trending" },
+      { id: "views", label: "Most Views" },
+      { id: "new-manga", label: "New" },
+    ];
+  }
+
   async getSearchResults(
     query: SearchQuery<Metadata>,
     metadata: Metadata | undefined,
+    sortingOption?: SortingOption | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
     const meta = metadata as MadaraMetadata | undefined;
     const page = meta?.page ?? 1;
@@ -262,13 +296,22 @@ export class MadaraExtension implements MadaraImplementation {
     // returning nothing. This mirrors how a bare search behaves elsewhere.
     const browseAll = !titleQuery && !hasFilters;
 
+    // The sorting dropdown (getSortingOptions) takes precedence over the
+    // advanced-form orderBy when the user picks a non-empty value.
+    const sortId = sortingOption?.id ?? "";
+    const filterOrderBy =
+      searchMeta?.orderBy && searchMeta.orderBy.length > 0
+        ? searchMeta.orderBy[0]
+        : "";
+    const effectiveOrderBy = sortId || filterOrderBy;
+
     const builder = new URLBuilder(this.baseUrl);
     if (browseAll) {
       builder.addPath(this.mangaSubString);
       if (page > 1) {
         builder.addPath("page").addPath(page.toString());
       }
-      builder.addQuery("m_orderby", "latest");
+      builder.addQuery("m_orderby", effectiveOrderBy || "latest");
     } else {
       if (page > 1) {
         builder.addPath("page").addPath(page.toString());
@@ -291,13 +334,6 @@ export class MadaraExtension implements MadaraImplementation {
           builder.addQuery("status", searchMeta.status);
         }
         if (
-          searchMeta.orderBy &&
-          searchMeta.orderBy.length > 0 &&
-          searchMeta.orderBy[0] !== ""
-        ) {
-          builder.addQuery("m_orderby", searchMeta.orderBy[0]);
-        }
-        if (
           searchMeta.adult &&
           searchMeta.adult.length > 0 &&
           searchMeta.adult[0] !== ""
@@ -311,6 +347,10 @@ export class MadaraExtension implements MadaraImplementation {
         ) {
           builder.addQuery("op", searchMeta.genreCondition[0]);
         }
+      }
+
+      if (effectiveOrderBy) {
+        builder.addQuery("m_orderby", effectiveOrderBy);
       }
     }
 

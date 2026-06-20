@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "LinkManga",
   description: "LinkManga - Madara source (linkmanga.com). Converted from keiyoushi.",
-  version: "1.4.51",
+  version: "1.5.51",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
@@ -12,8 +12,12 @@ export default {
     SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.CHAPTER_PROVIDING,
     SourceIntents.CLOUDFLARE_BYPASS_PROVIDING,
+    SourceIntents.SETTINGS_FORM_PROVIDING,
   ],
-  badges: [],
+  badges: [
+    { label: "Madara", textColor: "#FFFFFF", backgroundColor: "#2E7D32" },
+    { label: "Mature", textColor: "#FFFFFF", backgroundColor: "#C62828" },
+  ],
   developers: [
     {
       name: "Converted from keiyoushi",

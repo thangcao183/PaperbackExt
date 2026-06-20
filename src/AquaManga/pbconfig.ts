@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Aqua Manga",
   description: "Aqua Manga - Madara source (aquareader.org). Converted from keiyoushi.",
-  version: "1.4.62",
+  version: "1.5.62",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
@@ -12,8 +12,11 @@ export default {
     SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.CHAPTER_PROVIDING,
     SourceIntents.CLOUDFLARE_BYPASS_PROVIDING,
+    SourceIntents.SETTINGS_FORM_PROVIDING,
   ],
-  badges: [],
+  badges: [
+    { label: "Madara", textColor: "#FFFFFF", backgroundColor: "#2E7D32" },
+  ],
   developers: [
     {
       name: "Converted from keiyoushi",
