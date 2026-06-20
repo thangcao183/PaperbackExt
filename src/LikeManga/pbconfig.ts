@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "LikeManga",
   description: "LikeManga - custom source (likemanga.ink). Converted from keiyoushi.",
-  version: "1.4.8",
+  version: "1.4.8.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

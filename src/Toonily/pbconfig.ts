@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Toonily",
   description: "Toonily - Madara source (toonily.com). Converted from keiyoushi.",
-  version: "1.5.65",
+  version: "1.4.65.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

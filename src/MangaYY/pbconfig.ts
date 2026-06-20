@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "MangaYY",
   description: "MangaYY - Madara source (mangayy.org). Converted from keiyoushi.",
-  version: "1.5.52",
+  version: "1.4.52.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

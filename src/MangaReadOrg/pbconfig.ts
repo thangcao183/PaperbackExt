@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "MangaRead.org",
   description: "MangaRead.org - Madara source (www.mangaread.org). Converted from keiyoushi.",
-  version: "1.5.53",
+  version: "1.4.53.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Toon18",
   description: "Toon18 - Madara source (toon18.to). Converted from keiyoushi.",
-  version: "1.5.51",
+  version: "1.4.51.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

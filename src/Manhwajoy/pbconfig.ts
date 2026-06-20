@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Manhwajoy",
   description: "Manhwajoy - Madara source (manhwajoy.com). Converted from keiyoushi.",
-  version: "1.5.51",
+  version: "1.4.51.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
