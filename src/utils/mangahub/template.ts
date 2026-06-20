@@ -43,13 +43,10 @@ export interface MangaHubConfig {
 }
 
 // Shared backend constants (identical across every MangaHub mirror).
-// Primary endpoint first; api.mghcdn.com kept as a fallback in case api2 is
-// unreachable. The interceptor attaches the x-mhub-access header to any of
-// these URLs.
-const GRAPHQL_URLS = [
-  "https://api2.mangahub.io/graphql",
-  "https://api.mghcdn.com/graphql",
-];
+// api.mghcdn.com is the original/working GraphQL endpoint. (api2.mangahub.io
+// is currently unreachable, so it is no longer used.) The interceptor attaches
+// the x-mhub-access header to any of these URLs.
+const GRAPHQL_URLS = ["https://api.mghcdn.com/graphql"];
 const IMAGE_CDN = "https://imgx.mghcdn.com";
 const THUMB_CDN = "https://thumb.mghcdn.com";
 const PER_PAGE = 30;

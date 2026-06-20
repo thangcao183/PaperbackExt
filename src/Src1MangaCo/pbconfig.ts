@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "1Manga.co",
   description: "1Manga.co - MangaHub source (1manga.co). Converted from keiyoushi.",
-  version: "1.4.35.3",
+  version: "1.4.35.4",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

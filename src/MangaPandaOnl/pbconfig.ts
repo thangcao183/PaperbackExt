@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "MangaPanda.onl",
   description: "MangaPanda.onl - MangaHub source (mangapanda.onl). Converted from keiyoushi.",
-  version: "1.4.35.3",
+  version: "1.4.35.4",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
