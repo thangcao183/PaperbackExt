@@ -1,7 +1,7 @@
 import { ContentRating } from "@paperback/types";
 import { MadaraExtension } from "../utils/madara/template";
 
-export const source = new MadaraExtension({
+export const Mahouirexnohentaikarte = new MadaraExtension({
   name: "Mahouirexnohentaikarte",
   baseUrl: "https://mahouirexnohentaikarte.com",
   mangaSubString: "manga",

@@ -1,7 +1,7 @@
 import { ContentRating } from "@paperback/types";
 import { MadaraExtension } from "../utils/madara/template";
 
-export const source = new MadaraExtension({
+export const Hentai4Free = new MadaraExtension({
   name: "Hentai4Free",
   baseUrl: "https://hentai4free.net",
   mangaSubString: "hentai",

@@ -1,7 +1,7 @@
 import { ContentRating } from "@paperback/types";
 import { MadaraExtension } from "../utils/madara/template";
 
-export const source = new MadaraExtension({
+export const GingeRTooN = new MadaraExtension({
   name: "GingeRTooN",
   baseUrl: "https://gingertoon.com",
   mangaSubString: "manga",

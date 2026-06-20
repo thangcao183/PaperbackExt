@@ -1,7 +1,7 @@
 import { ContentRating } from "@paperback/types";
 import { MadaraExtension } from "../utils/madara/template";
 
-export const source = new MadaraExtension({
+export const GalaxyDegenScans = new MadaraExtension({
   name: "GalaxyDegenScans",
   baseUrl: "https://gdscans.com",
   mangaSubString: "manga",

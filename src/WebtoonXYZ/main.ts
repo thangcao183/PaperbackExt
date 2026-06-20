@@ -1,7 +1,7 @@
 import { ContentRating } from "@paperback/types";
 import { MadaraExtension } from "../utils/madara/template";
 
-export const source = new MadaraExtension({
+export const WebtoonXYZ = new MadaraExtension({
   name: "WebtoonXYZ",
   baseUrl: "https://www.webtoon.xyz",
   mangaSubString: "read",
