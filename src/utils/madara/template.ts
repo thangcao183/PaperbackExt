@@ -257,54 +257,60 @@ export class MadaraExtension implements MadaraImplementation {
           searchMeta.genreCondition[0] !== ""))
     );
 
-    // Madara search requires a query term or at least one filter. With
-    // neither, the site returns no usable results, so avoid pointlessly
-    // paging through empty pages.
-    if (!titleQuery && !hasFilters) {
-      return { items: [], metadata: undefined };
-    }
+    // With no query term and no filters, browse the full manga listing
+    // (same endpoint as the "Latest Updates" discover section) instead of
+    // returning nothing. This mirrors how a bare search behaves elsewhere.
+    const browseAll = !titleQuery && !hasFilters;
 
     const builder = new URLBuilder(this.baseUrl);
-    if (page > 1) {
-      builder.addPath("page").addPath(page.toString());
-    }
-    builder
-      .addQuery("s", encodeURIComponent(titleQuery))
-      .addQuery("post_type", "wp-manga");
+    if (browseAll) {
+      builder.addPath(this.mangaSubString);
+      if (page > 1) {
+        builder.addPath("page").addPath(page.toString());
+      }
+      builder.addQuery("m_orderby", "latest");
+    } else {
+      if (page > 1) {
+        builder.addPath("page").addPath(page.toString());
+      }
+      builder
+        .addQuery("s", encodeURIComponent(titleQuery))
+        .addQuery("post_type", "wp-manga");
 
-    if (searchMeta) {
-      if (searchMeta.author) {
-        builder.addQuery("author", encodeURIComponent(searchMeta.author));
-      }
-      if (searchMeta.artist) {
-        builder.addQuery("artist", encodeURIComponent(searchMeta.artist));
-      }
-      if (searchMeta.release) {
-        builder.addQuery("release", encodeURIComponent(searchMeta.release));
-      }
-      if (searchMeta.status && searchMeta.status.length > 0) {
-        builder.addQuery("status", searchMeta.status);
-      }
-      if (
-        searchMeta.orderBy &&
-        searchMeta.orderBy.length > 0 &&
-        searchMeta.orderBy[0] !== ""
-      ) {
-        builder.addQuery("m_orderby", searchMeta.orderBy[0]);
-      }
-      if (
-        searchMeta.adult &&
-        searchMeta.adult.length > 0 &&
-        searchMeta.adult[0] !== ""
-      ) {
-        builder.addQuery("adult", searchMeta.adult[0]);
-      }
-      if (
-        searchMeta.genreCondition &&
-        searchMeta.genreCondition.length > 0 &&
-        searchMeta.genreCondition[0] !== ""
-      ) {
-        builder.addQuery("op", searchMeta.genreCondition[0]);
+      if (searchMeta) {
+        if (searchMeta.author) {
+          builder.addQuery("author", encodeURIComponent(searchMeta.author));
+        }
+        if (searchMeta.artist) {
+          builder.addQuery("artist", encodeURIComponent(searchMeta.artist));
+        }
+        if (searchMeta.release) {
+          builder.addQuery("release", encodeURIComponent(searchMeta.release));
+        }
+        if (searchMeta.status && searchMeta.status.length > 0) {
+          builder.addQuery("status", searchMeta.status);
+        }
+        if (
+          searchMeta.orderBy &&
+          searchMeta.orderBy.length > 0 &&
+          searchMeta.orderBy[0] !== ""
+        ) {
+          builder.addQuery("m_orderby", searchMeta.orderBy[0]);
+        }
+        if (
+          searchMeta.adult &&
+          searchMeta.adult.length > 0 &&
+          searchMeta.adult[0] !== ""
+        ) {
+          builder.addQuery("adult", searchMeta.adult[0]);
+        }
+        if (
+          searchMeta.genreCondition &&
+          searchMeta.genreCondition.length > 0 &&
+          searchMeta.genreCondition[0] !== ""
+        ) {
+          builder.addQuery("op", searchMeta.genreCondition[0]);
+        }
       }
     }
 
@@ -313,7 +319,12 @@ export class MadaraExtension implements MadaraImplementation {
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const results: SearchResultItem[] = [];
 
-    $("div.c-tabs-item__content, .manga__item").each((_, element) => {
+    // The listing page and the search page use different item containers.
+    const itemSelector = browseAll
+      ? "div.page-item-detail, .manga__item"
+      : "div.c-tabs-item__content, .manga__item";
+
+    $(itemSelector).each((_, element) => {
       const unit = $(element);
       const titleLink = unit.find("div.post-title a").first();
       const title = titleLink.text().trim();
