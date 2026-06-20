@@ -1,4 +1,5 @@
 import {
+  AdvancedSearchForm,
   BasicRateLimiter,
   Chapter,
   ChapterDetails,
@@ -30,6 +31,7 @@ import { CheerioAPI, Cheerio } from "cheerio";
 import type { Element } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../url-builder/base";
+import { MadaraSearchForm, MadaraSearchMeta } from "./forms";
 
 export interface MadaraConfig {
   name: string;
@@ -150,8 +152,13 @@ export class MadaraExtension implements MadaraImplementation {
     ];
   }
 
-  async getSearchFilters(): Promise<never[]> {
-    return [];
+  async getAdvancedSearchForm(
+    query: SearchQuery<Metadata>,
+  ): Promise<AdvancedSearchForm> {
+    const meta = query.metadata as
+      | { searchMeta?: MadaraSearchMeta }
+      | undefined;
+    return new MadaraSearchForm(meta?.searchMeta);
   }
 
   async getDiscoverSectionItems(
@@ -228,9 +235,32 @@ export class MadaraExtension implements MadaraImplementation {
     const collectedIds = meta?.searchCollectedIds ?? [];
     const titleQuery = (query.title || "").trim();
 
-    // Madara search requires a query term. Without one the site returns
-    // no usable results, so avoid pointlessly paging through empty pages.
-    if (!titleQuery) {
+    const searchMeta = (
+      query.metadata as { searchMeta?: MadaraSearchMeta } | undefined
+    )?.searchMeta;
+
+    // Determine whether any advanced filter has been set.
+    const hasFilters = !!(
+      searchMeta &&
+      (searchMeta.author ||
+        searchMeta.artist ||
+        searchMeta.release ||
+        (searchMeta.status && searchMeta.status.length > 0) ||
+        (searchMeta.orderBy &&
+          searchMeta.orderBy.length > 0 &&
+          searchMeta.orderBy[0] !== "") ||
+        (searchMeta.adult &&
+          searchMeta.adult.length > 0 &&
+          searchMeta.adult[0] !== "") ||
+        (searchMeta.genreCondition &&
+          searchMeta.genreCondition.length > 0 &&
+          searchMeta.genreCondition[0] !== ""))
+    );
+
+    // Madara search requires a query term or at least one filter. With
+    // neither, the site returns no usable results, so avoid pointlessly
+    // paging through empty pages.
+    if (!titleQuery && !hasFilters) {
       return { items: [], metadata: undefined };
     }
 
@@ -238,10 +268,47 @@ export class MadaraExtension implements MadaraImplementation {
     if (page > 1) {
       builder.addPath("page").addPath(page.toString());
     }
-    const url = builder
+    builder
       .addQuery("s", encodeURIComponent(titleQuery))
-      .addQuery("post_type", "wp-manga")
-      .build();
+      .addQuery("post_type", "wp-manga");
+
+    if (searchMeta) {
+      if (searchMeta.author) {
+        builder.addQuery("author", encodeURIComponent(searchMeta.author));
+      }
+      if (searchMeta.artist) {
+        builder.addQuery("artist", encodeURIComponent(searchMeta.artist));
+      }
+      if (searchMeta.release) {
+        builder.addQuery("release", encodeURIComponent(searchMeta.release));
+      }
+      if (searchMeta.status && searchMeta.status.length > 0) {
+        builder.addQuery("status", searchMeta.status);
+      }
+      if (
+        searchMeta.orderBy &&
+        searchMeta.orderBy.length > 0 &&
+        searchMeta.orderBy[0] !== ""
+      ) {
+        builder.addQuery("m_orderby", searchMeta.orderBy[0]);
+      }
+      if (
+        searchMeta.adult &&
+        searchMeta.adult.length > 0 &&
+        searchMeta.adult[0] !== ""
+      ) {
+        builder.addQuery("adult", searchMeta.adult[0]);
+      }
+      if (
+        searchMeta.genreCondition &&
+        searchMeta.genreCondition.length > 0 &&
+        searchMeta.genreCondition[0] !== ""
+      ) {
+        builder.addQuery("op", searchMeta.genreCondition[0]);
+      }
+    }
+
+    const url = builder.build();
 
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const results: SearchResultItem[] = [];

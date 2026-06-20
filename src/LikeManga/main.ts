@@ -1,4 +1,5 @@
 import {
+  AdvancedSearchForm,
   BasicRateLimiter,
   Chapter,
   ChapterDetails,
@@ -29,6 +30,7 @@ import * as cheerio from "cheerio";
 import { CheerioAPI, Cheerio } from "cheerio";
 import type { Element } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
+import { LikeMangaSearchForm, LikeMangaSearchMeta } from "./forms";
 
 const BASE_URL = "https://likemanga.ink";
 
@@ -116,8 +118,13 @@ export class LikeMangaExtension implements LikeMangaImplementation {
     ];
   }
 
-  async getSearchFilters(): Promise<never[]> {
-    return [];
+  async getAdvancedSearchForm(
+    query: SearchQuery<Metadata>,
+  ): Promise<AdvancedSearchForm> {
+    const meta = query.metadata as
+      | { searchMeta?: LikeMangaSearchMeta }
+      | undefined;
+    return new LikeMangaSearchForm(meta?.searchMeta);
   }
 
   async getDiscoverSectionItems(
@@ -174,7 +181,16 @@ export class LikeMangaExtension implements LikeMangaImplementation {
     const page = meta?.page ?? 1;
     const titleQuery = (query.title || "").trim();
 
-    const url = this.buildSearchUrl({ keyword: titleQuery, page });
+    const searchMeta = (
+      query.metadata as { searchMeta?: LikeMangaSearchMeta } | undefined
+    )?.searchMeta;
+
+    const url = this.buildSearchUrl({
+      keyword: titleQuery,
+      page,
+      sortBy: searchMeta?.sortBy?.[0],
+      status: searchMeta?.status?.[0],
+    });
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
     const results: SearchResultItem[] = [];
@@ -208,11 +224,15 @@ export class LikeMangaExtension implements LikeMangaImplementation {
   private buildSearchUrl(opts: {
     keyword?: string;
     sortBy?: string;
+    status?: string;
     page?: number;
   }): string {
     const params: string[] = ["act=searchadvance"];
     if (opts.sortBy) {
       params.push(`f[sortby]=${encodeURIComponent(opts.sortBy)}`);
+    }
+    if (opts.status) {
+      params.push(`f[status]=${encodeURIComponent(opts.status)}`);
     }
     if (opts.keyword) {
       params.push(`f[keyword]=${encodeURIComponent(opts.keyword)}`);
