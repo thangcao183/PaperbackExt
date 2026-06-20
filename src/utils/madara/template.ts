@@ -228,6 +228,12 @@ export class MadaraExtension implements MadaraImplementation {
     const collectedIds = meta?.searchCollectedIds ?? [];
     const titleQuery = (query.title || "").trim();
 
+    // Madara search requires a query term. Without one the site returns
+    // no usable results, so avoid pointlessly paging through empty pages.
+    if (!titleQuery) {
+      return { items: [], metadata: undefined };
+    }
+
     const builder = new URLBuilder(this.baseUrl);
     if (page > 1) {
       builder.addPath("page").addPath(page.toString());
