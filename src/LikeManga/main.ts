@@ -461,19 +461,32 @@ export class LikeMangaExtension implements LikeMangaImplementation {
   private parseMangaId(href: string): string {
     // Manga URLs are at the site root, e.g. https://likemanga.ink/{slug}
     const cleaned = href.replace(/[?#].*$/, "").replace(/\/+$/, "");
-    if (cleaned.startsWith("http")) {
-      const withoutProto = cleaned.replace(/^https?:\/\/[^/]+\//, "");
-      return withoutProto;
-    }
-    return cleaned.replace(/^\/+/, "");
+    const slug = cleaned.startsWith("http")
+      ? cleaned.replace(/^https?:\/\/[^/]+\//, "")
+      : cleaned.replace(/^\/+/, "");
+    return this.toSafeId(slug);
   }
 
   private parseChapterId(href: string): string {
     const cleaned = href.replace(/[?#].*$/, "").replace(/\/+$/, "");
-    if (cleaned.startsWith("http")) {
-      return cleaned.replace(/^https?:\/\/[^/]+\//, "");
-    }
-    return cleaned.replace(/^\/+/, "");
+    const slug = cleaned.startsWith("http")
+      ? cleaned.replace(/^https?:\/\/[^/]+\//, "")
+      : cleaned.replace(/^\/+/, "");
+    return this.toSafeId(slug);
+  }
+
+  // Paperback only allows IDs matching alphanumerics + `._-@()[]%?#+=/&:`.
+  // Slugs can contain decoded HTML entities such as apostrophes (from
+  // `&#39;`), so percent-encode any disallowed character. The encoded ID
+  // round-trips correctly when interpolated back into a request URL.
+  private toSafeId(slug: string): string {
+    return slug.replace(/[^A-Za-z0-9._\-@()[\]%?#+=/&:]/g, (c) => {
+      const enc = encodeURIComponent(c);
+      if (enc !== c) return enc;
+      return (
+        "%" + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")
+      );
+    });
   }
 
   private parseChapterNumber(name: string, chapterId: string): number {

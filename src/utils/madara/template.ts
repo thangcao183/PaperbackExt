@@ -502,20 +502,45 @@ export class MadaraExtension implements MadaraImplementation {
     const match = href.match(
       new RegExp(`/${this.mangaSubString}/([^/]+)`),
     );
-    if (match) return match[1];
+    if (match) return this.toSafeId(match[1]);
     // fallback: generic /<seg>/<slug>
     const generic = href.replace(/[?#].*$/, "").replace(/\/$/, "").split("/");
-    return generic.pop() ?? "";
+    return this.toSafeId(generic.pop() ?? "");
   }
 
   private parseChapterId(href: string, mangaId: string): string {
     const cleaned = href.replace(/[?#].*$/, "").replace(/\/$/, "");
-    const marker = `/${this.mangaSubString}/${mangaId}/`;
+    // mangaId may be percent-encoded; the raw href is not, so decode it
+    // back when locating the manga segment within the chapter URL.
+    const rawMangaId = this.safeDecode(mangaId);
+    const marker = `/${this.mangaSubString}/${rawMangaId}/`;
     const idx = cleaned.indexOf(marker);
     if (idx !== -1) {
-      return cleaned.slice(idx + marker.length);
+      return this.toSafeId(cleaned.slice(idx + marker.length));
     }
-    return cleaned.split("/").pop() ?? "";
+    return this.toSafeId(cleaned.split("/").pop() ?? "");
+  }
+
+  // Paperback only allows IDs matching alphanumerics + `._-@()[]%?#+=/&:`.
+  // Slugs can contain decoded HTML entities such as apostrophes (from
+  // `&#39;`), so percent-encode any disallowed character. The encoded ID
+  // round-trips correctly when interpolated back into a request URL.
+  private toSafeId(slug: string): string {
+    return slug.replace(/[^A-Za-z0-9._\-@()[\]%?#+=/&:]/g, (c) => {
+      const enc = encodeURIComponent(c);
+      if (enc !== c) return enc;
+      return (
+        "%" + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")
+      );
+    });
+  }
+
+  private safeDecode(id: string): string {
+    try {
+      return decodeURIComponent(id);
+    } catch {
+      return id;
+    }
   }
 
   private imageFromElement(img: Cheerio<Element>): string {
