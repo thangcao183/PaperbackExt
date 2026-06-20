@@ -97,6 +97,9 @@ type MadaraImplementation = Extension &
   DiscoverSectionProviding;
 
 export class MadaraExtension implements MadaraImplementation {
+  // Maximum number of pages to fetch when paginating search results.
+  static readonly MAX_SEARCH_PAGES = 5;
+
   readonly baseUrl: string;
   readonly mangaSubString: string;
   readonly useNewChapterEndpoint: boolean;
@@ -260,11 +263,15 @@ export class MadaraExtension implements MadaraImplementation {
     const hasNextPage =
       $("div.nav-previous, nav.navigation-ajax, a.nextpostslink").length > 0;
 
+    // Cap search pagination so the app doesn't keep loading every page.
+    const reachedPageLimit = page >= MadaraExtension.MAX_SEARCH_PAGES;
+
     return {
       items: results,
-      metadata: hasNextPage
-        ? { page: page + 1, searchCollectedIds: collectedIds }
-        : undefined,
+      metadata:
+        hasNextPage && !reachedPageLimit
+          ? { page: page + 1, searchCollectedIds: collectedIds }
+          : undefined,
     };
   }
 
