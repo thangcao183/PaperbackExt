@@ -1,0 +1,33 @@
+{
+  "name": "paperbackext",
+  "description": "Paperback v0.9 extensions",
+  "author": "",
+  "keywords": [
+    "Paperback",
+    "extensions"
+  ],
+  "version": "0.9.0",
+  "license": "MIT",
+  "repositoryName": "PaperBackExt",
+  "repositoryDescription": "Paperback v0.9 extensions",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "oxlint --type-aware --fix",
+    "lint:check": "oxlint --type-aware --deny-warnings",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "tsc": "tsc",
+    "bundle": "paperback-cli bundle",
+    "test": "npx --package @paperback/toolchain@1.0.0-alpha.78 paperback-cli test --noConsole --output ./bundles/tests.json",
+    "serve": "paperback-cli serve",
+    "logcat": "paperback-cli logcat",
+    "dev": "paperback-cli serve --watch --port 3000"
+  },
+  "devDependencies": {
+    "@paperback/toolchain": "1.0.0-alpha.91",
+    "@paperback/types": "1.0.0-alpha.91",
+    "cheerio": "^1.2.0",
+    "typescript": "^6.0.3"
+  }
+}
