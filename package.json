@@ -1,15 +1,18 @@
 {
   "name": "paperbackext",
-  "description": "Paperback v0.9 extensions",
-  "author": "",
+  "description": "Paperback v0.9 manga/manhua/comic extensions converted from keiyoushi",
+  "author": "Nicartjay",
   "keywords": [
     "Paperback",
-    "extensions"
+    "extensions",
+    "manga",
+    "manhua",
+    "madara"
   ],
   "version": "0.9.0",
   "license": "MIT",
-  "repositoryName": "PaperBackExt",
-  "repositoryDescription": "Paperback v0.9 extensions",
+  "repositoryName": "Nicartjay Extensions",
+  "repositoryDescription": "Manga, manhua and comic sources for Paperback v0.9 (converted from keiyoushi)",
   "private": true,
   "type": "module",
   "scripts": {
