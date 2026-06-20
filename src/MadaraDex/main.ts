@@ -1,0 +1,11 @@
+import { ContentRating } from "@paperback/types";
+import { MadaraExtension } from "../utils/madara/template";
+
+export const source = new MadaraExtension({
+  name: "MadaraDex",
+  baseUrl: "https://madaradex.org",
+  mangaSubString: "title",
+  useNewChapterEndpoint: false,
+  contentRating: ContentRating.MATURE,
+  langCode: "🇬🇧",
+});

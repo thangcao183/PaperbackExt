@@ -2,7 +2,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
   name: "ManhuaFast",
-  description: "Extension that pulls manga/manhua from manhuafast.com (Madara, Cloudflare protected).",
+  description: "ManhuaFast - Madara source (manhuafast.com). Converted from keiyoushi.",
   version: "1.0.0-alpha.1",
   icon: "icon.png",
   language: "en",
