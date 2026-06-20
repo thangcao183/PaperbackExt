@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "MangaOnline.fun",
   description: "MangaOnline.fun - MangaHub source (mangaonline.fun). Converted from keiyoushi.",
-  version: "1.4.35.2",
+  version: "1.4.35.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

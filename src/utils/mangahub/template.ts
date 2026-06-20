@@ -462,13 +462,21 @@ export class MangaHubExtension implements MangaHubImplementation {
 
     const rows = await this.runSearch("", "all", order, page);
 
-    const items: DiscoverSectionItem[] = rows.map((row) => ({
-      type: itemType,
-      mangaId: this.toSafeId(row.slug ?? ""),
-      imageUrl: this.thumbUrl(row.image),
-      title: row.title ?? "",
-      metadata: undefined,
-    }));
+    const items: DiscoverSectionItem[] = [];
+    for (const row of rows) {
+      const slug = row.slug ?? "";
+      const imageUrl = this.thumbUrl(row.image);
+      // Paperback rejects carousel items with an empty imageUrl
+      // ("Invalid URL: "), so skip rows without a usable slug/image.
+      if (!slug || !imageUrl) continue;
+      items.push({
+        type: itemType,
+        mangaId: this.toSafeId(slug),
+        imageUrl,
+        title: row.title ?? "",
+        metadata: undefined,
+      });
+    }
 
     const hasNextPage = rows.length === PER_PAGE;
     return {
@@ -529,9 +537,12 @@ export class MangaHubExtension implements MangaHubImplementation {
       const signature = `${row.author ?? ""}|${row.latestChapter ?? ""}|${row.genres ?? ""}`;
       if (seen.has(signature)) continue;
       seen.add(signature);
+      const slug = row.slug ?? "";
+      const imageUrl = this.thumbUrl(row.image);
+      if (!slug || !imageUrl) continue;
       results.push({
-        mangaId: this.toSafeId(row.slug ?? ""),
-        imageUrl: this.thumbUrl(row.image),
+        mangaId: this.toSafeId(slug),
+        imageUrl,
         title: row.title ?? "",
         subtitle: undefined,
         metadata: undefined,
