@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Mangakakalot.fun",
   description: "Mangakakalot.fun - MangaHub source (mangakakalot.fun). Converted from keiyoushi.",
-  version: "1.4.35.1",
+  version: "1.4.35.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
