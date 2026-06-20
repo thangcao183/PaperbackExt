@@ -8,8 +8,8 @@ Sources are converted from the
 Each upstream theme framework (Madara, MangaThemesia, Keyoapp, Iken, MangaHub,
 HeanCms, ZeistManga, MMRCMS, and many more) is reimplemented once as a shared
 TypeScript template, and every source built on that framework is generated from
-it. A few sources that don't share a framework (e.g. LikeManga) are fully
-self-contained.
+it. A few sources that don't share a framework (e.g. LikeManga, Mangago) are
+fully self-contained.
 
 ### Features
 
@@ -86,17 +86,18 @@ every source built on it.
 | ZeistManga | JSON/HTML | 1 | Blogger feed + HTML hybrid |
 | MMRCMS | HTML | 1 | MyMangaReaderCMS |
 
-Plus the standalone **LikeManga** source (encrypted token page list).
+Plus two standalone sources: **LikeManga** (encrypted token page list) and
+**Mangago** (AES-decrypted + grid-descrambled images via an in-app webview).
 
 ## Available Sources
 
-**252** sources are currently published. Sources marked **Mature** contain
-adult/NSFW content.
+**253** sources are currently published. Sources marked **Mature** contain
+adult/NSFW content (142 Mature, 111 Everyone).
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
 | 18 Porn Comic | 1.4.3.1 | Mature |
-| 1Manga.co | 1.4.35.1 | Mature |
+| 1Manga.co | 1.4.35.4 | Mature |
 | 24HNovel | 1.4.52.1 | Mature |
 | 8Muses | 1.4.2.1 | Mature |
 | AllPornComic | 1.4.53.1 | Mature |
@@ -204,29 +205,30 @@ adult/NSFW content.
 | MangaBlaze | 1.4.51.1 | Everyone |
 | MangaDia | 1.4.51.1 | Everyone |
 | Mangaforfree.com | 1.4.53.1 | Mature |
-| MangaFox.fun | 1.4.35.1 | Mature |
+| MangaFox.fun | 1.4.35.4 | Mature |
 | Mangafree | 1.4.51.1 | Mature |
 | MangaGG | 1.4.54.1 | Mature |
+| Mangago | 1.4.34.1 | Mature |
 | MangaGo.fun | 1.4.51.1 | Everyone |
 | MangaHe | 1.4.51.1 | Mature |
-| MangaHere.onl | 1.4.35.1 | Mature |
-| MangaHub | 1.4.45.1 | Mature |
+| MangaHere.onl | 1.4.35.4 | Mature |
+| MangaHub | 1.4.45.4 | Mature |
 | MangaKa | 1.4.51.1 | Everyone |
 | Mangakakalot | 1.4.21.1 | Mature |
-| Mangakakalot.fun | 1.4.35.1 | Mature |
+| Mangakakalot.fun | 1.4.35.4 | Mature |
 | MangaManiacs | 1.4.51.1 | Mature |
 | Manganato | 1.4.18.1 | Mature |
-| MangaNel | 1.4.35.1 | Mature |
+| MangaNel | 1.4.35.4 | Mature |
 | MangaNow | 1.4.4.1 | Mature |
-| MangaOnline.fun | 1.4.35.1 | Mature |
+| MangaOnline.fun | 1.4.35.4 | Mature |
 | MangaOwl.io (unoriginal) | 1.4.52.1 | Mature |
-| MangaPanda.onl | 1.4.35.1 | Everyone |
+| MangaPanda.onl | 1.4.35.4 | Everyone |
 | MangaRead.org | 1.4.53.1 | Mature |
 | MangaReader.in | 1.4.6.1 | Mature |
-| MangaReader.site | 1.4.35.1 | Everyone |
+| MangaReader.site | 1.4.35.4 | Everyone |
 | Mangasushi | 1.4.54.1 | Everyone |
 | Mangatellers | 1.4.5.1 | Everyone |
-| MangaToday | 1.4.35.1 | Mature |
+| MangaToday | 1.4.35.4 | Mature |
 | MangaTX | 1.4.33.1 | Mature |
 | MangaYY | 1.4.52.1 | Mature |
 | Manhua Plus | 1.4.58.1 | Everyone |
@@ -270,7 +272,7 @@ adult/NSFW content.
 | Nyx Scans | 1.4.26.1 | Everyone |
 | OctopusManga | 1.4.51.1 | Mature |
 | Omega Scans | 1.4.50.1 | Mature |
-| OneManga.info | 1.4.35.1 | Mature |
+| OneManga.info | 1.4.35.4 | Mature |
 | Orchisasia | 1.4.51.1 | Mature |
 | Orion Scans | 1.4.23.1 | Everyone |
 | Paradise Scans | 1.4.20.1 | Mature |
@@ -405,7 +407,8 @@ form, and the Cloudflare challenge interceptor.
 
 ### Standalone sources
 
-Sources that aren't built on a shared framework (currently **LikeManga**) have a
+Sources that aren't built on a shared framework (currently **LikeManga** and
+**Mangago**) have a
 fully self-contained `main.ts` that implements the Paperback interfaces
 directly.
 
@@ -461,8 +464,9 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   Manga District, the MangaThemesia "Alt" randomized-slug variants). The shared
   templates do not replicate every custom override, so those may have partial
   functionality.
-- The 166 bespoke standalone (non-framework) keiyoushi English sources are not
-  yet ported — only sources built on a shared theme framework (plus LikeManga)
+- Most of the bespoke standalone (non-framework) keiyoushi English sources are
+  not yet ported — only sources built on a shared theme framework (plus the
+  standalone LikeManga and Mangago)
   are included here.
 - These extensions are **not affiliated** with the source websites. They only
   scrape publicly available pages.
