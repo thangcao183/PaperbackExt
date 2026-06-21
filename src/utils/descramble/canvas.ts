@@ -57,6 +57,64 @@ export function decodeDataUrlToArrayBuffer(dataUrl: string): ArrayBuffer {
 }
 
 /**
+ * Descramble a Mangago-style grid-scrambled image.
+ *
+ * 1:1 port of the keiyoushi/Aidoku algorithm: the page is a `cols × cols`
+ * grid; SOURCE cell `idx` belongs at DESTINATION cell `keyArr[idx]`. We copy
+ * each source cell rectangle to its destination with 9-arg `drawImage`, which
+ * operates in image coordinates — so (unlike getImageData/putImageData) there
+ * is NO Y-up/Y-down flip to worry about, and it matches the reference exactly.
+ *
+ * `keyArr` is the integer list from the per-image descrambling key (the site's
+ * `key.split("a")`). Returns the re-encoded image bytes; on any problem the
+ * original bytes are returned.
+ */
+export async function descrambleMangago(
+  data: ArrayBuffer,
+  mimeType: string,
+  keyArr: number[],
+  cols: number,
+): Promise<ArrayBuffer> {
+  if (cols <= 0) return data;
+  const tileCount = cols * cols;
+  if (keyArr.length < tileCount - 1) return data;
+
+  const src = await loadImageFromBuffer(data, mimeType);
+  const width = src.naturalWidth || src.width;
+  const height = src.naturalHeight || src.height;
+  if (!width || !height) return data;
+
+  const uw = (width / cols) | 0;
+  const uh = (height / cols) | 0;
+  if (uw === 0 || uh === 0) return data;
+
+  const canvas = new HTMLCanvasElement();
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return data;
+
+  // Draw the full scrambled image first so any right/bottom remainder
+  // outside the cols×cols grid survives untouched (matches the reference).
+  ctx.drawImage(src, 0, 0, width, height);
+
+  for (let idx = 0; idx < tileCount; idx++) {
+    let keyval = keyArr[idx] ?? 0;
+    if (!Number.isFinite(keyval) || keyval < 0 || keyval >= tileCount) {
+      keyval = idx;
+    }
+    const sy = ((idx / cols) | 0) * uh;
+    const sx = (idx % cols) * uw;
+    const dy = ((keyval / cols) | 0) * uh;
+    const dx = (keyval % cols) * uw;
+    // source cell idx -> destination cell keyval
+    ctx.drawImage(src, sx, sy, uw, uh, dx, dy, uw, uh);
+  }
+
+  return decodeDataUrlToArrayBuffer(canvas.toDataURL(mimeType));
+}
+
+/**
  * Reassemble a tile-scrambled image.
  *
  * The image is divided into a `cols × rows` grid of equal tiles (tile size is

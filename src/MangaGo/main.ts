@@ -29,7 +29,7 @@ import * as cheerio from "cheerio";
 import { CheerioAPI, Cheerio } from "cheerio";
 import type { Element } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
-import { remapTilesByLookup } from "../utils/descramble/canvas";
+import { descrambleMangago } from "../utils/descramble/canvas";
 
 const BASE_URL = "https://www.mangago.me";
 const DOMAIN = "mangago.me";
@@ -793,21 +793,12 @@ async function descrambleImage(
   const cols = parseInt(params.get("cols") || "0", 10);
   if (!key || !cols || cols <= 0) return data;
 
-  // Build the destination->source tile lookup from Mangago's key array.
-  // Upstream draws SOURCE cell `idx` into DESTINATION cell `keyArray[idx]`,
-  // so for the remap helper (clean[i] = scrambled[lookup[i]]) we invert it:
-  // lookup[keyArray[idx]] = idx.
-  const tileCount = cols * cols;
-  const keyArr = key.split("a");
-  const lookup: number[] = Array.from({ length: tileCount }, (_, i) => i);
-  for (let idx = 0; idx < tileCount; idx++) {
-    let keyval = parseInt(keyArr[idx] || "0", 10);
-    if (isNaN(keyval) || keyval < 0 || keyval >= tileCount) keyval = idx;
-    lookup[keyval] = idx;
-  }
+  // keiyoushi/Aidoku key: `key.split("a")` -> per-cell destination indices.
+  const keyArr = key.split("a").map((s) => parseInt(s, 10));
 
-  // Descramble in-process with the polyfilled canvas (no executeInWebView).
-  return await remapTilesByLookup(data, "image/jpeg", cols, cols, lookup);
+  // Descramble in-process via the polyfilled canvas (9-arg drawImage, the
+  // exact reference algorithm — no executeInWebView, no Y-flip).
+  return await descrambleMangago(data, "image/jpeg", keyArr, cols);
 }
 
 function bufferOf(bytes: Uint8Array): ArrayBuffer {
