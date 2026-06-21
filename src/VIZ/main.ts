@@ -28,6 +28,7 @@ import * as cheerio from "cheerio";
 import { CheerioAPI, Cheerio } from "cheerio";
 import type { AnyNode } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
+import { descrambleViz } from "../utils/descramble/canvas";
 
 const BASE_URL = "https://www.viz.com";
 // VizFactory exposes two services ("shonenjump" and "vizmanga"); this standalone
@@ -38,12 +39,8 @@ const FREE_CHAPTERS_URL = `${BASE_URL}/read/${SERVICE_PATH}/section/free-chapter
 // Endpoint that returns the (short-lived) signed URL of the scrambled page image.
 const IMAGE_URL_ENDPOINT = "get_manga_url";
 
-// Grid geometry taken verbatim from VizImageInterceptor.kt.
-const CELL_WIDTH_COUNT = 10;
-const CELL_HEIGHT_COUNT = 15;
-const INNER_CELL_COUNT = CELL_WIDTH_COUNT - 2; // 8
-const WIDTH_CUT = 90;
-const HEIGHT_CUT = 140;
+// EXIF dimension fallbacks taken verbatim from VizImageInterceptor.kt. The
+// cell-grid geometry now lives in descrambleViz (shared canvas helper).
 const COMMON_WIDTH = 800;
 const COMMON_HEIGHT = 1200;
 
@@ -119,7 +116,13 @@ class VIZInterceptor extends PaperbackInterceptor {
         return data;
       }
 
-      const decoded = await decodeImage(imgData);
+      const contentType =
+        imgResponse.headers?.["content-type"] ||
+        imgResponse.headers?.["Content-Type"] ||
+        "image/jpeg";
+      const mimeType = contentType.split(";")[0].trim() || "image/jpeg";
+
+      const decoded = await decodeImage(imgData, mimeType);
       return decoded ?? imgData;
     } catch {
       // Never throw out of interceptResponse — fall back to the raw JSON
@@ -685,124 +688,28 @@ function parseExifImageData(data: ArrayBuffer): ExifImageData | null {
   return { width, height, key };
 }
 
-// Descramble a VIZ page image using its EXIF key on a canvas inside a webview.
-// Returns null on any failure so the caller can fall back to the raw bytes.
-async function decodeImage(data: ArrayBuffer): Promise<ArrayBuffer | null> {
+// Descramble a VIZ page image using its EXIF key on the polyfilled canvas,
+// in-process. Returns null on any failure so the caller can fall back to the
+// raw bytes. Geometry is a faithful port of VizImageInterceptor.kt.
+async function decodeImage(
+  data: ArrayBuffer,
+  mimeType: string,
+): Promise<ArrayBuffer | null> {
   const imageData = parseExifImageData(data);
   // No key → the served bytes are already a plain (unscrambled) JPEG.
   if (!imageData) return null;
 
-  const b64 = Application.base64Encode(data);
-  const b64Str =
-    typeof b64 === "string" ? b64 : Application.arrayBufferToUTF8String(b64);
-  const dataUrl = `data:image/jpeg;base64,${b64Str}`;
-
-  // Port of VizImageInterceptor.decodeImage(): redraw the 10x15 cell grid.
-  // Borders are copied straight across; the inner 8x13 cells are remapped
-  // from source index m -> destination index key[m]. The +10 gutters account
-  // for the scramble padding the server inserts between cells.
-  const inject = `
-(function(){
-  return new Promise(function(resolve){
-    var img = new Image();
-    img.onload = function(){
-      try {
-        var CELL_W = ${CELL_WIDTH_COUNT};
-        var CELL_H = ${CELL_HEIGHT_COUNT};
-        var INNER = ${INNER_CELL_COUNT};
-        var WIDTH_CUT = ${WIDTH_CUT};
-        var HEIGHT_CUT = ${HEIGHT_CUT};
-        var metaW = ${imageData.width};
-        var metaH = ${imageData.height};
-        var key = ${JSON.stringify(imageData.key)};
-
-        var width = img.naturalWidth;
-        var height = img.naturalHeight;
-        var newWidth = Math.max(width - WIDTH_CUT, metaW);
-        var newHeight = Math.max(height - HEIGHT_CUT, metaH);
-        var blockWidth = Math.floor(newWidth / CELL_W);
-        var blockHeight = Math.floor(newHeight / CELL_H);
-
-        var canvas = document.createElement('canvas');
-        canvas.width = newWidth;
-        canvas.height = newHeight;
-        var ctx = canvas.getContext('2d');
-
-        function draw(sx, sy, dx, dy, w, h) {
-          if (w <= 0 || h <= 0) return;
-          ctx.drawImage(img, sx, sy, w, h, dx, dy, w, h);
-        }
-
-        // Top border.
-        draw(0, 0, 0, 0, newWidth, blockHeight);
-        // Left border.
-        draw(0, blockHeight + 10, 0, blockHeight, blockWidth, newHeight - 2 * blockHeight);
-        // Bottom border.
-        draw(
-          0,
-          (CELL_H - 1) * (blockHeight + 10),
-          0,
-          (CELL_H - 1) * blockHeight,
-          newWidth,
-          height - (CELL_H - 1) * (blockHeight + 10)
-        );
-        // Right border.
-        draw(
-          (CELL_W - 1) * (blockWidth + 10),
-          blockHeight + 10,
-          (CELL_W - 1) * blockWidth,
-          blockHeight,
-          blockWidth + (newWidth - CELL_W * blockWidth),
-          newHeight - 2 * blockHeight
-        );
-
-        // Inner cells.
-        for (var m = 0; m < key.length; m++) {
-          var y = key[m];
-          draw(
-            (m % INNER + 1) * (blockWidth + 10),
-            (Math.floor(m / INNER) + 1) * (blockHeight + 10),
-            (y % INNER + 1) * blockWidth,
-            (Math.floor(y / INNER) + 1) * blockHeight,
-            blockWidth,
-            blockHeight
-          );
-        }
-
-        resolve(canvas.toDataURL('image/jpeg', 0.95));
-      } catch (e) {
-        resolve('');
-      }
-    };
-    img.onerror = function(){ resolve(''); };
-    img.src = ${JSON.stringify(dataUrl)};
-  });
-})()
-`;
-
-  const result = await Application.executeInWebView({
-    source: {
-      html: "<html><head></head><body></body></html>",
-      baseUrl: BASE_URL,
-      loadCSS: false,
-      loadImages: true,
-    },
-    inject,
-    storage: { cookies: [] },
-  });
-
-  const resultUrl = String(result.result || "");
-  const commaIdx = resultUrl.indexOf(",");
-  if (!resultUrl.startsWith("data:") || commaIdx < 0) return null;
-
-  const payload = resultUrl.slice(commaIdx + 1);
-  const decoded = Application.base64Decode(payload);
-  if (typeof decoded === "string") {
-    const out = new Uint8Array(decoded.length);
-    for (let i = 0; i < decoded.length; i++) out[i] = decoded.charCodeAt(i);
-    return out.buffer;
+  try {
+    return await descrambleViz(
+      data,
+      mimeType,
+      imageData.key,
+      imageData.width,
+      imageData.height,
+    );
+  } catch {
+    return null;
   }
-  return decoded;
 }
 
 export const VIZ = new VIZExtension();

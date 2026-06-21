@@ -25,6 +25,7 @@ import {
   SourceManga,
   TagSection,
 } from "@paperback/types";
+import { remapKMangaCells } from "../utils/descramble/canvas";
 
 const DOMAIN = "kmanga.kodansha.com";
 const BASE_URL = `https://${DOMAIN}`;
@@ -473,7 +474,9 @@ class KMangaInterceptor extends PaperbackInterceptor {
       // seed === 0 means the image is not scrambled; pass it through.
       if (Number.isFinite(seed) && seed !== 0) {
         try {
-          return await unscrambleImage(data, seed >>> 0);
+          const contentType = response.headers?.["content-type"] ?? "";
+          const mimeType = contentType.split(";")[0].trim() || "image/jpeg";
+          return await unscrambleImage(data, seed >>> 0, mimeType);
         } catch {
           // On any failure, return the original (scrambled) bytes rather
           // than nothing — never throw out of interceptResponse.
@@ -1054,8 +1057,9 @@ export class KMangaExtension implements KMangaImplementation {
 // page image. The permutation is derived from a per-chapter `scramble_seed`
 // via xorshift32, exactly as in upstream ImageInterceptor.kt. We compute the
 // (dimension-independent) cell permutation here in TS, then perform the
-// pixel remap with canvas drawImage inside a webview (the only place a 2D
-// canvas / Image decode is available), mirroring the Mangago descramble path.
+// pixel remap directly in-process via the polyfilled canvas (see
+// remapKMangaCells in utils/descramble/canvas) — no Application.executeInWebView
+// round-trip, which was unreliable and ignored Paperback's Y-up getImageData.
 // ================================================================
 
 // 32-bit xorshift, matching the Kotlin UInt implementation.
@@ -1088,78 +1092,10 @@ function getSourceCellOrder(seed: number): number[] {
 async function unscrambleImage(
   data: ArrayBuffer,
   seed: number,
+  mimeType: string,
 ): Promise<ArrayBuffer> {
   const sourceOrder = getSourceCellOrder(seed);
-
-  const b64 = Application.base64Encode(data);
-  const b64Str =
-    typeof b64 === "string" ? b64 : Application.arrayBufferToUTF8String(b64);
-  const dataUrl = `data:image/jpeg;base64,${b64Str}`;
-
-  const inject = `
-(function(){
-  return new Promise(function(resolve){
-    var img = new Image();
-    img.onload = function(){
-      try {
-        var w = img.naturalWidth, h = img.naturalHeight;
-        var canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        var ctx = canvas.getContext('2d');
-        // Draw the full original first so any region outside the scrambled
-        // 4x4 grid (right/bottom remainder) is preserved untouched.
-        ctx.drawImage(img, 0, 0);
-        var blockWidth = Math.floor((Math.floor(w / 8) * 8) / 4);
-        var blockHeight = Math.floor((Math.floor(h / 8) * 8) / 4);
-        if (blockWidth > 0 && blockHeight > 0) {
-          var order = ${JSON.stringify(sourceOrder)};
-          for (var i = 0; i < 16; i++) {
-            var srcIdx = order[i];
-            var srcX = (srcIdx % 4) * blockWidth;
-            var srcY = Math.floor(srcIdx / 4) * blockHeight;
-            var dstX = (i % 4) * blockWidth;
-            var dstY = Math.floor(i / 4) * blockHeight;
-            ctx.drawImage(
-              img,
-              srcX, srcY, blockWidth, blockHeight,
-              dstX, dstY, blockWidth, blockHeight
-            );
-          }
-        }
-        resolve(canvas.toDataURL('image/jpeg', 0.9));
-      } catch (e) {
-        resolve('');
-      }
-    };
-    img.onerror = function(){ resolve(''); };
-    img.src = ${JSON.stringify(dataUrl)};
-  });
-})()
-`;
-
-  const result = await Application.executeInWebView({
-    source: {
-      html: "<html><head></head><body></body></html>",
-      baseUrl: BASE_URL,
-      loadCSS: false,
-      loadImages: true,
-    },
-    inject,
-    storage: { cookies: [] },
-  });
-
-  const resultUrl = String(result.result || "");
-  const commaIdx = resultUrl.indexOf(",");
-  if (!resultUrl.startsWith("data:") || commaIdx < 0) return data;
-
-  const payload = resultUrl.slice(commaIdx + 1);
-  const decoded = Application.base64Decode(payload);
-  if (typeof decoded === "string") {
-    const out = new Uint8Array(decoded.length);
-    for (let i = 0; i < decoded.length; i++) out[i] = decoded.charCodeAt(i);
-    return out.buffer;
-  }
-  return decoded;
+  return await remapKMangaCells(data, mimeType, sourceOrder);
 }
 
 export const KManga = new KMangaExtension();

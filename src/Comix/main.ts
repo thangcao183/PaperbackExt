@@ -28,6 +28,7 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
+import { remapTilesByLookup } from "../utils/descramble/canvas";
 
 const BASE_URL = "https://comix.to";
 
@@ -851,7 +852,8 @@ export class ComixExtension implements ComixImplementation {
 //   2. If x-enc-seed is present and non-zero, XOR-decode the bytes with the
 //      LCG or xorshift keystream (algo-dependent) — a pure byte transform.
 //   3. If x-scramble-grid == "5x5", undo a 5x5 tile permutation keyed by
-//      (scrambleSeed XOR scrambleHash) via a canvas remap inside a webview.
+//      (scrambleSeed XOR scrambleHash) via an in-process canvas remap
+//      (remapTilesByLookup from the shared descramble helpers).
 // --------------------------------------------------------------------
 
 async function decodeScrambledImage(
@@ -891,8 +893,17 @@ async function decodeScrambledImage(
   if (shouldDescrambleGrid && scrambleSeed !== null) {
     const seed = (scrambleSeed ^ scrambleHash) | 0;
     const order = buildTileOrder(seed, rawScrambleAlgo);
-    const descrambled = await descrambleGrid(bytes, order);
-    return descrambled ?? bufferOf(bytes);
+    // Equal 5x5 tile grid over the whole image (tile = floor(W/5) x floor(H/5),
+    // remainder passes through), so the shared in-process canvas remap applies
+    // directly. `order[dstIdx]` is the SOURCE tile index for destination tile
+    // `dstIdx`, exactly remapTilesByLookup's lookup contract.
+    return await remapTilesByLookup(
+      bufferOf(bytes),
+      "image/jpeg",
+      GRID_COLS,
+      GRID_ROWS,
+      order,
+    );
   }
 
   return bufferOf(bytes);
@@ -1058,83 +1069,6 @@ function buildTileOrder(seed: number, algo: string | undefined): number[] {
     inverse[arr[i]] = i;
   }
   return inverse;
-}
-
-// Remap the 5x5 grid inside a webview canvas. `order[dstIdx]` is the source
-// tile index for destination tile `dstIdx` — exactly the upstream drawBitmap
-// loop, expressed with canvas drawImage.
-async function descrambleGrid(
-  bytes: Uint8Array,
-  order: number[],
-): Promise<ArrayBuffer | null> {
-  const b64 = Application.base64Encode(bufferOf(bytes));
-  const b64Str =
-    typeof b64 === "string" ? b64 : Application.arrayBufferToUTF8String(b64);
-  const dataUrl = `data:image/jpeg;base64,${b64Str}`;
-
-  const inject = `
-(function(){
-  return new Promise(function(resolve){
-    var img = new Image();
-    img.onload = function(){
-      try {
-        var cols = ${GRID_COLS};
-        var rows = ${GRID_ROWS};
-        var order = ${JSON.stringify(order)};
-        var w = img.naturalWidth, h = img.naturalHeight;
-        var tileW = Math.floor(w / cols), tileH = Math.floor(h / rows);
-        var canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        var ctx = canvas.getContext('2d');
-        // Draw the original first so any leftover border pixels (from integer
-        // tile rounding) are preserved, mirroring canvas.drawBitmap(bitmap,0,0).
-        ctx.drawImage(img, 0, 0);
-        for (var dstIdx = 0; dstIdx < cols * rows; dstIdx++) {
-          var srcIdx = order[dstIdx];
-          var srcCol = srcIdx % cols;
-          var srcRow = Math.floor(srcIdx / cols);
-          var dstCol = dstIdx % cols;
-          var dstRow = Math.floor(dstIdx / cols);
-          ctx.drawImage(
-            img,
-            srcCol * tileW, srcRow * tileH, tileW, tileH,
-            dstCol * tileW, dstRow * tileH, tileW, tileH
-          );
-        }
-        resolve(canvas.toDataURL('image/jpeg', 0.95));
-      } catch (e) {
-        resolve('');
-      }
-    };
-    img.onerror = function(){ resolve(''); };
-    img.src = ${JSON.stringify(dataUrl)};
-  });
-})()
-`;
-
-  const result = await Application.executeInWebView({
-    source: {
-      html: "<html><head></head><body></body></html>",
-      baseUrl: BASE_URL,
-      loadCSS: false,
-      loadImages: true,
-    },
-    inject,
-    storage: { cookies: [] },
-  });
-
-  const resultUrl = String(result.result || "");
-  const commaIdx = resultUrl.indexOf(",");
-  if (!resultUrl.startsWith("data:") || commaIdx < 0) return null;
-
-  const payload = resultUrl.slice(commaIdx + 1);
-  const decoded = Application.base64Decode(payload);
-  if (typeof decoded === "string") {
-    const out = new Uint8Array(decoded.length);
-    for (let i = 0; i < decoded.length; i++) out[i] = decoded.charCodeAt(i);
-    return out.buffer;
-  }
-  return decoded;
 }
 
 function bufferOf(bytes: Uint8Array): ArrayBuffer {
