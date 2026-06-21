@@ -8,8 +8,9 @@ Sources are converted from the
 Each upstream theme framework (Madara, MangaThemesia, Keyoapp, Iken, MangaHub,
 HeanCms, ZeistManga, MMRCMS, and many more) is reimplemented once as a shared
 TypeScript template, and every source built on that framework is generated from
-it. A few sources that don't share a framework (e.g. LikeManga, Mangago) are
-fully self-contained.
+it. A number of sources that don't share a framework (e.g. LikeManga, Mangago,
+WeebCentral, MangaPill, MangaFreak, MangaKatana, Manga Demon, TCB Scans, Flame
+Comics) are fully self-contained.
 
 ### Features
 
@@ -86,13 +87,15 @@ every source built on it.
 | ZeistManga | JSON/HTML | 1 | Blogger feed + HTML hybrid |
 | MMRCMS | HTML | 1 | MyMangaReaderCMS |
 
-Plus two standalone sources: **LikeManga** (encrypted token page list) and
-**Mangago** (AES-decrypted + grid-descrambled images via an in-app webview).
+Plus several standalone sources (not built on a shared framework):
+**LikeManga**, **Mangago** (AES-decrypted + grid-descrambled images via an
+in-app webview), **WeebCentral**, **MangaPill**, **MangaFreak**,
+**MangaKatana**, **Manga Demon**, **TCB Scans** and **Flame Comics**.
 
 ## Available Sources
 
-**253** sources are currently published. Sources marked **Mature** contain
-adult/NSFW content (142 Mature, 111 Everyone).
+**260** sources are currently published. Sources marked **Mature** contain
+adult/NSFW content (146 Mature, 114 Everyone).
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -141,6 +144,7 @@ adult/NSFW content (142 Mature, 111 Everyone).
 | EZmanga | 1.4.62.1 | Everyone |
 | Fable Scans | 1.4.32.1 | Mature |
 | Firescans | 1.4.55.1 | Everyone |
+| Flame Comics | 1.4.49.1 | Everyone |
 | FlameScans.lol | 1.4.52.1 | Everyone |
 | Frieren Online | 1.4.51.1 | Everyone |
 | GakaMangas | 1.4.51.1 | Everyone |
@@ -167,7 +171,7 @@ adult/NSFW content (142 Mature, 111 Everyone).
 | Hive Scans | 1.4.65.1 | Everyone |
 | HM2D | 1.4.53.1 | Mature |
 | HotComics | 1.4.2.1 | Mature |
-| I'm An Evil God | 1.4.7.1 | Everyone |
+| I | 1.4.7.1 | Everyone |
 | IsekaiScan.top (unoriginal) | 1.4.52.1 | Mature |
 | Jinmangas | 1.4.51.1 | Mature |
 | Kaizen Scan | 1.4.20.1 | Mature |
@@ -193,6 +197,7 @@ adult/NSFW content (142 Mature, 111 Everyone).
 | Mahouirexnohentaikarte | 1.4.51.1 | Mature |
 | Manga 18x | 1.4.52.1 | Mature |
 | Manga Dass | 1.4.52.1 | Mature |
+| Manga Demon | 1.4.19.1 | Everyone |
 | Manga District | 1.4.67.1 | Mature |
 | Manga Hentai | 1.4.55.1 | Mature |
 | Manga Kiss | 1.4.52.1 | Everyone |
@@ -206,6 +211,7 @@ adult/NSFW content (142 Mature, 111 Everyone).
 | MangaDia | 1.4.51.1 | Everyone |
 | Mangaforfree.com | 1.4.53.1 | Mature |
 | MangaFox.fun | 1.4.35.4 | Mature |
+| Mangafreak | 1.4.13.1 | Mature |
 | Mangafree | 1.4.51.1 | Mature |
 | MangaGG | 1.4.54.1 | Mature |
 | Mangago | 1.4.34.1 | Mature |
@@ -216,6 +222,7 @@ adult/NSFW content (142 Mature, 111 Everyone).
 | MangaKa | 1.4.51.1 | Everyone |
 | Mangakakalot | 1.4.21.1 | Mature |
 | Mangakakalot.fun | 1.4.35.4 | Mature |
+| MangaKatana | 1.4.12.1 | Mature |
 | MangaManiacs | 1.4.51.1 | Mature |
 | Manganato | 1.4.18.1 | Mature |
 | MangaNel | 1.4.35.4 | Mature |
@@ -223,6 +230,7 @@ adult/NSFW content (142 Mature, 111 Everyone).
 | MangaOnline.fun | 1.4.35.4 | Mature |
 | MangaOwl.io (unoriginal) | 1.4.52.1 | Mature |
 | MangaPanda.onl | 1.4.35.4 | Everyone |
+| MangaPill | 1.4.9.1 | Mature |
 | MangaRead.org | 1.4.53.1 | Mature |
 | MangaReader.in | 1.4.6.1 | Mature |
 | MangaReader.site | 1.4.35.4 | Everyone |
@@ -318,6 +326,7 @@ adult/NSFW content (142 Mature, 111 Everyone).
 | Sky Manga | 1.4.33.1 | Mature |
 | Sleepy Translations | 1.4.52.1 | Everyone |
 | Spmanhwa | 1.4.51.1 | Everyone |
+| TCB Scans | 1.4.12.1 | Everyone |
 | TCB Scans (Unoriginal) | 1.4.32.1 | Everyone |
 | TimelessToons | 1.4.20.1 | Everyone |
 | Toon18 | 1.4.51.1 | Mature |
@@ -336,6 +345,7 @@ adult/NSFW content (142 Mature, 111 Everyone).
 | VyvyManga.org | 1.4.51.1 | Mature |
 | WebtoonScan | 1.4.51.1 | Mature |
 | WebtoonXYZ | 1.4.55.1 | Mature |
+| Weeb Central | 1.4.22.1 | Mature |
 | Whale Manga | 1.4.51.1 | Mature |
 | WitchScans | 1.4.32.1 | Everyone |
 | WoopRead | 1.4.52.1 | Everyone |
@@ -407,8 +417,9 @@ form, and the Cloudflare challenge interceptor.
 
 ### Standalone sources
 
-Sources that aren't built on a shared framework (currently **LikeManga** and
-**Mangago**) have a
+Sources that aren't built on a shared framework (currently **LikeManga**,
+**Mangago**, **WeebCentral**, **MangaPill**, **MangaFreak**, **MangaKatana**,
+**Manga Demon**, **TCB Scans** and **Flame Comics**) have a
 fully self-contained `main.ts` that implements the Paperback interfaces
 directly.
 
@@ -465,9 +476,9 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   templates do not replicate every custom override, so those may have partial
   functionality.
 - Most of the bespoke standalone (non-framework) keiyoushi English sources are
-  not yet ported — only sources built on a shared theme framework (plus the
-  standalone LikeManga and Mangago)
-  are included here.
+  not yet ported — sources built on a shared theme framework are all included,
+  plus a growing set of standalone sources (LikeManga, Mangago, WeebCentral,
+  MangaPill, MangaFreak, MangaKatana, Manga Demon, TCB Scans, Flame Comics).
 - These extensions are **not affiliated** with the source websites. They only
   scrape publicly available pages.
 
