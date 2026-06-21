@@ -96,12 +96,13 @@ in-app webview), **WeebCentral**, **MangaPill**, **MangaFreak**,
 **Temple Scan**, **ReadAllComics**, **MangaBolt**, **Manhwa18**,
 **Oppai Stream**, **Comivex**, **MangaCloud**, **MangaBTT**,
 **NineAnime**, **DFlowScans**, **Honkai Impact 3rd**, **New Manhwa**,
-**Manhwalike**, **ScansGG** and **HeyToon**.
+**Manhwalike**, **ScansGG**, **HeyToon**, **Kappa Beast**, **AsiaToon**,
+**StoneScape** and **Manga Mirai**.
 
 ## Available Sources
 
-**283** sources are currently published. Sources marked **Mature** contain
-adult/NSFW content (160 Mature, 123 Everyone).
+**287** sources are currently published. Sources marked **Mature** contain
+adult/NSFW content (162 Mature, 125 Everyone).
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -120,6 +121,7 @@ adult/NSFW content (160 Mature, 123 Everyone).
 | Armageddon | 1.4.34.1 | Mature |
 | Art Lapsa | 1.4.25.1 | Everyone |
 | Arya Scans | 1.4.52.1 | Everyone |
+| AsiaToon | 1.4.1.1 | Mature |
 | Asmodeus Scans | 1.4.22.1 | Everyone |
 | Assorted Scans | 1.4.17.1 | Everyone |
 | Asura Scans | 1.4.62.1 | Everyone |
@@ -190,6 +192,7 @@ adult/NSFW content (160 Mature, 123 Everyone).
 | Jinmangas | 1.4.51.1 | Mature |
 | Kaizen Scan | 1.4.20.1 | Mature |
 | KaliScan | 1.4.25.1 | Mature |
+| Kappa Beast | 1.4.33.1 | Mature |
 | Kayn Scans | 1.4.26.1 | Everyone |
 | Ken Scans | 1.4.33.1 | Everyone |
 | Kewn Scans | 1.4.21.1 | Everyone |
@@ -215,6 +218,7 @@ adult/NSFW content (160 Mature, 123 Everyone).
 | Manga District | 1.4.67.1 | Mature |
 | Manga Hentai | 1.4.55.1 | Mature |
 | Manga Kiss | 1.4.52.1 | Everyone |
+| Manga Mirai | 1.4.1.1 | Everyone |
 | Manga Read | 1.4.52.1 | Mature |
 | Manga Trend | 1.4.32.1 | Everyone |
 | Manga18.Club | 1.4.3.1 | Mature |
@@ -353,6 +357,7 @@ adult/NSFW content (160 Mature, 123 Everyone).
 | Sky Manga | 1.4.33.1 | Mature |
 | Sleepy Translations | 1.4.52.1 | Everyone |
 | Spmanhwa | 1.4.51.1 | Everyone |
+| StoneScape | 1.4.49.1 | Everyone |
 | TCB Scans | 1.4.12.1 | Everyone |
 | TCB Scans (Unoriginal) | 1.4.32.1 | Everyone |
 | Temple Scan | 1.4.49.1 | Mature |
@@ -388,7 +393,6 @@ adult/NSFW content (160 Mature, 123 Everyone).
 | ZinChanManga.com | 1.4.54.1 | Mature |
 | Zinmanga | 1.4.54.1 | Mature |
 | Zinmanga.net | 1.4.51.1 | Everyone |
-
 
 ## Project Layout
 
@@ -454,8 +458,9 @@ Sources that aren't built on a shared framework (currently **LikeManga**,
 **ComicK Fanmade**, **VyvyManga**, **Temple Scan**, **ReadAllComics**,
 **MangaBolt**, **Manhwa18**, **Oppai Stream**, **Comivex**,
 **MangaCloud**, **MangaBTT**, **NineAnime**, **DFlowScans**,
-**Honkai Impact 3rd**, **New Manhwa**, **Manhwalike**, **ScansGG** and
-**HeyToon**) have a
+**Honkai Impact 3rd**, **New Manhwa**, **Manhwalike**, **ScansGG**,
+**HeyToon**, **Kappa Beast**, **AsiaToon**, **StoneScape** and
+**Manga Mirai**) have a
 fully self-contained `main.ts` that implements the Paperback interfaces
 directly.
 
@@ -518,7 +523,8 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   ReadComicOnline, AllManga, MangaGeko, Batcave, MangaHere, AsuraScans,
   ComicK Fanmade, VyvyManga, Temple Scan, ReadAllComics, MangaBolt, Manhwa18,
   Oppai Stream, Comivex, MangaCloud, MangaBTT, NineAnime, DFlowScans,
-  Honkai Impact 3rd, New Manhwa, Manhwalike, ScansGG, HeyToon).
+  Honkai Impact 3rd, New Manhwa, Manhwalike, ScansGG, HeyToon, Kappa Beast,
+  AsiaToon, StoneScape, Manga Mirai).
 - These extensions are **not affiliated** with the source websites. They only
   scrape publicly available pages.
 
