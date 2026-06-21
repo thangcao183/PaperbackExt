@@ -90,12 +90,14 @@ every source built on it.
 Plus several standalone sources (not built on a shared framework):
 **LikeManga**, **Mangago** (AES-decrypted + grid-descrambled images via an
 in-app webview), **WeebCentral**, **MangaPill**, **MangaFreak**,
-**MangaKatana**, **Manga Demon**, **TCB Scans** and **Flame Comics**.
+**MangaKatana**, **Manga Demon**, **TCB Scans**, **Flame Comics**,
+**ReadComicOnline**, **AllManga**, **MangaGeko**, **Batcave** and
+**MangaHere**.
 
 ## Available Sources
 
-**260** sources are currently published. Sources marked **Mature** contain
-adult/NSFW content (146 Mature, 114 Everyone).
+**265** sources are currently published. Sources marked **Mature** contain
+adult/NSFW content (149 Mature, 116 Everyone).
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -103,6 +105,7 @@ adult/NSFW content (146 Mature, 114 Everyone).
 | 1Manga.co | 1.4.35.4 | Mature |
 | 24HNovel | 1.4.52.1 | Mature |
 | 8Muses | 1.4.2.1 | Mature |
+| AllManga | 1.4.19.1 | Mature |
 | AllPornComic | 1.4.53.1 | Mature |
 | AllPornComic.io | 1.4.51.1 | Mature |
 | Anisa Scans | 1.4.52.1 | Mature |
@@ -118,6 +121,7 @@ adult/NSFW content (146 Mature, 114 Everyone).
 | Athrea Scans | 1.4.33.1 | Mature |
 | Bakkin | 1.4.7.1 | Everyone |
 | Bakkin Self-hosted | 1.4.7.1 | Everyone |
+| BatCave | 1.4.6.1 | Everyone |
 | Battle In 5 Seconds After Meeting | 1.4.51.1 | Everyone |
 | BeeHentai | 1.4.24.1 | Mature |
 | Borat Scans | 1.4.51.1 | Everyone |
@@ -213,10 +217,12 @@ adult/NSFW content (146 Mature, 114 Everyone).
 | MangaFox.fun | 1.4.35.4 | Mature |
 | Mangafreak | 1.4.13.1 | Mature |
 | Mangafree | 1.4.51.1 | Mature |
+| MangaGeko | 1.4.32.1 | Mature |
 | MangaGG | 1.4.54.1 | Mature |
 | Mangago | 1.4.34.1 | Mature |
 | MangaGo.fun | 1.4.51.1 | Everyone |
 | MangaHe | 1.4.51.1 | Mature |
+| Mangahere | 1.4.23.1 | Mature |
 | MangaHere.onl | 1.4.35.4 | Mature |
 | MangaHub | 1.4.45.4 | Mature |
 | MangaKa | 1.4.51.1 | Everyone |
@@ -308,6 +314,7 @@ adult/NSFW content (146 Mature, 114 Everyone).
 | Read One-Punch Man Manga Online | 1.4.8.1 | Everyone |
 | Read Solo Leveling Manga Manhwa Online | 1.4.10.1 | Everyone |
 | Read Tokyo Ghoul Re & Tokyo Ghoul Manga Online | 1.4.11.1 | Everyone |
+| ReadComicOnline | 1.4.43.1 | Everyone |
 | Renascans | 1.4.23.1 | Everyone |
 | Reset Scans | 1.4.65.1 | Everyone |
 | Rest Scans | 1.4.32.1 | Mature |
@@ -478,7 +485,8 @@ and should be reviewed; reset its internal revision to `.1` when you do.
 - Most of the bespoke standalone (non-framework) keiyoushi English sources are
   not yet ported — sources built on a shared theme framework are all included,
   plus a growing set of standalone sources (LikeManga, Mangago, WeebCentral,
-  MangaPill, MangaFreak, MangaKatana, Manga Demon, TCB Scans, Flame Comics).
+  MangaPill, MangaFreak, MangaKatana, Manga Demon, TCB Scans, Flame Comics,
+  ReadComicOnline, AllManga, MangaGeko, Batcave, MangaHere).
 - These extensions are **not affiliated** with the source websites. They only
   scrape publicly available pages.
 
