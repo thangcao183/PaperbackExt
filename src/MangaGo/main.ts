@@ -29,6 +29,7 @@ import * as cheerio from "cheerio";
 import { CheerioAPI, Cheerio } from "cheerio";
 import type { Element } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
+import { remapTilesByLookup } from "../utils/descramble/canvas";
 
 const BASE_URL = "https://www.mangago.me";
 const DOMAIN = "mangago.me";
@@ -792,68 +793,21 @@ async function descrambleImage(
   const cols = parseInt(params.get("cols") || "0", 10);
   if (!key || !cols || cols <= 0) return data;
 
-  const b64 = Application.base64Encode(data);
-  const b64Str = typeof b64 === "string" ? b64 : Application.arrayBufferToUTF8String(b64);
-  const dataUrl = `data:image/jpeg;base64,${b64Str}`;
-
-  const inject = `
-(function(){
-  return new Promise(function(resolve){
-    var img = new Image();
-    img.onload = function(){
-      try {
-        var cols = ${cols};
-        var w = img.naturalWidth, h = img.naturalHeight;
-        var uw = Math.floor(w / cols), uh = Math.floor(h / cols);
-        var canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        var ctx = canvas.getContext('2d');
-        var keyArr = ${JSON.stringify(key)}.split('a');
-        for (var idx = 0; idx < cols * cols; idx++) {
-          var keyval = parseInt(keyArr[idx] || '0', 10);
-          if (isNaN(keyval)) keyval = 0;
-          var hy = Math.floor(keyval / cols);
-          var dy = hy * uh;
-          var dx = (keyval - hy * cols) * uw;
-          var wy = Math.floor(idx / cols);
-          var sy = wy * uh;
-          var sx = (idx - wy * cols) * uw;
-          ctx.drawImage(img, sx, sy, uw, uh, dx, dy, uw, uh);
-        }
-        resolve(canvas.toDataURL('image/jpeg', 1.0));
-      } catch (e) {
-        resolve('');
-      }
-    };
-    img.onerror = function(){ resolve(''); };
-    img.src = ${JSON.stringify(dataUrl)};
-  });
-})()
-`;
-
-  const result = await Application.executeInWebView({
-    source: {
-      html: "<html><head></head><body></body></html>",
-      baseUrl: BASE_URL,
-      loadCSS: false,
-      loadImages: true,
-    },
-    inject,
-    storage: { cookies: [] },
-  });
-
-  const resultUrl = String(result.result || "");
-  const commaIdx = resultUrl.indexOf(",");
-  if (!resultUrl.startsWith("data:") || commaIdx < 0) return data;
-
-  const payload = resultUrl.slice(commaIdx + 1);
-  const decoded = Application.base64Decode(payload);
-  if (typeof decoded === "string") {
-    const out = new Uint8Array(decoded.length);
-    for (let i = 0; i < decoded.length; i++) out[i] = decoded.charCodeAt(i);
-    return out.buffer;
+  // Build the destination->source tile lookup from Mangago's key array.
+  // Upstream draws SOURCE cell `idx` into DESTINATION cell `keyArray[idx]`,
+  // so for the remap helper (clean[i] = scrambled[lookup[i]]) we invert it:
+  // lookup[keyArray[idx]] = idx.
+  const tileCount = cols * cols;
+  const keyArr = key.split("a");
+  const lookup: number[] = Array.from({ length: tileCount }, (_, i) => i);
+  for (let idx = 0; idx < tileCount; idx++) {
+    let keyval = parseInt(keyArr[idx] || "0", 10);
+    if (isNaN(keyval) || keyval < 0 || keyval >= tileCount) keyval = idx;
+    lookup[keyval] = idx;
   }
-  return decoded;
+
+  // Descramble in-process with the polyfilled canvas (no executeInWebView).
+  return await remapTilesByLookup(data, "image/jpeg", cols, cols, lookup);
 }
 
 function bufferOf(bytes: Uint8Array): ArrayBuffer {
