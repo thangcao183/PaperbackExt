@@ -334,7 +334,7 @@ export class MadaraExtension implements MadaraImplementation {
   }
 
   /** Build the `madara_load_more` admin-ajax form body (mirrors upstream). */
-  private loadMoreBody(page: number, popular: boolean): string {
+  protected loadMoreBody(page: number, popular: boolean): string {
     const params: [string, string][] = [
       ["action", "madara_load_more"],
       ["page", (page - 1).toString()],
@@ -761,7 +761,7 @@ export class MadaraExtension implements MadaraImplementation {
   // Helpers
   // ----------------------------------------------------------------
 
-  private parseMangaId(href: string): string {
+  protected parseMangaId(href: string): string {
     const match = href.match(
       new RegExp(`/${this.mangaSubString}/([^/]+)`),
     );
@@ -771,7 +771,7 @@ export class MadaraExtension implements MadaraImplementation {
     return this.toSafeId(generic.pop() ?? "");
   }
 
-  private parseChapterId(href: string, mangaId: string): string {
+  protected parseChapterId(href: string, mangaId: string): string {
     const cleaned = href.replace(/[?#].*$/, "").replace(/\/$/, "");
     // mangaId may be percent-encoded; the raw href is not, so decode it
     // back when locating the manga segment within the chapter URL.
@@ -788,7 +788,7 @@ export class MadaraExtension implements MadaraImplementation {
   // Slugs can contain decoded HTML entities such as apostrophes (from
   // `&#39;`), so percent-encode any disallowed character. The encoded ID
   // round-trips correctly when interpolated back into a request URL.
-  private toSafeId(slug: string): string {
+  protected toSafeId(slug: string): string {
     return slug.replace(/[^A-Za-z0-9._\-@()[\]%?#+=/&:]/g, (c) => {
       const enc = encodeURIComponent(c);
       if (enc !== c) return enc;
@@ -798,7 +798,7 @@ export class MadaraExtension implements MadaraImplementation {
     });
   }
 
-  private safeDecode(id: string): string {
+  protected safeDecode(id: string): string {
     try {
       return decodeURIComponent(id);
     } catch {
@@ -806,7 +806,7 @@ export class MadaraExtension implements MadaraImplementation {
     }
   }
 
-  private imageFromElement(img: Cheerio<AnyNode>): string {
+  protected imageFromElement(img: Cheerio<AnyNode>): string {
     if (!img || img.length === 0) return "";
     let src = img.attr("data-src") || img.attr("data-lazy-src") || "";
 
@@ -838,7 +838,7 @@ export class MadaraExtension implements MadaraImplementation {
     return src;
   }
 
-  private parseStatus(status: string): string {
+  protected parseStatus(status: string): string {
     const s = status.toLowerCase().trim();
     if (s.includes("complet")) return "Completed";
     if (
@@ -852,7 +852,7 @@ export class MadaraExtension implements MadaraImplementation {
     return "Unknown";
   }
 
-  private parseDate(dateText: string): Date {
+  protected parseDate(dateText: string): Date {
     if (!dateText) return new Date();
     const direct = new Date(dateText);
     if (!isNaN(direct.getTime())) return direct;

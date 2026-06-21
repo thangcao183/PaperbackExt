@@ -8,4 +8,9 @@ export const TopManhuaFan = new MadaraExtension({
   useNewChapterEndpoint: false,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  // Upstream overrides chapterListSelector to "div.wp-manga-chapter"
+  // (base Madara default is "li.wp-manga-chapter").
+  chapterListSelector: "div.wp-manga-chapter",
+  // Upstream sets useLoadMoreRequest = LoadMoreStrategy.Never (template default).
+  useLoadMoreRequest: false,
 });

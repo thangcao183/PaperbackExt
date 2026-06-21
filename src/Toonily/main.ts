@@ -1,7 +1,39 @@
-import { ContentRating } from "@paperback/types";
+import {
+  ContentRating,
+  Metadata,
+  PagedResults,
+  SearchQuery,
+  SearchResultItem,
+  SortingOption,
+} from "@paperback/types";
 import { MadaraExtension } from "../utils/madara/template";
 
-export const Toonily = new MadaraExtension({
+// Upstream `titleSpecialCharactersRegex = "[^a-z0-9]+"`: any run of characters
+// that are not lowercase letters or digits (this notably includes uppercase
+// letters) is collapsed into a single space.
+const TITLE_SPECIAL_CHARACTERS_REGEX = /[^a-z0-9]+/g;
+
+class ToonilyExtension extends MadaraExtension {
+  // Faithful port of upstream `searchMangaRequest`, which rewrites the query
+  // before issuing the standard Madara search request.
+  override async getSearchResults(
+    query: SearchQuery<Metadata>,
+    metadata: Metadata | undefined,
+    sortingOption?: SortingOption | undefined,
+  ): Promise<PagedResults<SearchResultItem>> {
+    const normalizedTitle = (query.title ?? "")
+      .replace(TITLE_SPECIAL_CHARACTERS_REGEX, " ")
+      .trim();
+
+    return super.getSearchResults(
+      { ...query, title: normalizedTitle },
+      metadata,
+      sortingOption,
+    );
+  }
+}
+
+export const Toonily = new ToonilyExtension({
   name: "Toonily",
   baseUrl: "https://toonily.com",
   mangaSubString: "serie",
