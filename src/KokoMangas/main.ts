@@ -4,8 +4,8 @@ import { MadaraExtension } from "../utils/madara/template";
 export const KokoMangas = new MadaraExtension({
   name: "KokoMangas",
   baseUrl: "https://kokomangas.com",
-  mangaSubString: "manga",
   useNewChapterEndpoint: true,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  useLoadMoreRequest: true,
 });

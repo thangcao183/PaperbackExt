@@ -8,4 +8,5 @@ export const ManhuaZonghe = new MadaraExtension({
   useNewChapterEndpoint: false,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  filterNonMangaItems: false,
 });

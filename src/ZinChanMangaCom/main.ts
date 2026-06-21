@@ -4,7 +4,6 @@ import { MadaraExtension } from "../utils/madara/template";
 export const ZinChanMangaCom = new MadaraExtension({
   name: "ZinChanManga.com",
   baseUrl: "https://zinchangmanga.net",
-  mangaSubString: "manga",
   useNewChapterEndpoint: true,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",

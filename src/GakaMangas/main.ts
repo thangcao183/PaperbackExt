@@ -4,8 +4,8 @@ import { MadaraExtension } from "../utils/madara/template";
 export const GakaMangas = new MadaraExtension({
   name: "GakaMangas",
   baseUrl: "https://gakamangas.com",
-  mangaSubString: "manga",
   useNewChapterEndpoint: true,
   contentRating: ContentRating.EVERYONE,
   langCode: "🇬🇧",
+  filterNonMangaItems: false,
 });

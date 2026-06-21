@@ -8,4 +8,6 @@ export const Toonily = new MadaraExtension({
   useNewChapterEndpoint: true,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  useLoadMoreRequest: true,
+  filterNonMangaItems: false,
 });

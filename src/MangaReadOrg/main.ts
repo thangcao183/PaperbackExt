@@ -4,7 +4,6 @@ import { MadaraExtension } from "../utils/madara/template";
 export const MangaReadOrg = new MadaraExtension({
   name: "MangaRead.org",
   baseUrl: "https://www.mangaread.org",
-  mangaSubString: "manga",
   useNewChapterEndpoint: false,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",

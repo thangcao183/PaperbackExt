@@ -4,7 +4,6 @@ import { MadaraExtension } from "../utils/madara/template";
 export const ManhwaNex = new MadaraExtension({
   name: "ManhwaNex",
   baseUrl: "https://manhwanex.com",
-  mangaSubString: "manga",
   useNewChapterEndpoint: true,
   contentRating: ContentRating.EVERYONE,
   langCode: "🇬🇧",

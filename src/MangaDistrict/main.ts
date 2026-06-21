@@ -8,4 +8,5 @@ export const MangaDistrict = new MadaraExtension({
   useNewChapterEndpoint: false,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  pageListSelector: "div.page-break img:not(#image-99999)",
 });

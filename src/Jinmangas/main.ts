@@ -4,8 +4,8 @@ import { MadaraExtension } from "../utils/madara/template";
 export const Jinmangas = new MadaraExtension({
   name: "Jinmangas",
   baseUrl: "https://jinmangas.com",
-  mangaSubString: "manga",
   useNewChapterEndpoint: true,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  useLoadMoreRequest: true,
 });

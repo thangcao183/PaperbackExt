@@ -8,4 +8,5 @@ export const HentaiRead = new MadaraExtension({
   useNewChapterEndpoint: false,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  popularMangaUrlSelector: "a.manga-item__link",
 });

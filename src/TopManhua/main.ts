@@ -8,4 +8,5 @@ export const TopManhua = new MadaraExtension({
   useNewChapterEndpoint: false,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  filterNonMangaItems: false,
 });

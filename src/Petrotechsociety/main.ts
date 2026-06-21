@@ -4,7 +4,6 @@ import { MadaraExtension } from "../utils/madara/template";
 export const Petrotechsociety = new MadaraExtension({
   name: "Petrotechsociety",
   baseUrl: "https://www.petrotechsociety.org",
-  mangaSubString: "manga",
   useNewChapterEndpoint: false,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",

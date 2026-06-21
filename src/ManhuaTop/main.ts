@@ -8,4 +8,6 @@ export const ManhuaTop = new MadaraExtension({
   useNewChapterEndpoint: true,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  filterNonMangaItems: false,
+  popularMangaUrlSelector: ".comic_post__title a",
 });

@@ -8,4 +8,5 @@ export const NovelCrow = new MadaraExtension({
   useNewChapterEndpoint: true,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  chapterUrlSuffix: "",
 });

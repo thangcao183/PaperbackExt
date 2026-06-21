@@ -8,4 +8,5 @@ export const GEDEComix = new MadaraExtension({
   useNewChapterEndpoint: true,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  mangaDetailsThumbnailSelector: "${super.mangaDetailsSelectorThumbnail}:not([data-eio])",
 });
