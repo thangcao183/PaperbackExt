@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "TopManhua.fan",
   description: "TopManhua.fan - Madara source (www.topmanhua.fan). Converted from keiyoushi.",
-  version: "1.4.51.1",
+  version: "1.4.51.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

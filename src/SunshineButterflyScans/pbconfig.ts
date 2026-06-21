@@ -4,7 +4,7 @@ export default {
   name: "Sunshine Butterfly Scans",
   description:
     "Sunshine Butterfly Scans - JSON-API manga source (wings.sbs). Converted from keiyoushi.",
-  version: "1.4.39.1",
+  version: "1.4.39.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

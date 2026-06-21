@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "DragonTea",
   description: "DragonTea - Madara source (dragontea.ink). Converted from keiyoushi.",
-  version: "1.4.56.1",
+  version: "1.4.56.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

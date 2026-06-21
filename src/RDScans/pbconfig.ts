@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "RD Scans",
   description: "RD Scans - Madara source (rdscans.com). Converted from keiyoushi.",
-  version: "1.4.51.1",
+  version: "1.4.51.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

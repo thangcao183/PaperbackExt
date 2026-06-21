@@ -4,7 +4,7 @@ export default {
   name: "Philia Scans",
   description:
     "Philia Scans - JSON API source (philiascans.org). Converted from keiyoushi.",
-  version: "1.4.58.1",
+  version: "1.4.58.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Spmanhwa",
   description: "Spmanhwa - Madara source (spmanhwa.online). Converted from keiyoushi.",
-  version: "1.4.51.1",
+  version: "1.4.51.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

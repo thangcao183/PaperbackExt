@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Hiperdex",
   description: "Hiperdex - Madara source (hiperdex.com). Converted from keiyoushi.",
-  version: "1.4.80.1",
+  version: "1.4.80.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
