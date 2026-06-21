@@ -94,12 +94,13 @@ in-app webview), **WeebCentral**, **MangaPill**, **MangaFreak**,
 **ReadComicOnline**, **AllManga**, **MangaGeko**, **Batcave**,
 **MangaHere**, **AsuraScans**, **ComicK Fanmade**, **VyvyManga**,
 **Temple Scan**, **ReadAllComics**, **MangaBolt**, **Manhwa18**,
-**Oppai Stream** and **Comivex**.
+**Oppai Stream**, **Comivex**, **MangaCloud**, **MangaBTT**,
+**NineAnime** and **DFlowScans**.
 
 ## Available Sources
 
-**274** sources are currently published. Sources marked **Mature** contain
-adult/NSFW content (154 Mature, 120 Everyone).
+**278** sources are currently published. Sources marked **Mature** contain
+adult/NSFW content (156 Mature, 122 Everyone).
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -141,6 +142,7 @@ adult/NSFW content (154 Mature, 120 Everyone).
 | Danke fürs Lesen | 1.4.7.1 | Mature |
 | Death Toll Scans | 1.4.5.1 | Everyone |
 | Decadence Scans | 1.4.53.1 | Mature |
+| DFlowScans | 1.4.1.1 | Everyone |
 | Diva Scans | 1.4.23.1 | Mature |
 | DragonTea | 1.4.56.1 | Everyone |
 | Drake Scans | 1.4.48.1 | Everyone |
@@ -218,6 +220,8 @@ adult/NSFW content (154 Mature, 120 Everyone).
 | Mangabat | 1.4.20.1 | Mature |
 | MangaBlaze | 1.4.51.1 | Everyone |
 | MangaBolt | 1.4.1.1 | Everyone |
+| MangaBTT | 1.4.5.1 | Mature |
+| MangaCloud | 1.4.7.1 | Everyone |
 | MangaDia | 1.4.51.1 | Everyone |
 | Mangaforfree.com | 1.4.53.1 | Mature |
 | MangaFox.fun | 1.4.35.4 | Mature |
@@ -286,6 +290,7 @@ adult/NSFW content (154 Mature, 120 Everyone).
 | Necro Scans | 1.4.20.1 | Everyone |
 | NexComic | 1.4.32.1 | Mature |
 | Nika Toons | 1.4.32.1 | Everyone |
+| NineAnime | 1.4.6.1 | Mature |
 | NovelCrow | 1.4.52.1 | Mature |
 | Noxen Scans | 1.4.32.1 | Everyone |
 | Nyanu Kafe | 1.4.21.1 | Everyone |
@@ -440,7 +445,8 @@ Sources that aren't built on a shared framework (currently **LikeManga**,
 **Manga Demon**, **TCB Scans**, **Flame Comics**, **ReadComicOnline**,
 **AllManga**, **MangaGeko**, **Batcave**, **MangaHere**, **AsuraScans**,
 **ComicK Fanmade**, **VyvyManga**, **Temple Scan**, **ReadAllComics**,
-**MangaBolt**, **Manhwa18**, **Oppai Stream** and **Comivex**) have a
+**MangaBolt**, **Manhwa18**, **Oppai Stream**, **Comivex**,
+**MangaCloud**, **MangaBTT**, **NineAnime** and **DFlowScans**) have a
 fully self-contained `main.ts` that implements the Paperback interfaces
 directly.
 
@@ -502,7 +508,7 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   MangaPill, MangaFreak, MangaKatana, Manga Demon, TCB Scans, Flame Comics,
   ReadComicOnline, AllManga, MangaGeko, Batcave, MangaHere, AsuraScans,
   ComicK Fanmade, VyvyManga, Temple Scan, ReadAllComics, MangaBolt, Manhwa18,
-  Oppai Stream, Comivex).
+  Oppai Stream, Comivex, MangaCloud, MangaBTT, NineAnime, DFlowScans).
 - These extensions are **not affiliated** with the source websites. They only
   scrape publicly available pages.
 
