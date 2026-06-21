@@ -653,27 +653,34 @@ and should be reviewed; reset its internal revision to `.1` when you do.
 
 - Sources are generated from shared framework logic. Standard sites on a given
   framework behave the same way as that framework's reference source.
-- A few upstream sources have heavy custom behavior (e.g. image decryption,
-  bespoke endpoints — such as Hiperdex, Manga18fx, HentaiRead, Reset Scans,
-  Manga District, the MangaThemesia "Alt" randomized-slug variants). The shared
-  templates do not replicate every custom override, so those may have partial
-  functionality.
+- The Madara framework now carries per-source override knobs (load-more browsing,
+  custom chapter/list/detail/page selectors, `chapterUrlSuffix`,
+  `filterNonMangaItems`, etc.) mirroring the upstream keiyoushi subclasses, and
+  the ~30 Madara sites with genuinely custom Kotlin logic (e.g. Hiperdex,
+  Manga18fx, HentaiRead, Reset Scans, Manga District, Firescans' AES chapter
+  protector, the year-inference date parsers) are reproduced as small
+  `MadaraExtension` subclasses.
 - The bespoke standalone (non-framework) keiyoushi **English** sources are now
   ported as well, so essentially the full English catalog (framework-based and
   standalone) is available. Multi-language (`src/all`) sources remain out of
   scope for now.
-- **Auth / DRM-gated sources have limited reading.** Some platforms require an
-  account login and/or decrypt/descramble their page images client-side
-  (AES/XOR keystreams, EXIF or canvas grid-unshuffle, protobuf/E4P manifests,
-  RSA-OAEP key exchange, etc.). The Paperback v0.9 runtime can't reproduce those
-  binary image pipelines or persist credentials, so for these sources
-  **browsing, search, details and chapter lists work, but locked/encrypted pages
-  may not render**: **K Manga**, **VIZ**, **Omoi** (Azuki), **Coolmic**,
-  **emaqi**, **Comix**, **Philia Scans**, **HentaiNexus**, **Kodansha**,
-  **Mangamo**, **WebNovel**, **J-Novel**, **BookWalker**, **Madokami**
-  (HTTP Basic auth), **Tapas**, **Mehgazone**, **Webdex Scans**,
-  **Sunshine Butterfly Scans**. The `pbconfig`/source notes document the
-  specific limitation per source.
+- **DRM page-image decryption is implemented.** Using the same mechanism the
+  Mangago source uses — a source interceptor's `interceptResponse` transforming
+  the raw image `ArrayBuffer`, plus `Application.executeInWebView` for canvas
+  remaps and `window.crypto.subtle` — these sources now decode their scrambled /
+  encrypted pages for free or owned content: **Omoi** (Azuki, XOR), **K Manga**
+  (cell descramble), **VIZ** (EXIF grid unshuffle), **Comix** (tile descramble +
+  byte-XOR), **Coolmic** (PBKDF2 + AES-CBC), **Philia Scans** (AES-CTR/ChaCha20 +
+  tile unscramble), **emaqi** (RSA-OAEP + AES-GCM). HentaiNexus and Sunshine
+  Butterfly encrypt only metadata (already handled), not image bytes.
+- **What still can't be bypassed is payment/login, not decryption.** Chapters a
+  site refuses to serve to an anonymous/un-purchased account (most paid content on
+  **K Manga**, **VIZ**, **Kodansha**, **Mangamo**, **WebNovel**, **J-Novel**,
+  **BookWalker**, **Tapas**, **Coolmic**) return no bytes to decrypt, and
+  **Madokami** needs HTTP Basic credentials. **The Blank**'s libsodium
+  secretstream image layer can't be reproduced in the runtime and remains a
+  documented limitation. Browsing, search, details and chapter lists work for all
+  of these.
 - These extensions are **not affiliated** with the source websites. They only
   scrape publicly available pages.
 
