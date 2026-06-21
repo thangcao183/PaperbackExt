@@ -35,6 +35,18 @@ const BASE_URL = "https://www.viz.com";
 const SERVICE_PATH = "vizmanga";
 const FREE_CHAPTERS_URL = `${BASE_URL}/read/${SERVICE_PATH}/section/free-chapters`;
 
+// Endpoint that returns the (short-lived) signed URL of the scrambled page image.
+const IMAGE_URL_ENDPOINT = "get_manga_url";
+
+// Grid geometry taken verbatim from VizImageInterceptor.kt.
+const CELL_WIDTH_COUNT = 10;
+const CELL_HEIGHT_COUNT = 15;
+const INNER_CELL_COUNT = CELL_WIDTH_COUNT - 2; // 8
+const WIDTH_CUT = 90;
+const HEIGHT_CUT = 140;
+const COMMON_WIDTH = 800;
+const COMMON_HEIGHT = 1200;
+
 const DATE_REGEX = /([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})/;
 const MONTHS: Record<string, number> = {
   january: 0,
@@ -79,7 +91,42 @@ class VIZInterceptor extends PaperbackInterceptor {
         },
       });
     }
-    return data;
+
+    // The page "image" request is actually the get_manga_url JSON endpoint.
+    // Its response is `{ "data": { "0": "<signed scrambled JPEG url>" } }`.
+    // We resolve the signed URL, fetch the scrambled JPEG, parse its EXIF key
+    // and descramble it on a canvas — mirroring VizImageInterceptor.kt.
+    if (!request.url.includes(IMAGE_URL_ENDPOINT)) {
+      return data;
+    }
+
+    try {
+      const imageUrl = parsePageImageUrl(data);
+      if (!imageUrl) return data;
+
+      const userAgent = await Application.getDefaultUserAgent();
+      const [imgResponse, imgData] = await Application.scheduleRequest({
+        url: imageUrl,
+        method: "GET",
+        headers: {
+          accept: "*/*",
+          origin: BASE_URL,
+          referer: `${BASE_URL}/`,
+          "user-agent": userAgent,
+        },
+      });
+      if (imgResponse.status < 200 || imgResponse.status >= 300) {
+        return data;
+      }
+
+      const decoded = await decodeImage(imgData);
+      return decoded ?? imgData;
+    } catch {
+      // Never throw out of interceptResponse — fall back to the raw JSON
+      // body (which the reader will simply fail to render) rather than
+      // breaking the whole chapter.
+      return data;
+    }
   }
 }
 
@@ -316,7 +363,9 @@ export class VIZExtension implements VIZImplementation {
         `manga_id=${encodeURIComponent(mangaId)}`,
         `pages=${i}`,
       ].join("&");
-      pages.push(`${BASE_URL}/manga/get_manga_url?${params}`);
+      // The interceptor resolves this JSON endpoint into the real (scrambled)
+      // image, parses its EXIF key and descrambles it before returning bytes.
+      pages.push(`${BASE_URL}/manga/${IMAGE_URL_ENDPOINT}?${params}`);
     }
 
     return {
@@ -428,6 +477,332 @@ export class VIZExtension implements VIZImplementation {
     const dom = htmlparser2.parseDocument(htmlStr);
     return cheerio.load(dom);
   }
+}
+
+// --------------------------------------------------------------------
+// Page image resolution + descrambling (module-level helpers)
+// --------------------------------------------------------------------
+
+type ExifImageData = {
+  width: number;
+  height: number;
+  // The descramble key: a flat list of integers parsed from the
+  // EXIF ImageUniqueId tag ("hex:hex:hex…").
+  key: number[];
+};
+
+// Parse the get_manga_url JSON body and return the first signed image URL.
+function parsePageImageUrl(data: ArrayBuffer): string {
+  const text = Application.arrayBufferToUTF8String(data);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return "";
+  }
+  if (typeof parsed !== "object" || parsed === null) return "";
+  const dataField = (parsed as { data?: unknown }).data;
+  if (typeof dataField !== "object" || dataField === null) return "";
+  for (const value of Object.values(dataField as Record<string, unknown>)) {
+    if (typeof value === "string" && value) return value;
+  }
+  return "";
+}
+
+// Read the EXIF SubIFD from a JPEG and extract the ImageUniqueId descramble
+// key plus the (real) PixelX/Y dimensions. Mirrors getImageData() in
+// VizImageInterceptor.kt. Returns null when no key is present.
+function parseExifImageData(data: ArrayBuffer): ExifImageData | null {
+  const bytes = new Uint8Array(data);
+
+  // JPEG must start with SOI (FFD8).
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+
+  // Locate the APP1 (FFE1) segment containing the "Exif\0\0" header.
+  let offset = 2;
+  let exifStart = -1;
+  let exifLength = 0;
+  while (offset + 4 <= bytes.length) {
+    if (bytes[offset] !== 0xff) break;
+    const marker = bytes[offset + 1];
+    // Standalone markers without a length payload.
+    if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7)) {
+      offset += 2;
+      continue;
+    }
+    const segLen = (bytes[offset + 2] << 8) | bytes[offset + 3];
+    if (segLen < 2) break;
+    const segStart = offset + 4;
+    if (marker === 0xe1 && segStart + 6 <= bytes.length) {
+      // "Exif\0\0"
+      if (
+        bytes[segStart] === 0x45 &&
+        bytes[segStart + 1] === 0x78 &&
+        bytes[segStart + 2] === 0x69 &&
+        bytes[segStart + 3] === 0x66 &&
+        bytes[segStart + 4] === 0x00 &&
+        bytes[segStart + 5] === 0x00
+      ) {
+        exifStart = segStart + 6;
+        exifLength = segLen - 2 - 6;
+        break;
+      }
+    }
+    if (marker === 0xda) break; // start of scan — no metadata beyond here
+    offset = segStart + (segLen - 2);
+  }
+
+  if (exifStart < 0 || exifLength <= 8) return null;
+
+  // TIFF header (byte order + magic + IFD0 offset).
+  const tiff = exifStart;
+  let little: boolean;
+  if (bytes[tiff] === 0x49 && bytes[tiff + 1] === 0x49) {
+    little = true; // "II"
+  } else if (bytes[tiff] === 0x4d && bytes[tiff + 1] === 0x4d) {
+    little = false; // "MM"
+  } else {
+    return null;
+  }
+
+  const u16 = (p: number): number =>
+    little ? bytes[p] | (bytes[p + 1] << 8) : (bytes[p] << 8) | bytes[p + 1];
+  const u32 = (p: number): number =>
+    (little
+      ? bytes[p] |
+        (bytes[p + 1] << 8) |
+        (bytes[p + 2] << 16) |
+        (bytes[p + 3] << 24)
+      : (bytes[p] << 24) |
+        (bytes[p + 1] << 16) |
+        (bytes[p + 2] << 8) |
+        bytes[p + 3]) >>> 0;
+
+  const ifd0Offset = u32(tiff + 4);
+  const exifEnd = exifStart + exifLength;
+
+  // EXIF tags of interest (located in the Exif SubIFD).
+  const TAG_EXIF_IFD = 0x8769;
+  const TAG_PIXEL_X = 0xa002; // ImageWidth
+  const TAG_PIXEL_Y = 0xa003; // ImageHeight
+  const TAG_UNIQUE_ID = 0xa420; // ImageUniqueID
+
+  type TagValue = { type: number; count: number; valueOffset: number };
+
+  const readIfd = (ifdAbs: number): Map<number, TagValue> => {
+    const tags = new Map<number, TagValue>();
+    if (ifdAbs + 2 > exifEnd) return tags;
+    const count = u16(ifdAbs);
+    let p = ifdAbs + 2;
+    for (let i = 0; i < count; i++) {
+      if (p + 12 > exifEnd) break;
+      const tag = u16(p);
+      const type = u16(p + 2);
+      const cnt = u32(p + 4);
+      // Field value (or pointer to it) sits in the last 4 bytes of the entry.
+      const valueOffset = p + 8;
+      tags.set(tag, { type, count: cnt, valueOffset });
+      p += 12;
+    }
+    return tags;
+  };
+
+  const typeSize = (type: number): number => {
+    switch (type) {
+      case 1: // BYTE
+      case 2: // ASCII
+      case 7: // UNDEFINED
+        return 1;
+      case 3: // SHORT
+        return 2;
+      case 4: // LONG
+      case 9: // SLONG
+        return 4;
+      case 5: // RATIONAL
+      case 10:
+        return 8;
+      default:
+        return 1;
+    }
+  };
+
+  // For a tag whose payload exceeds 4 bytes, the entry holds an offset
+  // (relative to the TIFF header); otherwise the value is inline.
+  const dataPointer = (tv: TagValue): number => {
+    const total = typeSize(tv.type) * tv.count;
+    if (total <= 4) return tv.valueOffset;
+    return tiff + u32(tv.valueOffset);
+  };
+
+  const readNumber = (tv: TagValue): number => {
+    const p = dataPointer(tv);
+    if (tv.type === 3) return u16(p);
+    if (tv.type === 4) return u32(p);
+    return u32(p);
+  };
+
+  const readAscii = (tv: TagValue): string => {
+    const p = dataPointer(tv);
+    let s = "";
+    for (let i = 0; i < tv.count; i++) {
+      if (p + i >= exifEnd) break;
+      const c = bytes[p + i];
+      if (c === 0) break;
+      s += String.fromCharCode(c);
+    }
+    return s;
+  };
+
+  const ifd0 = readIfd(tiff + ifd0Offset);
+  const exifPtr = ifd0.get(TAG_EXIF_IFD);
+  if (!exifPtr) return null;
+  const exifIfd = readIfd(tiff + readNumber(exifPtr));
+
+  const uniqueTv = exifIfd.get(TAG_UNIQUE_ID);
+  if (!uniqueTv) return null;
+  const uniqueId = readAscii(uniqueTv);
+  if (!uniqueId) return null;
+
+  const key = uniqueId
+    .split(":")
+    .map((h) => parseInt(h, 16))
+    .filter((n) => !isNaN(n));
+  if (key.length === 0) return null;
+
+  let width = COMMON_WIDTH;
+  let height = COMMON_HEIGHT;
+  const wTv = exifIfd.get(TAG_PIXEL_X);
+  const hTv = exifIfd.get(TAG_PIXEL_Y);
+  if (wTv) {
+    const w = readNumber(wTv);
+    if (w > 0) width = w;
+  }
+  if (hTv) {
+    const h = readNumber(hTv);
+    if (h > 0) height = h;
+  }
+
+  return { width, height, key };
+}
+
+// Descramble a VIZ page image using its EXIF key on a canvas inside a webview.
+// Returns null on any failure so the caller can fall back to the raw bytes.
+async function decodeImage(data: ArrayBuffer): Promise<ArrayBuffer | null> {
+  const imageData = parseExifImageData(data);
+  // No key → the served bytes are already a plain (unscrambled) JPEG.
+  if (!imageData) return null;
+
+  const b64 = Application.base64Encode(data);
+  const b64Str =
+    typeof b64 === "string" ? b64 : Application.arrayBufferToUTF8String(b64);
+  const dataUrl = `data:image/jpeg;base64,${b64Str}`;
+
+  // Port of VizImageInterceptor.decodeImage(): redraw the 10x15 cell grid.
+  // Borders are copied straight across; the inner 8x13 cells are remapped
+  // from source index m -> destination index key[m]. The +10 gutters account
+  // for the scramble padding the server inserts between cells.
+  const inject = `
+(function(){
+  return new Promise(function(resolve){
+    var img = new Image();
+    img.onload = function(){
+      try {
+        var CELL_W = ${CELL_WIDTH_COUNT};
+        var CELL_H = ${CELL_HEIGHT_COUNT};
+        var INNER = ${INNER_CELL_COUNT};
+        var WIDTH_CUT = ${WIDTH_CUT};
+        var HEIGHT_CUT = ${HEIGHT_CUT};
+        var metaW = ${imageData.width};
+        var metaH = ${imageData.height};
+        var key = ${JSON.stringify(imageData.key)};
+
+        var width = img.naturalWidth;
+        var height = img.naturalHeight;
+        var newWidth = Math.max(width - WIDTH_CUT, metaW);
+        var newHeight = Math.max(height - HEIGHT_CUT, metaH);
+        var blockWidth = Math.floor(newWidth / CELL_W);
+        var blockHeight = Math.floor(newHeight / CELL_H);
+
+        var canvas = document.createElement('canvas');
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+        var ctx = canvas.getContext('2d');
+
+        function draw(sx, sy, dx, dy, w, h) {
+          if (w <= 0 || h <= 0) return;
+          ctx.drawImage(img, sx, sy, w, h, dx, dy, w, h);
+        }
+
+        // Top border.
+        draw(0, 0, 0, 0, newWidth, blockHeight);
+        // Left border.
+        draw(0, blockHeight + 10, 0, blockHeight, blockWidth, newHeight - 2 * blockHeight);
+        // Bottom border.
+        draw(
+          0,
+          (CELL_H - 1) * (blockHeight + 10),
+          0,
+          (CELL_H - 1) * blockHeight,
+          newWidth,
+          height - (CELL_H - 1) * (blockHeight + 10)
+        );
+        // Right border.
+        draw(
+          (CELL_W - 1) * (blockWidth + 10),
+          blockHeight + 10,
+          (CELL_W - 1) * blockWidth,
+          blockHeight,
+          blockWidth + (newWidth - CELL_W * blockWidth),
+          newHeight - 2 * blockHeight
+        );
+
+        // Inner cells.
+        for (var m = 0; m < key.length; m++) {
+          var y = key[m];
+          draw(
+            (m % INNER + 1) * (blockWidth + 10),
+            (Math.floor(m / INNER) + 1) * (blockHeight + 10),
+            (y % INNER + 1) * blockWidth,
+            (Math.floor(y / INNER) + 1) * blockHeight,
+            blockWidth,
+            blockHeight
+          );
+        }
+
+        resolve(canvas.toDataURL('image/jpeg', 0.95));
+      } catch (e) {
+        resolve('');
+      }
+    };
+    img.onerror = function(){ resolve(''); };
+    img.src = ${JSON.stringify(dataUrl)};
+  });
+})()
+`;
+
+  const result = await Application.executeInWebView({
+    source: {
+      html: "<html><head></head><body></body></html>",
+      baseUrl: BASE_URL,
+      loadCSS: false,
+      loadImages: true,
+    },
+    inject,
+    storage: { cookies: [] },
+  });
+
+  const resultUrl = String(result.result || "");
+  const commaIdx = resultUrl.indexOf(",");
+  if (!resultUrl.startsWith("data:") || commaIdx < 0) return null;
+
+  const payload = resultUrl.slice(commaIdx + 1);
+  const decoded = Application.base64Decode(payload);
+  if (typeof decoded === "string") {
+    const out = new Uint8Array(decoded.length);
+    for (let i = 0; i < decoded.length; i++) out[i] = decoded.charCodeAt(i);
+    return out.buffer;
+  }
+  return decoded;
 }
 
 export const VIZ = new VIZExtension();

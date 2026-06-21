@@ -115,8 +115,52 @@ class OmoiInterceptor extends PaperbackInterceptor {
         },
       });
     }
+
+    // DRM-protected page images are XOR-encrypted: every byte is XORed with
+    // 174. The marker is the `drm` query parameter on the image URL (the same
+    // signal the upstream okhttp ImageInterceptor keys off of). This is a pure
+    // byte transform, so we apply it directly to the Uint8Array here without
+    // needing a webview.
+    if (hasDrmFlag(request.url)) {
+      try {
+        return xorDecrypt(data, 174);
+      } catch {
+        // On any failure, return the original bytes so the reader at least
+        // shows *something* rather than nothing.
+        return data;
+      }
+    }
+
     return data;
   }
+}
+
+// --------------------------------------------------------------------
+// Page-image decryption (module-level helpers)
+// --------------------------------------------------------------------
+
+// Returns true when the request URL carries a `drm` query parameter, which
+// marks an XOR-encrypted page image served by the Azuki/Omoi API.
+function hasDrmFlag(url: string): boolean {
+  const queryStart = url.indexOf("?");
+  if (queryStart < 0) return false;
+  const query = url.slice(queryStart + 1).split("#")[0];
+  for (const part of query.split("&")) {
+    const name = part.split("=")[0];
+    if (name === "drm") return true;
+  }
+  return false;
+}
+
+// XOR every byte of the buffer with `key`. Faithful port of the upstream
+// loop: `bytes[i] = bytes[i] xor 174`.
+function xorDecrypt(data: ArrayBuffer, key: number): ArrayBuffer {
+  const bytes = new Uint8Array(data);
+  const out = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) {
+    out[i] = bytes[i] ^ key;
+  }
+  return out.buffer;
 }
 
 type OmoiImplementation = Extension &

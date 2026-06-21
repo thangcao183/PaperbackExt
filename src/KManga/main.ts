@@ -464,6 +464,24 @@ class KMangaInterceptor extends PaperbackInterceptor {
         },
       });
     }
+
+    // Scrambled page images carry their xorshift32 seed in the URL fragment.
+    const fragment = request.url.split("#")[1] ?? "";
+    if (fragment.startsWith("scramble_seed=")) {
+      const seedStr = fragment.slice("scramble_seed=".length);
+      const seed = parseInt(seedStr, 10);
+      // seed === 0 means the image is not scrambled; pass it through.
+      if (Number.isFinite(seed) && seed !== 0) {
+        try {
+          return await unscrambleImage(data, seed >>> 0);
+        } catch {
+          // On any failure, return the original (scrambled) bytes rather
+          // than nothing — never throw out of interceptResponse.
+          return data;
+        }
+      }
+    }
+
     return data;
   }
 }
@@ -745,10 +763,11 @@ export class KMangaExtension implements KMangaImplementation {
       { episode_id: episodeId },
     );
     const seed = data.scramble_seed ?? 0;
-    // NOTE: K Manga page images are block-scrambled (xorshift32 shuffle keyed
-    // by scramble_seed) and must be unscrambled at the pixel level. The
-    // Paperback runtime has no bitmap/canvas API, so the seed is preserved in
-    // the URL fragment (as upstream does) but images will appear scrambled.
+    // K Manga page images are block-scrambled: a 4x4 grid of cells in the
+    // top-left region is shuffled by an xorshift32 permutation keyed by
+    // scramble_seed. The seed is carried in the URL fragment and the
+    // interceptor unscrambles the bytes via a canvas drawImage cell remap
+    // (mirrors upstream ImageInterceptor.kt / the Mangago descramble path).
     const pages = (data.page_list ?? []).map(
       (p) => `${p}#scramble_seed=${seed}`,
     );
@@ -1026,6 +1045,121 @@ export class KMangaExtension implements KMangaImplementation {
       this.cookieStorageInterceptor.setCookie(cookie);
     }
   }
+}
+
+// ================================================================
+// Page-image descrambling
+//
+// K Manga shuffles a 4x4 grid of cells in the top-left region of each
+// page image. The permutation is derived from a per-chapter `scramble_seed`
+// via xorshift32, exactly as in upstream ImageInterceptor.kt. We compute the
+// (dimension-independent) cell permutation here in TS, then perform the
+// pixel remap with canvas drawImage inside a webview (the only place a 2D
+// canvas / Image decode is available), mirroring the Mangago descramble path.
+// ================================================================
+
+// 32-bit xorshift, matching the Kotlin UInt implementation.
+function xorshift32(seed: number): number {
+  let n = seed >>> 0;
+  n = (n ^ (n << 13)) >>> 0;
+  n = (n ^ (n >>> 17)) >>> 0;
+  n = (n ^ (n << 5)) >>> 0;
+  return n >>> 0;
+}
+
+// Returns the source cell index (0..15) for each destination cell index
+// (0..15), where cell layout is row-major over a 4x4 grid.
+function getSourceCellOrder(seed: number): number[] {
+  let seed32 = seed >>> 0;
+  const pairs: { value: number; index: number }[] = [];
+  for (let i = 0; i < 16; i++) {
+    seed32 = xorshift32(seed32);
+    pairs.push({ value: seed32 >>> 0, index: i });
+  }
+  // Sort by the unsigned xorshift value (stable on equal values, matching
+  // Kotlin's stable sortBy). `value` is already >>> 0 so plain numeric
+  // comparison is an unsigned comparison.
+  pairs.sort((a, b) => a.value - b.value);
+  // sortedVal[i] is the original index that lands at sorted position i.
+  // CoordPair: source = sortedVal[i], dest = i.
+  return pairs.map((p) => p.index);
+}
+
+async function unscrambleImage(
+  data: ArrayBuffer,
+  seed: number,
+): Promise<ArrayBuffer> {
+  const sourceOrder = getSourceCellOrder(seed);
+
+  const b64 = Application.base64Encode(data);
+  const b64Str =
+    typeof b64 === "string" ? b64 : Application.arrayBufferToUTF8String(b64);
+  const dataUrl = `data:image/jpeg;base64,${b64Str}`;
+
+  const inject = `
+(function(){
+  return new Promise(function(resolve){
+    var img = new Image();
+    img.onload = function(){
+      try {
+        var w = img.naturalWidth, h = img.naturalHeight;
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        // Draw the full original first so any region outside the scrambled
+        // 4x4 grid (right/bottom remainder) is preserved untouched.
+        ctx.drawImage(img, 0, 0);
+        var blockWidth = Math.floor((Math.floor(w / 8) * 8) / 4);
+        var blockHeight = Math.floor((Math.floor(h / 8) * 8) / 4);
+        if (blockWidth > 0 && blockHeight > 0) {
+          var order = ${JSON.stringify(sourceOrder)};
+          for (var i = 0; i < 16; i++) {
+            var srcIdx = order[i];
+            var srcX = (srcIdx % 4) * blockWidth;
+            var srcY = Math.floor(srcIdx / 4) * blockHeight;
+            var dstX = (i % 4) * blockWidth;
+            var dstY = Math.floor(i / 4) * blockHeight;
+            ctx.drawImage(
+              img,
+              srcX, srcY, blockWidth, blockHeight,
+              dstX, dstY, blockWidth, blockHeight
+            );
+          }
+        }
+        resolve(canvas.toDataURL('image/jpeg', 0.9));
+      } catch (e) {
+        resolve('');
+      }
+    };
+    img.onerror = function(){ resolve(''); };
+    img.src = ${JSON.stringify(dataUrl)};
+  });
+})()
+`;
+
+  const result = await Application.executeInWebView({
+    source: {
+      html: "<html><head></head><body></body></html>",
+      baseUrl: BASE_URL,
+      loadCSS: false,
+      loadImages: true,
+    },
+    inject,
+    storage: { cookies: [] },
+  });
+
+  const resultUrl = String(result.result || "");
+  const commaIdx = resultUrl.indexOf(",");
+  if (!resultUrl.startsWith("data:") || commaIdx < 0) return data;
+
+  const payload = resultUrl.slice(commaIdx + 1);
+  const decoded = Application.base64Decode(payload);
+  if (typeof decoded === "string") {
+    const out = new Uint8Array(decoded.length);
+    for (let i = 0; i < decoded.length; i++) out[i] = decoded.charCodeAt(i);
+    return out.buffer;
+  }
+  return decoded;
 }
 
 export const KManga = new KMangaExtension();

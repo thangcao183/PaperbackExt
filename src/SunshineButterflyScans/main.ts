@@ -59,22 +59,18 @@ interface EntryDto {
   projecttags: string;
 }
 
-interface GoogleDriveFile {
+type GoogleDriveFile = {
   id: string;
   name: string;
   imageMediaMetadata?: { width?: number };
-}
+};
 
-interface GoogleDriveResponse {
-  files?: GoogleDriveFile[];
-}
+type ImgurImage = {
+  link: string;
+};
 
-interface ImgurResponse {
-  data?: { link: string }[];
-}
-
-interface SunshineButterflyScansMetadata {
-  page?: number;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 // Minimal structural type for the WebCrypto subtle API used for AES-CBC.
@@ -93,12 +89,46 @@ interface SubtleLike {
   ): Promise<ArrayBuffer>;
 }
 
+// Hosts that serve the actual page images. Faithful to upstream's
+// imageRequest(): these need an image-flavoured Accept header and a
+// host-matched Host header, and must NOT carry the wings.sbs API headers
+// (Origin / Authorization), or the CDNs reject the hotlink.
+const IMAGE_HOSTS = ["lh3.googleusercontent.com", "i.imgur.com", "imgur.com"];
+
+function hostOf(url: string): string {
+  try {
+    return url.replace(/^https?:\/\//, "").split("/")[0]?.split("?")[0] ?? "";
+  } catch {
+    return "";
+  }
+}
+
 class SunshineButterflyScansInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
+    const host = hostOf(request.url);
+    const userAgent = await Application.getDefaultUserAgent();
+
+    if (IMAGE_HOSTS.some((h) => host === h || host.endsWith("." + h))) {
+      // Mirror upstream imageRequest(): image Accept + host header, with the
+      // site referer (so Google Drive / Imgur serve the bytes), but none of
+      // the API-only Origin / Authorization headers.
+      request.headers = {
+        ...request.headers,
+        referer: `${BASE_URL}/`,
+        "user-agent": userAgent,
+        accept: "image/avif,image/webp,*/*",
+        host,
+      };
+      return request;
+    }
+
+    // API hosts (wings.sbs JSON, googleapis, api.imgur.com) and everything
+    // else: keep the wildcard Accept and site referer. Per-call headers set
+    // in getChapterDetails (Origin / Authorization / Host) are preserved.
     request.headers = {
       ...request.headers,
       referer: `${BASE_URL}/`,
-      "user-agent": await Application.getDefaultUserAgent(),
+      "user-agent": userAgent,
       accept: "*/*",
       "accept-language": "en-US,en;q=0.5",
     };
@@ -388,17 +418,25 @@ export class SunshineButterflyScansExtension
     const decrypted = await this.decryptAlbumId(target.AlbumID);
 
     if (decrypted.length > 10) {
-      // Google Drive folder.
+      // Google Drive folder. Mirror upstream pageListRequest(): Host header
+      // matched to the API host + Origin set to the site.
       const url = `${GOOGLE_DRIVE_FIRST}${decrypted}${GOOGLE_DRIVE_SECOND}`;
-      const [, data] = await Application.scheduleRequest({
+      const [response, data] = await Application.scheduleRequest({
         url,
         method: "GET",
-        headers: { accept: "*/*" },
+        headers: {
+          accept: "*/*",
+          host: "www.googleapis.com",
+          origin: BASE_URL,
+        },
       });
-      const parsed = JSON.parse(
+      if (response.status === 404) {
+        throw new Error("Content not found");
+      }
+      const parsed = this.parseGoogleDrive(
         Application.arrayBufferToUTF8String(data),
-      ) as GoogleDriveResponse;
-      const files = (parsed.files ?? [])
+      );
+      const files = parsed
         .slice()
         .sort((a, b) => a.name.localeCompare(b.name));
       for (const file of files) {
@@ -406,20 +444,26 @@ export class SunshineButterflyScansExtension
         pages.push(`https://lh3.googleusercontent.com/d/${file.id}=w${width}`);
       }
     } else {
-      // Imgur album.
+      // Imgur album. Mirror upstream: Host header for the Imgur API host +
+      // Origin, and the Imgur client Bearer token (Imgur-only).
       const url = `${IMGUR_FIRST}${decrypted}${IMGUR_SECOND}`;
-      const [, data] = await Application.scheduleRequest({
+      const [response, data] = await Application.scheduleRequest({
         url,
         method: "GET",
         headers: {
           accept: "*/*",
+          host: "api.imgur.com",
+          origin: BASE_URL,
           authorization: `Bearer ${IMGUR_BEARER}`,
         },
       });
-      const parsed = JSON.parse(
+      if (response.status === 404) {
+        throw new Error("Content not found");
+      }
+      const parsed = this.parseImgur(
         Application.arrayBufferToUTF8String(data),
-      ) as ImgurResponse;
-      for (const item of parsed.data ?? []) {
+      );
+      for (const item of parsed) {
         pages.push(item.link);
       }
     }
@@ -527,6 +571,52 @@ export class SunshineButterflyScansExtension
     );
 
     return Application.arrayBufferToUTF8String(this.bufferOf(decrypted)).trim();
+  }
+
+  // Parse a Google Drive files-list response from raw JSON text.
+  private parseGoogleDrive(text: string): GoogleDriveFile[] {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return [];
+    }
+    if (!isRecord(parsed) || !Array.isArray(parsed.files)) return [];
+    const out: GoogleDriveFile[] = [];
+    for (const raw of parsed.files) {
+      if (!isRecord(raw)) continue;
+      const id = raw.id;
+      const name = raw.name;
+      if (typeof id !== "string" || typeof name !== "string") continue;
+      let width: number | undefined;
+      const meta = raw.imageMediaMetadata;
+      if (isRecord(meta) && typeof meta.width === "number") {
+        width = meta.width;
+      }
+      out.push({
+        id,
+        name,
+        imageMediaMetadata: width === undefined ? undefined : { width },
+      });
+    }
+    return out;
+  }
+
+  // Parse an Imgur album-images response from raw JSON text.
+  private parseImgur(text: string): ImgurImage[] {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return [];
+    }
+    if (!isRecord(parsed) || !Array.isArray(parsed.data)) return [];
+    const out: ImgurImage[] = [];
+    for (const raw of parsed.data) {
+      if (!isRecord(raw)) continue;
+      if (typeof raw.link === "string") out.push({ link: raw.link });
+    }
+    return out;
   }
 
   // ----------------------------------------------------------------

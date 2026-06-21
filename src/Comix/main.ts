@@ -31,6 +31,15 @@ import * as htmlparser2 from "htmlparser2";
 
 const BASE_URL = "https://comix.to";
 
+// Grid-scramble constants — ported verbatim from the upstream Descrambler.kt.
+const GRID_COLS = 5;
+const GRID_ROWS = 5;
+const NUM_TILES = GRID_COLS * GRID_ROWS;
+const ENC_MULTIPLIER = 1000005;
+const ENC_INCREMENT = 1234567891;
+const LCG_MULTIPLIER = 1664525;
+const LCG_INCREMENT = 1013904223;
+
 interface ComixMetadata {
   page?: number;
 }
@@ -88,16 +97,48 @@ interface PageDto {
   s?: number;
 }
 
+// ----------------------------------------------------------------
+// Interceptor
+// ----------------------------------------------------------------
+
 class ComixInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
-    request.headers = {
+    const urlWithoutFragment = request.url.split("#")[0];
+    const fragment = request.url.split("#")[1] ?? "";
+
+    // V3 grid-scramble pages must NOT send Origin — the server withholds
+    // x-scramble-seed when Origin is present. Legacy byte-XOR pages keep
+    // Origin so the server returns x-enc-seed. We tag the intent in the
+    // URL fragment from getChapterDetails (#v3 / #scrambled) so we can
+    // decide here without re-parsing query params.
+    let host = "";
+    try {
+      host = urlWithoutFragment.replace(/^https?:\/\//, "").split("/")[0];
+    } catch {
+      host = "";
+    }
+    const isLegacyScramble = fragment.includes("scrambled");
+    const isOffHostImage =
+      host.length > 0 && !host.includes("comix.to");
+    const dropOrigin = isOffHostImage && !isLegacyScramble;
+
+    const headers: Record<string, string> = {
       ...request.headers,
       referer: `${BASE_URL}/`,
-      origin: BASE_URL,
       "user-agent": await Application.getDefaultUserAgent(),
       accept: "*/*",
       "accept-language": "en-US,en;q=0.5",
     };
+    if (!dropOrigin) {
+      headers.origin = BASE_URL;
+    } else {
+      delete headers.origin;
+    }
+    request.headers = headers;
+
+    // Strip our private fragment markers before the request goes out so the
+    // server sees a clean URL (the descramble parameters arrive in headers).
+    request.url = urlWithoutFragment;
     return request;
   }
 
@@ -115,7 +156,15 @@ class ComixInterceptor extends PaperbackInterceptor {
         },
       });
     }
-    return data;
+
+    if (response.status < 200 || response.status >= 300) return data;
+
+    try {
+      return await decodeScrambledImage(response.headers, data);
+    } catch {
+      // Never throw out of interceptResponse — fall back to original bytes.
+      return data;
+    }
   }
 }
 
@@ -392,14 +441,38 @@ export class ComixExtension implements ComixImplementation {
     const pages: string[] = [];
     if (result) {
       const base = (result.baseUrl ?? "").replace(/\/+$/, "");
-      for (const img of result.items) {
+      result.items.forEach((img, index) => {
         const raw = (img.url ?? "").trim();
-        if (!raw) continue;
+        if (!raw) return;
         const full = raw.startsWith("http")
           ? raw
           : `${base}/${raw.replace(/^\/+/, "")}`;
-        pages.push(full);
-      }
+
+        // Mirror upstream imageRequest/fetchPageList logic:
+        //  - V3 pages (s == 1 or ?v3 already present) get the ?v3 flag so the
+        //    server returns the x-scramble-* grid headers. These hosts must NOT
+        //    receive an Origin header (the interceptor strips it by default for
+        //    off-host images that are not legacy-scrambled).
+        //  - Legacy byte-XOR pages occur on every 4th page; we tag them with a
+        //    #scrambled fragment so the interceptRequest keeps Origin (needed
+        //    for x-enc-seed) and so we know the intent.
+        const isV3 = img.s === 1 || full.includes("?v3");
+        const isLegacyScramble = !isV3 && (index + 1) % 4 === 0;
+
+        let pageUrl: string;
+        if (isV3) {
+          pageUrl = full.includes("?")
+            ? full.includes("v3")
+              ? full
+              : `${full}&v3`
+            : `${full}?v3`;
+        } else if (isLegacyScramble) {
+          pageUrl = `${full}#scrambled`;
+        } else {
+          pageUrl = full;
+        }
+        pages.push(pageUrl);
+      });
     }
 
     return {
@@ -452,7 +525,9 @@ export class ComixExtension implements ComixImplementation {
   // initial-data parsing
   // ----------------------------------------------------------------
 
-  private extractInitialData($: CheerioAPI): Record<string, unknown> | undefined {
+  private extractInitialData(
+    $: CheerioAPI,
+  ): Record<string, unknown> | undefined {
     const raw = $("script#initial-data").first().text();
     if (!raw) return undefined;
     try {
@@ -612,7 +687,8 @@ export class ComixExtension implements ComixImplementation {
       return undefined;
     }
     if (parsedHost !== "comix.to") return undefined;
-    if (pathSegments.length < 2 || pathSegments[0] !== "title") return undefined;
+    if (pathSegments.length < 2 || pathSegments[0] !== "title")
+      return undefined;
     const mangaId = pathSegments[1].split("-")[0];
     if (!mangaId) return undefined;
     return this.parsePath(`/${mangaId}`);
@@ -765,6 +841,306 @@ export class ComixExtension implements ComixImplementation {
     const dom = htmlparser2.parseDocument(htmlStr);
     return cheerio.load(dom);
   }
+}
+
+// --------------------------------------------------------------------
+// Image decryption / descrambling (module-level helpers)
+//
+// Faithful port of the upstream Descrambler.kt okhttp interceptor:
+//   1. Read the x-enc-* / x-scramble-* headers from the response.
+//   2. If x-enc-seed is present and non-zero, XOR-decode the bytes with the
+//      LCG or xorshift keystream (algo-dependent) — a pure byte transform.
+//   3. If x-scramble-grid == "5x5", undo a 5x5 tile permutation keyed by
+//      (scrambleSeed XOR scrambleHash) via a canvas remap inside a webview.
+// --------------------------------------------------------------------
+
+async function decodeScrambledImage(
+  headers: Record<string, string>,
+  data: ArrayBuffer,
+): Promise<ArrayBuffer> {
+  const rawScrambleGrid = headerValue(headers, "x-scramble-grid");
+  const rawScrambleAlgo = headerValue(headers, "x-scramble-algo");
+  const rawScrambleHash = headerValue(headers, "x-scramble-hash");
+  const rawScrambleSeed = headerValue(headers, "x-scramble-seed");
+  const rawEncSeed = headerValue(headers, "x-enc-seed");
+  const rawEncAlgo = headerValue(headers, "x-enc-algo");
+  const rawEncLen = headerValue(headers, "x-enc-len");
+
+  const encSeed = toInt32(rawEncSeed);
+  const encLen = parseIntOrNull(rawEncLen);
+  const scrambleSeed = toInt32(rawScrambleSeed);
+  const scrambleHash = decodeScrambleHash(rawScrambleHash);
+
+  const needsXor = encSeed !== null && encSeed !== 0 && encLen !== null;
+  const shouldDescrambleGrid =
+    rawScrambleGrid === "5x5" &&
+    (rawScrambleAlgo === undefined ||
+      rawScrambleAlgo === "1" ||
+      rawScrambleAlgo === "2" ||
+      rawScrambleAlgo === "3") &&
+    scrambleSeed !== null &&
+    scrambleSeed !== 0;
+
+  if (!needsXor && !shouldDescrambleGrid) return data;
+
+  let bytes: Uint8Array = new Uint8Array(data);
+  if (needsXor && encSeed !== null && encLen !== null) {
+    bytes = decodeEncodedBytes(bytes, encSeed, encLen, rawEncAlgo);
+  }
+
+  if (shouldDescrambleGrid && scrambleSeed !== null) {
+    const seed = (scrambleSeed ^ scrambleHash) | 0;
+    const order = buildTileOrder(seed, rawScrambleAlgo);
+    const descrambled = await descrambleGrid(bytes, order);
+    return descrambled ?? bufferOf(bytes);
+  }
+
+  return bufferOf(bytes);
+}
+
+function headerValue(
+  headers: Record<string, string>,
+  name: string,
+): string | undefined {
+  if (!headers) return undefined;
+  const direct = headers[name];
+  if (direct !== undefined) return direct;
+  const lower = name.toLowerCase();
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === lower) return headers[key];
+  }
+  return undefined;
+}
+
+function parseIntOrNull(value: string | undefined): number | null {
+  if (value === undefined) return null;
+  const n = parseInt(value.trim(), 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+// Parse a possibly-large numeric header into a 32-bit signed Int, matching
+// Kotlin's `toLongOrNull()?.toInt()` (which truncates to the low 32 bits).
+function toInt32(value: string | undefined): number | null {
+  if (value === undefined) return null;
+  const trimmed = value.trim();
+  if (!/^-?\d+$/.test(trimmed)) return null;
+  try {
+    return Number(BigInt(trimmed) & 0xffffffffn) | 0;
+  } catch {
+    return null;
+  }
+}
+
+function decodeScrambleHash(hash: string | undefined): number {
+  switch (hash?.trim()) {
+    case "03632":
+      return 58414;
+    default:
+      return 0;
+  }
+}
+
+// ---- Byte-XOR keystreams (pure Uint8Array transforms) ----
+
+function decodeEncodedBytes(
+  bytes: Uint8Array,
+  seed: number,
+  length: number,
+  algo: string | undefined,
+): Uint8Array {
+  if (algo !== "2") {
+    return decodeWithLcg(bytes, seed, length);
+  }
+
+  const candidates = [
+    decodeWithXorshift(bytes, seed | 1, length, false),
+    decodeWithXorshift(bytes, seed, length, false),
+    decodeWithXorshift(bytes, seed | 1, length, true),
+    decodeWithLcg(bytes, seed, length),
+  ];
+  return candidates.find((c) => hasImageSignature(c)) ?? candidates[0];
+}
+
+function decodeWithXorshift(
+  bytes: Uint8Array,
+  initialState: number,
+  length: number,
+  highByte: boolean,
+): Uint8Array {
+  const result = bytes.slice();
+  let state = initialState | 0;
+  const limit = Math.min(result.length, length);
+  for (let i = 0; i < limit; i++) {
+    state = nextXorshiftState(state);
+    const key = highByte ? state >>> 24 : state & 0xff;
+    result[i] = result[i] ^ key;
+  }
+  return result;
+}
+
+function decodeWithLcg(
+  bytes: Uint8Array,
+  seed: number,
+  length: number,
+): Uint8Array {
+  const result = bytes.slice();
+  let state = seed | 0;
+  const limit = Math.min(result.length, length);
+  for (let i = 0; i < limit; i++) {
+    // 32-bit signed: state = state * ENC_MULTIPLIER + ENC_INCREMENT
+    state = (Math.imul(state, ENC_MULTIPLIER) + ENC_INCREMENT) | 0;
+    result[i] = result[i] ^ (state >>> 24);
+  }
+  return result;
+}
+
+function nextXorshiftState(state: number): number {
+  let next = state | 0;
+  next = next ^ (next << 13);
+  next = next ^ (next >>> 17);
+  next = next ^ (next << 5);
+  return next | 0;
+}
+
+function hasImageSignature(bytes: Uint8Array): boolean {
+  if (bytes.length < 12) return false;
+  const isWebp =
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50;
+  const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8;
+  const isPng =
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47;
+  return isWebp || isJpeg || isPng;
+}
+
+// ---- 5x5 tile permutation ----
+
+// Build the inverse permutation that maps each destination tile index to its
+// source tile index, undoing the server-side Fisher–Yates shuffle.
+function buildTileOrder(seed: number, algo: string | undefined): number[] {
+  const arr: number[] = [];
+  for (let i = 0; i < NUM_TILES; i++) arr.push(i);
+
+  if (algo === "3") {
+    let state = (seed | 1) | 0;
+    for (let i = NUM_TILES - 1; i >= 1; i--) {
+      state = state ^ (state << 13);
+      state = state ^ (state >>> 17);
+      state = state ^ (state << 5);
+      state = state | 0;
+      const j = Number((BigInt(state >>> 0) & 0xffffffffn) % BigInt(i + 1));
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+  } else {
+    let state = seed | 0;
+    for (let i = NUM_TILES - 1; i >= 1; i--) {
+      state = (Math.imul(state, LCG_MULTIPLIER) + LCG_INCREMENT) | 0;
+      const j = Number((BigInt(state >>> 0) & 0xffffffffn) % BigInt(i + 1));
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+  }
+
+  const inverse = new Array<number>(NUM_TILES).fill(0);
+  for (let i = 0; i < arr.length; i++) {
+    inverse[arr[i]] = i;
+  }
+  return inverse;
+}
+
+// Remap the 5x5 grid inside a webview canvas. `order[dstIdx]` is the source
+// tile index for destination tile `dstIdx` — exactly the upstream drawBitmap
+// loop, expressed with canvas drawImage.
+async function descrambleGrid(
+  bytes: Uint8Array,
+  order: number[],
+): Promise<ArrayBuffer | null> {
+  const b64 = Application.base64Encode(bufferOf(bytes));
+  const b64Str =
+    typeof b64 === "string" ? b64 : Application.arrayBufferToUTF8String(b64);
+  const dataUrl = `data:image/jpeg;base64,${b64Str}`;
+
+  const inject = `
+(function(){
+  return new Promise(function(resolve){
+    var img = new Image();
+    img.onload = function(){
+      try {
+        var cols = ${GRID_COLS};
+        var rows = ${GRID_ROWS};
+        var order = ${JSON.stringify(order)};
+        var w = img.naturalWidth, h = img.naturalHeight;
+        var tileW = Math.floor(w / cols), tileH = Math.floor(h / rows);
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        // Draw the original first so any leftover border pixels (from integer
+        // tile rounding) are preserved, mirroring canvas.drawBitmap(bitmap,0,0).
+        ctx.drawImage(img, 0, 0);
+        for (var dstIdx = 0; dstIdx < cols * rows; dstIdx++) {
+          var srcIdx = order[dstIdx];
+          var srcCol = srcIdx % cols;
+          var srcRow = Math.floor(srcIdx / cols);
+          var dstCol = dstIdx % cols;
+          var dstRow = Math.floor(dstIdx / cols);
+          ctx.drawImage(
+            img,
+            srcCol * tileW, srcRow * tileH, tileW, tileH,
+            dstCol * tileW, dstRow * tileH, tileW, tileH
+          );
+        }
+        resolve(canvas.toDataURL('image/jpeg', 0.95));
+      } catch (e) {
+        resolve('');
+      }
+    };
+    img.onerror = function(){ resolve(''); };
+    img.src = ${JSON.stringify(dataUrl)};
+  });
+})()
+`;
+
+  const result = await Application.executeInWebView({
+    source: {
+      html: "<html><head></head><body></body></html>",
+      baseUrl: BASE_URL,
+      loadCSS: false,
+      loadImages: true,
+    },
+    inject,
+    storage: { cookies: [] },
+  });
+
+  const resultUrl = String(result.result || "");
+  const commaIdx = resultUrl.indexOf(",");
+  if (!resultUrl.startsWith("data:") || commaIdx < 0) return null;
+
+  const payload = resultUrl.slice(commaIdx + 1);
+  const decoded = Application.base64Decode(payload);
+  if (typeof decoded === "string") {
+    const out = new Uint8Array(decoded.length);
+    for (let i = 0; i < decoded.length; i++) out[i] = decoded.charCodeAt(i);
+    return out.buffer;
+  }
+  return decoded;
+}
+
+function bufferOf(bytes: Uint8Array): ArrayBuffer {
+  const out = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(out).set(bytes);
+  return out;
 }
 
 export const Comix = new ComixExtension();

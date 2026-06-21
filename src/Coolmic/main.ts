@@ -90,6 +90,40 @@ interface ViewerResponse {
   image_data?: { num?: number; path?: string }[] | null;
 }
 
+// The per-page JSON returned when a page `path` is fetched. The actual JPEG
+// is AES-CBC encrypted; the password for the PBKDF2-derived key is obtained
+// from the /api/v1/decryption_keys endpoint (see resolvePageKey).
+interface PageResponse {
+  encrypted_image?: string;
+  iv?: string;
+  salt?: string;
+  iterations?: number;
+  kms_encrypted_data_key?: string;
+  file_name?: string;
+}
+
+interface KeyResponse {
+  decrypted_key?: string;
+}
+
+// Parsed contents of a page URL's #fragment, carrying the decryption
+// password into interceptResponse.
+function parseFragment(url: string): { key: string } | undefined {
+  const fragment = url.split("#")[1] ?? "";
+  if (!fragment.startsWith("key=")) return undefined;
+  const key = fragment.slice("key=".length);
+  if (!key) return undefined;
+  return { key };
+}
+
+function isPageResponse(value: unknown): value is PageResponse {
+  return typeof value === "object" && value !== null;
+}
+
+function isKeyResponse(value: unknown): value is KeyResponse {
+  return typeof value === "object" && value !== null;
+}
+
 class CoolmicInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
     request.headers = {
@@ -118,6 +152,21 @@ class CoolmicInterceptor extends PaperbackInterceptor {
         },
       });
     }
+
+    // Page images are delivered as an AES-CBC encrypted blob inside a JSON
+    // envelope. The decryption password rides in the URL fragment, baked in
+    // during getChapterDetails. Everything else passes through untouched.
+    const parsed = parseFragment(request.url);
+    if (parsed) {
+      try {
+        return await decryptPageImage(data, parsed.key);
+      } catch {
+        // On any failure return the original bytes so the reader still gets
+        // *something* rather than an error.
+        return data;
+      }
+    }
+
     return data;
   }
 }
@@ -139,6 +188,9 @@ export class CoolmicExtension implements CoolmicImplementation {
     bufferInterval: 1,
     ignoreImages: true,
   });
+
+  // CSRF token cached across key requests (mirrors upstream cachedCsrfToken).
+  private cachedCsrfToken: string | undefined;
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
@@ -399,9 +451,16 @@ export class CoolmicExtension implements CoolmicImplementation {
       (a, b) => (a.num ?? 0) - (b.num ?? 0),
     );
 
+    // For each page, fetch the page JSON to obtain its KMS-encrypted data key
+    // and file name, ask /api/v1/decryption_keys to decrypt the key, then bake
+    // the resulting password into the page URL fragment. interceptResponse will
+    // re-fetch the same JSON and use this password to AES-CBC decrypt the JPEG.
     const pages: string[] = [];
     for (const img of sorted) {
-      if (img.path) pages.push(this.absoluteUrl(img.path));
+      if (!img.path) continue;
+      const pageUrl = this.absoluteUrl(img.path);
+      const key = await this.resolvePageKey(pageUrl);
+      pages.push(key ? `${pageUrl}#key=${key}` : pageUrl);
     }
 
     return {
@@ -409,6 +468,79 @@ export class CoolmicExtension implements CoolmicImplementation {
       mangaId: chapter.sourceManga.mangaId,
       pages,
     };
+  }
+
+  // Fetch the page envelope, then resolve its decryption password via the
+  // decryption_keys endpoint (retrying once with a refreshed CSRF token).
+  private async resolvePageKey(pageUrl: string): Promise<string | undefined> {
+    let pageJson: PageResponse;
+    try {
+      pageJson = await this.fetchJson<PageResponse>({
+        url: pageUrl,
+        method: "GET",
+      });
+    } catch {
+      return undefined;
+    }
+
+    const encryptedKey = pageJson.kms_encrypted_data_key;
+    const fileName = pageJson.file_name;
+    if (!encryptedKey || !fileName) return undefined;
+
+    let key = await this.requestKey(encryptedKey, fileName, false);
+    if (!key) key = await this.requestKey(encryptedKey, fileName, true);
+    return key;
+  }
+
+  private async requestKey(
+    encryptedKey: string,
+    fileName: string,
+    refresh: boolean,
+  ): Promise<string | undefined> {
+    const token = await this.csrfToken(refresh);
+    if (!token) return undefined;
+
+    try {
+      const [response, data] = await Application.scheduleRequest({
+        url: `${API_URL}/decryption_keys`,
+        method: "POST",
+        headers: {
+          origin: BASE_URL,
+          "content-type": "application/json",
+          "x-csrf-token": token,
+          "x-requested-with": "XMLHttpRequest",
+        },
+        body: JSON.stringify({
+          encrypted_key: encryptedKey,
+          file_name: fileName,
+        }),
+      });
+      if (response.status < 200 || response.status >= 300) return undefined;
+      const parsed: unknown = JSON.parse(
+        Application.arrayBufferToUTF8String(data),
+      );
+      if (isKeyResponse(parsed) && parsed.decrypted_key) {
+        return parsed.decrypted_key;
+      }
+    } catch {
+      // fall through
+    }
+    return undefined;
+  }
+
+  // Read (and cache) the page CSRF token from the home page meta tag.
+  private async csrfToken(refresh: boolean): Promise<string | undefined> {
+    if (refresh) this.cachedCsrfToken = undefined;
+    if (this.cachedCsrfToken) return this.cachedCsrfToken;
+
+    try {
+      const $ = await this.fetchCheerio({ url: BASE_URL, method: "GET" });
+      const token = $("meta[name=csrf-token]").first().attr("content");
+      if (token) this.cachedCsrfToken = token;
+      return token;
+    } catch {
+      return undefined;
+    }
   }
 
   getMangaShareUrl(mangaId: string): string {
@@ -517,6 +649,106 @@ export class CoolmicExtension implements CoolmicImplementation {
     const str = Application.arrayBufferToUTF8String(data);
     return JSON.parse(str) as T;
   }
+}
+
+// --------------------------------------------------------------------
+// Page image decryption (module-level helpers)
+//
+// The page URL serves a JSON envelope, not a JPEG. The envelope contains the
+// AES-CBC-encrypted JPEG plus the PBKDF2 parameters (salt, iterations, iv). The
+// password is fetched in getChapterDetails and carried in via the fragment.
+// Decryption runs inside a webview so we can use window.crypto.subtle for both
+// PBKDF2WithHmacSHA256 key derivation and AES-CBC/PKCS7 decryption.
+// --------------------------------------------------------------------
+
+async function decryptPageImage(
+  data: ArrayBuffer,
+  password: string,
+): Promise<ArrayBuffer> {
+  const jsonStr = Application.arrayBufferToUTF8String(data);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    // Not a JSON envelope (e.g. already-decrypted bytes) — pass through.
+    return data;
+  }
+  if (!isPageResponse(parsed)) return data;
+
+  const encryptedImage = parsed.encrypted_image;
+  const iv = parsed.iv;
+  const salt = parsed.salt;
+  const iterations = parsed.iterations;
+  if (!encryptedImage || !iv || !salt || !iterations) return data;
+
+  const inject = `
+(function(){
+  return new Promise(function(resolve){
+    try {
+      var subtle = window.crypto.subtle;
+      function b64ToBytes(b64){
+        var bin = atob(b64);
+        var out = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        return out;
+      }
+      function bytesToB64(bytes){
+        var bin = "";
+        var arr = new Uint8Array(bytes);
+        for (var i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+        return btoa(bin);
+      }
+      var password = ${JSON.stringify(password)};
+      var salt = b64ToBytes(${JSON.stringify(salt)});
+      var iv = b64ToBytes(${JSON.stringify(iv)});
+      var cipher = b64ToBytes(${JSON.stringify(encryptedImage)});
+      var iterations = ${JSON.stringify(iterations)};
+      var enc = new TextEncoder();
+      subtle.importKey("raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveKey"])
+        .then(function(baseKey){
+          return subtle.deriveKey(
+            { name: "PBKDF2", salt: salt, iterations: iterations, hash: "SHA-256" },
+            baseKey,
+            { name: "AES-CBC", length: 256 },
+            false,
+            ["decrypt"]
+          );
+        })
+        .then(function(aesKey){
+          return subtle.decrypt({ name: "AES-CBC", iv: iv }, aesKey, cipher);
+        })
+        .then(function(plain){
+          resolve(bytesToB64(plain));
+        })
+        .catch(function(){ resolve(""); });
+    } catch (e) {
+      resolve("");
+    }
+  });
+})()
+`;
+
+  const result = await Application.executeInWebView({
+    source: {
+      html: "<html><head></head><body></body></html>",
+      baseUrl: BASE_URL,
+      loadCSS: false,
+      loadImages: false,
+    },
+    inject,
+    storage: { cookies: [] },
+  });
+
+  const b64 = String(result.result || "");
+  if (!b64) return data;
+
+  const decoded = Application.base64Decode(b64);
+  if (typeof decoded === "string") {
+    const out = new Uint8Array(decoded.length);
+    for (let i = 0; i < decoded.length; i++) out[i] = decoded.charCodeAt(i);
+    return out.buffer;
+  }
+  return decoded;
 }
 
 export const Coolmic = new CoolmicExtension();

@@ -243,7 +243,27 @@ class EmaqiInterceptor extends PaperbackInterceptor {
         },
       });
     }
-    return data;
+
+    // Encrypted page images carry "<privateKeyB64Url>:<hashB64>" in the URL
+    // fragment (see getChapterDetails). Mirror the upstream ImageInterceptor:
+    // RSA-OAEP-decrypt the per-chapter AES key, then AES-GCM/CBC-decrypt the
+    // image bytes. The GraphQL endpoint also has a "#..." fragment for paging,
+    // so guard it out explicitly.
+    const fragment = request.url.split("#").slice(1).join("#");
+    if (
+      !fragment ||
+      !fragment.includes(":") ||
+      request.url.startsWith(API_URL)
+    ) {
+      return data;
+    }
+
+    try {
+      return await decryptImage(fragment, data);
+    } catch {
+      // Never throw out of interceptResponse: fall back to raw bytes.
+      return data;
+    }
   }
 }
 
@@ -529,31 +549,44 @@ export class EmaqiExtension implements EmaqiImplementation {
     const type = parts[1] ?? "";
     const number = parseInt(parts[2] ?? "0", 10);
 
+    // Generate a per-request RSA-OAEP (SHA-256) keypair. The SPKI public key
+    // (standard base64) is sent as the X-Hash header on the page-contents
+    // query; the server returns `contents.hash`, an RSA-OAEP-encrypted AES key
+    // we later decrypt with the matching PKCS8 private key (base64url). This
+    // mirrors generateXHashAndKey() / pageListRequest() in the upstream source.
+    const { publicKeyB64, privateKeyB64Url } = await generateRsaKeyPair();
+
     let data: ViewerData;
     if (type === "chapter") {
-      data = await this.graphQL<ViewerData>(CHAPTER_QUERY, "FetchChapterContents", {
-        comicId,
-        chapterNumber: number,
-      });
+      data = await this.graphQL<ViewerData>(
+        CHAPTER_QUERY,
+        "FetchChapterContents",
+        { comicId, chapterNumber: number },
+        { "X-Hash": publicKeyB64 },
+      );
     } else {
-      data = await this.graphQL<ViewerData>(VOLUME_QUERY, "FetchMangaContents", {
-        comicId,
-        volumeNumber: number,
-      });
+      data = await this.graphQL<ViewerData>(
+        VOLUME_QUERY,
+        "FetchMangaContents",
+        { comicId, volumeNumber: number },
+        { "X-Hash": publicKeyB64 },
+      );
     }
 
     const contents = data.chapter?.contents ?? data.manga?.contents ?? null;
     if (!contents || contents.pages.length === 0) {
       throw new Error(
-        "No page contents returned. This title likely requires a purchase/login, and emaqi serves encrypted images that this extension cannot decrypt.",
+        "No page contents returned. This title likely requires a purchase/login. Locked content cannot be unlocked without an account that owns it.",
       );
     }
 
-    // NOTE: emaqi encrypts page images with a per-request RSA/AES scheme that
-    // requires native key generation and stream decryption (see upstream
-    // ImageInterceptor.kt). Paperback's runtime cannot replicate that, so these
-    // raw URLs will not render. They are returned for completeness only.
-    const pages = contents.pages.map((p) => p.url);
+    // Bake the private key + RSA-encrypted AES key hash into each page URL's
+    // fragment so interceptResponse can decrypt the served bytes. Matches the
+    // upstream "${page.url}#${privateKey}:${hash}" page model.
+    const hash = contents.hash;
+    const pages = contents.pages.map(
+      (p) => `${p.url}#${privateKeyB64Url}:${hash}`,
+    );
 
     return {
       id: chapter.chapterId,
@@ -610,12 +643,13 @@ export class EmaqiExtension implements EmaqiImplementation {
     query: string,
     operationName: string,
     variables: Record<string, unknown>,
+    extraHeaders?: Record<string, string>,
   ): Promise<T> {
     const body = JSON.stringify({ query, operationName, variables });
     const request: Request = {
       url: API_URL,
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...extraHeaders },
       body,
     };
     const [response, data] = await Application.scheduleRequest(request);
@@ -656,4 +690,183 @@ export class EmaqiExtension implements EmaqiImplementation {
   }
 }
 
-export const Emaqi = new EmaqiExtension();
+// --------------------------------------------------------------------
+// Per-request RSA-OAEP keypair + AES image decryption (module-level)
+// --------------------------------------------------------------------
+
+const WEBVIEW_SOURCE = {
+  html: "<html><head></head><body></body></html>",
+  baseUrl: BASE_URL,
+  loadCSS: false,
+  loadImages: false,
+};
+
+// Generate an RSA-OAEP (SHA-256) 2048-bit keypair inside a webview and export
+// both halves. Public key: SPKI, standard base64 (X-Hash header). Private key:
+// PKCS8, base64url (carried in the page fragment, matching Android's
+// Base64.URL_SAFE|NO_WRAP encoding of the PKCS8 private key).
+async function generateRsaKeyPair(): Promise<{
+  publicKeyB64: string;
+  privateKeyB64Url: string;
+}> {
+  const inject = `
+(function () {
+  return new Promise(function (resolve) {
+    function abToB64(buf) {
+      var bytes = new Uint8Array(buf);
+      var s = "";
+      for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s);
+    }
+    crypto.subtle.generateKey(
+      { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+      true,
+      ["encrypt", "decrypt"]
+    ).then(function (pair) {
+      return Promise.all([
+        crypto.subtle.exportKey("spki", pair.publicKey),
+        crypto.subtle.exportKey("pkcs8", pair.privateKey),
+      ]);
+    }).then(function (keys) {
+      var pub = abToB64(keys[0]);
+      var priv = abToB64(keys[1]).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/, "");
+      resolve(JSON.stringify({ pub: pub, priv: priv }));
+    }).catch(function () { resolve(""); });
+  });
+})()
+`;
+
+  const result = await Application.executeInWebView({
+    source: WEBVIEW_SOURCE,
+    inject,
+    storage: { cookies: [] },
+  });
+
+  const parsed = JSON.parse(String(result.result || "{}")) as unknown;
+  if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    "pub" in parsed &&
+    "priv" in parsed &&
+    typeof (parsed as { pub: unknown }).pub === "string" &&
+    typeof (parsed as { priv: unknown }).priv === "string"
+  ) {
+    const obj = parsed as { pub: string; priv: string };
+    if (obj.pub && obj.priv) {
+      return { publicKeyB64: obj.pub, privateKeyB64Url: obj.priv };
+    }
+  }
+  throw new Error("Failed to generate RSA keypair");
+}
+
+// Decrypt one page image. fragment = "<privateKeyB64Url>:<hashB64>".
+// All crypto runs inside the webview's window.crypto.subtle:
+//   1. import PKCS8 private key (RSA-OAEP, SHA-256)
+//   2. RSA-OAEP-decrypt the hash -> raw AES key
+//   3. read magic byte of the image:
+//        == 2 -> skip 1, read 16-byte IV, AES-GCM (128-bit tag) decrypt rest
+//        else -> IV = magicByte + next 15 bytes, AES-CBC (PKCS7) decrypt rest
+async function decryptImage(
+  fragment: string,
+  data: ArrayBuffer,
+): Promise<ArrayBuffer> {
+  const sep = fragment.indexOf(":");
+  if (sep < 0) return data;
+  const privateKeyB64Url = fragment.slice(0, sep);
+  const hashB64 = fragment.slice(sep + 1);
+  if (!privateKeyB64Url || !hashB64) return data;
+
+  const imageB64 = bufferToBase64(data);
+
+  const inject = `
+(function () {
+  return new Promise(function (resolve) {
+    var PRIV = ${JSON.stringify(privateKeyB64Url)};
+    var HASH = ${JSON.stringify(hashB64)};
+    var IMG = ${JSON.stringify(imageB64)};
+
+    function b64ToBytes(b64) {
+      var bin = atob(b64);
+      var out = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+    function b64UrlToBytes(b64) {
+      var s = b64.replace(/-/g, "+").replace(/_/g, "/");
+      while (s.length % 4) s += "=";
+      return b64ToBytes(s);
+    }
+    function bytesToB64(bytes) {
+      var s = "";
+      for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s);
+    }
+
+    try {
+      var privBytes = b64UrlToBytes(PRIV);
+      var hashBytes = b64ToBytes(HASH);
+      var img = b64ToBytes(IMG);
+
+      crypto.subtle.importKey(
+        "pkcs8", privBytes.buffer,
+        { name: "RSA-OAEP", hash: "SHA-256" }, false, ["decrypt"]
+      ).then(function (rsaKey) {
+        return crypto.subtle.decrypt({ name: "RSA-OAEP" }, rsaKey, hashBytes.buffer);
+      }).then(function (aesKeyBuf) {
+        var aesKey = new Uint8Array(aesKeyBuf);
+        var magic = img[0];
+        if (magic === 2) {
+          var ivG = img.slice(2, 18);
+          var ctG = img.slice(18);
+          return crypto.subtle.importKey("raw", aesKey.buffer, { name: "AES-GCM" }, false, ["decrypt"])
+            .then(function (k) {
+              return crypto.subtle.decrypt({ name: "AES-GCM", iv: ivG.buffer, tagLength: 128 }, k, ctG.buffer);
+            });
+        } else {
+          var iv = new Uint8Array(16);
+          iv[0] = magic;
+          var rest = img.slice(1, 16);
+          iv.set(rest, 1);
+          var ctC = img.slice(16);
+          return crypto.subtle.importKey("raw", aesKey.buffer, { name: "AES-CBC" }, false, ["decrypt"])
+            .then(function (k) {
+              return crypto.subtle.decrypt({ name: "AES-CBC", iv: iv.buffer }, k, ctC.buffer);
+            });
+        }
+      }).then(function (plainBuf) {
+        resolve(bytesToB64(new Uint8Array(plainBuf)));
+      }).catch(function () { resolve(""); });
+    } catch (e) { resolve(""); }
+  });
+})()
+`;
+
+  const result = await Application.executeInWebView({
+    source: WEBVIEW_SOURCE,
+    inject,
+    storage: { cookies: [] },
+  });
+
+  const out = String(result.result || "");
+  if (!out) return data;
+  return base64ToBuffer(out);
+}
+
+function bufferToBase64(data: ArrayBuffer): string {
+  const encoded = Application.base64Encode(data);
+  return typeof encoded === "string"
+    ? encoded
+    : Application.arrayBufferToUTF8String(encoded);
+}
+
+function base64ToBuffer(b64: string): ArrayBuffer {
+  const decoded = Application.base64Decode(b64);
+  if (typeof decoded === "string") {
+    const out = new Uint8Array(decoded.length);
+    for (let i = 0; i < decoded.length; i++) out[i] = decoded.charCodeAt(i);
+    return out.buffer;
+  }
+  return decoded;
+}
+
+export const emaqi = new EmaqiExtension();
