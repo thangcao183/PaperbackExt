@@ -98,12 +98,13 @@ in-app webview), **WeebCentral**, **MangaPill**, **MangaFreak**,
 **NineAnime**, **DFlowScans**, **Honkai Impact 3rd**, **New Manhwa**,
 **Manhwalike**, **ScansGG**, **HeyToon**, **Kappa Beast**, **AsiaToon**,
 **StoneScape**, **Manga Mirai**, **Alandal**, **Swords Comic**,
-**Mangadotnet**, **XoManga** and **One Punch Man Online**.
+**Mangadotnet**, **XoManga**, **One Punch Man Online**, **Clone Manga**,
+**The Duck Webcomics** and **Oglaf**.
 
 ## Available Sources
 
-**292** sources are currently published. Sources marked **Mature** contain
-adult/NSFW content (164 Mature, 128 Everyone).
+**295** sources are currently published. Sources marked **Mature** contain
+adult/NSFW content (166 Mature, 129 Everyone).
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -135,6 +136,7 @@ adult/NSFW content (164 Mature, 128 Everyone).
 | BeeHentai | 1.4.24.1 | Mature |
 | Borat Scans | 1.4.51.1 | Everyone |
 | Bun Manga | 1.4.51.1 | Everyone |
+| Clone Manga | 1.4.3.1 | Everyone |
 | Cocomic | 1.4.53.1 | Mature |
 | Coffee Manga | 1.4.56.1 | Mature |
 | Comic Asura | 1.4.34.1 | Mature |
@@ -309,6 +311,7 @@ adult/NSFW content (164 Mature, 128 Everyone).
 | Nyra Scans | 1.4.20.1 | Mature |
 | Nyx Scans | 1.4.26.1 | Everyone |
 | OctopusManga | 1.4.51.1 | Mature |
+| Oglaf | 1.4.4.1 | Mature |
 | Omega Scans | 1.4.50.1 | Mature |
 | One Punch Man Online | 1.4.2.1 | Everyone |
 | OneManga.info | 1.4.35.4 | Mature |
@@ -366,6 +369,7 @@ adult/NSFW content (164 Mature, 128 Everyone).
 | TCB Scans | 1.4.12.1 | Everyone |
 | TCB Scans (Unoriginal) | 1.4.32.1 | Everyone |
 | Temple Scan | 1.4.49.1 | Mature |
+| The Duck Webcomics | 1.4.3.1 | Mature |
 | TimelessToons | 1.4.20.1 | Everyone |
 | Toon18 | 1.4.51.1 | Mature |
 | ToonGod | 1.4.56.1 | Mature |
@@ -467,7 +471,8 @@ Sources that aren't built on a shared framework (currently **LikeManga**,
 **Honkai Impact 3rd**, **New Manhwa**, **Manhwalike**, **ScansGG**,
 **HeyToon**, **Kappa Beast**, **AsiaToon**, **StoneScape**,
 **Manga Mirai**, **Alandal**, **Swords Comic**, **Mangadotnet**,
-**XoManga** and **One Punch Man Online**) have a
+**XoManga**, **One Punch Man Online**, **Clone Manga**,
+**The Duck Webcomics** and **Oglaf**) have a
 fully self-contained `main.ts` that implements the Paperback interfaces
 directly.
 
@@ -532,7 +537,7 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   Oppai Stream, Comivex, MangaCloud, MangaBTT, NineAnime, DFlowScans,
   Honkai Impact 3rd, New Manhwa, Manhwalike, ScansGG, HeyToon, Kappa Beast,
   AsiaToon, StoneScape, Manga Mirai, Alandal, Swords Comic, Mangadotnet,
-  XoManga, One Punch Man Online).
+  XoManga, One Punch Man Online, Clone Manga, The Duck Webcomics, Oglaf).
 - These extensions are **not affiliated** with the source websites. They only
   scrape publicly available pages.
 
