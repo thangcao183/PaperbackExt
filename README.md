@@ -88,8 +88,9 @@ every source built on it.
 | MMRCMS | HTML | 1 | MyMangaReaderCMS |
 
 Plus several standalone sources (not built on a shared framework):
-**LikeManga**, **Mangago** (AES-decrypted + grid-descrambled images via an
-in-app webview), **WeebCentral**, **MangaPill**, **MangaFreak**,
+**LikeManga**, **Mangago** (AES-decrypted image list + grid-descrambled
+images, unscrambled in-process via Paperback's canvas polyfill),
+**WeebCentral**, **MangaPill**, **MangaFreak**,
 **MangaKatana**, **Manga Demon**, **TCB Scans**, **Flame Comics**,
 **ReadComicOnline**, **AllManga**, **MangaGeko**, **Batcave**,
 **MangaHere**, **AsuraScans**, **ComicK Fanmade**, **VyvyManga**,
@@ -156,7 +157,7 @@ adult/NSFW content (232 Mature, 190 Everyone).
 | ComicLand | 1.4.1.1 | Mature |
 | Comics Land | 1.4.32.1 | Mature |
 | Comivex | 1.4.3.1 | Everyone |
-| Comix | 1.4.31.2 | Mature |
+| Comix | 1.4.31.3 | Mature |
 | Coolmic | 1.4.1.2 | Mature |
 | Crow Scans | 1.4.32.1 | Everyone |
 | Cucumber Manga | 1.4.51.2 | Mature |
@@ -242,7 +243,7 @@ adult/NSFW content (232 Mature, 190 Everyone).
 | IsekaiScan.top (unoriginal) | 1.4.52.2 | Mature |
 | J-Novel | 1.4.4.1 | Everyone |
 | Jinmangas | 1.4.51.2 | Mature |
-| K Manga | 1.4.5.2 | Everyone |
+| K Manga | 1.4.5.3 | Everyone |
 | Kaizen Scan | 1.4.20.1 | Mature |
 | KaliScan | 1.4.25.1 | Mature |
 | Kappa Beast | 1.4.33.1 | Mature |
@@ -305,7 +306,7 @@ adult/NSFW content (232 Mature, 190 Everyone).
 | Mangafree | 1.4.51.2 | Mature |
 | MangaGeko | 1.4.32.1 | Mature |
 | MangaGG | 1.4.54.2 | Mature |
-| Mangago | 1.4.34.1 | Mature |
+| Mangago | 1.4.34.2 | Mature |
 | MangaGo.fun | 1.4.51.2 | Everyone |
 | MangaHe | 1.4.51.2 | Mature |
 | Mangahere | 1.4.23.1 | Mature |
@@ -498,7 +499,7 @@ adult/NSFW content (232 Mature, 190 Everyone).
 | Vanilla Scans | 1.4.23.1 | Everyone |
 | vgperson | 1.4.7.1 | Everyone |
 | Violet Scans | 1.4.35.1 | Everyone |
-| VIZ | 1.4.25.2 | Everyone |
+| VIZ | 1.4.25.3 | Everyone |
 | Vortex Scans | 1.4.61.1 | Everyone |
 | Voyce.Me | 1.4.6.1 | Everyone |
 | VyvyManga | 1.4.40.1 | Mature |
