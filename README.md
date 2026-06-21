@@ -97,12 +97,13 @@ in-app webview), **WeebCentral**, **MangaPill**, **MangaFreak**,
 **Oppai Stream**, **Comivex**, **MangaCloud**, **MangaBTT**,
 **NineAnime**, **DFlowScans**, **Honkai Impact 3rd**, **New Manhwa**,
 **Manhwalike**, **ScansGG**, **HeyToon**, **Kappa Beast**, **AsiaToon**,
-**StoneScape** and **Manga Mirai**.
+**StoneScape**, **Manga Mirai**, **Alandal**, **Swords Comic**,
+**Mangadotnet**, **XoManga** and **One Punch Man Online**.
 
 ## Available Sources
 
-**287** sources are currently published. Sources marked **Mature** contain
-adult/NSFW content (162 Mature, 125 Everyone).
+**292** sources are currently published. Sources marked **Mature** contain
+adult/NSFW content (164 Mature, 128 Everyone).
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -110,6 +111,7 @@ adult/NSFW content (162 Mature, 125 Everyone).
 | 1Manga.co | 1.4.35.4 | Mature |
 | 24HNovel | 1.4.52.1 | Mature |
 | 8Muses | 1.4.2.1 | Mature |
+| Alandal | 1.4.2.1 | Everyone |
 | AllManga | 1.4.19.1 | Mature |
 | AllPornComic | 1.4.53.1 | Mature |
 | AllPornComic.io | 1.4.51.1 | Mature |
@@ -230,6 +232,7 @@ adult/NSFW content (162 Mature, 125 Everyone).
 | MangaBTT | 1.4.5.1 | Mature |
 | MangaCloud | 1.4.7.1 | Everyone |
 | MangaDia | 1.4.51.1 | Everyone |
+| Mangadotnet | 1.4.11.1 | Mature |
 | Mangaforfree.com | 1.4.53.1 | Mature |
 | MangaFox.fun | 1.4.35.4 | Mature |
 | Mangafreak | 1.4.13.1 | Mature |
@@ -307,6 +310,7 @@ adult/NSFW content (162 Mature, 125 Everyone).
 | Nyx Scans | 1.4.26.1 | Everyone |
 | OctopusManga | 1.4.51.1 | Mature |
 | Omega Scans | 1.4.50.1 | Mature |
+| One Punch Man Online | 1.4.2.1 | Everyone |
 | OneManga.info | 1.4.35.4 | Mature |
 | Oppai Stream | 1.4.5.1 | Mature |
 | Orchisasia | 1.4.51.1 | Mature |
@@ -358,6 +362,7 @@ adult/NSFW content (162 Mature, 125 Everyone).
 | Sleepy Translations | 1.4.52.1 | Everyone |
 | Spmanhwa | 1.4.51.1 | Everyone |
 | StoneScape | 1.4.49.1 | Everyone |
+| Swords Comic | 1.4.5.1 | Everyone |
 | TCB Scans | 1.4.12.1 | Everyone |
 | TCB Scans (Unoriginal) | 1.4.32.1 | Everyone |
 | Temple Scan | 1.4.49.1 | Mature |
@@ -385,6 +390,7 @@ adult/NSFW content (162 Mature, 125 Everyone).
 | WoopRead | 1.4.52.1 | Everyone |
 | Writer Scans | 1.4.20.1 | Everyone |
 | WuxiaWorld | 1.4.52.1 | Everyone |
+| XoManga | 1.4.1.1 | Mature |
 | YakshaComics | 1.4.53.1 | Everyone |
 | Yaoihub | 1.4.53.1 | Mature |
 | YaoiScan | 1.4.51.1 | Mature |
@@ -459,8 +465,9 @@ Sources that aren't built on a shared framework (currently **LikeManga**,
 **MangaBolt**, **Manhwa18**, **Oppai Stream**, **Comivex**,
 **MangaCloud**, **MangaBTT**, **NineAnime**, **DFlowScans**,
 **Honkai Impact 3rd**, **New Manhwa**, **Manhwalike**, **ScansGG**,
-**HeyToon**, **Kappa Beast**, **AsiaToon**, **StoneScape** and
-**Manga Mirai**) have a
+**HeyToon**, **Kappa Beast**, **AsiaToon**, **StoneScape**,
+**Manga Mirai**, **Alandal**, **Swords Comic**, **Mangadotnet**,
+**XoManga** and **One Punch Man Online**) have a
 fully self-contained `main.ts` that implements the Paperback interfaces
 directly.
 
@@ -524,7 +531,8 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   ComicK Fanmade, VyvyManga, Temple Scan, ReadAllComics, MangaBolt, Manhwa18,
   Oppai Stream, Comivex, MangaCloud, MangaBTT, NineAnime, DFlowScans,
   Honkai Impact 3rd, New Manhwa, Manhwalike, ScansGG, HeyToon, Kappa Beast,
-  AsiaToon, StoneScape, Manga Mirai).
+  AsiaToon, StoneScape, Manga Mirai, Alandal, Swords Comic, Mangadotnet,
+  XoManga, One Punch Man Online).
 - These extensions are **not affiliated** with the source websites. They only
   scrape publicly available pages.
 
