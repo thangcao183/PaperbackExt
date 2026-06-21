@@ -91,13 +91,14 @@ Plus several standalone sources (not built on a shared framework):
 **LikeManga**, **Mangago** (AES-decrypted + grid-descrambled images via an
 in-app webview), **WeebCentral**, **MangaPill**, **MangaFreak**,
 **MangaKatana**, **Manga Demon**, **TCB Scans**, **Flame Comics**,
-**ReadComicOnline**, **AllManga**, **MangaGeko**, **Batcave** and
-**MangaHere**.
+**ReadComicOnline**, **AllManga**, **MangaGeko**, **Batcave**,
+**MangaHere**, **AsuraScans**, **ComicK Fanmade**, **VyvyManga** and
+**Temple Scan**.
 
 ## Available Sources
 
-**265** sources are currently published. Sources marked **Mature** contain
-adult/NSFW content (149 Mature, 116 Everyone).
+**269** sources are currently published. Sources marked **Mature** contain
+adult/NSFW content (152 Mature, 117 Everyone).
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -118,6 +119,7 @@ adult/NSFW content (149 Mature, 116 Everyone).
 | Arya Scans | 1.4.52.1 | Everyone |
 | Asmodeus Scans | 1.4.22.1 | Everyone |
 | Assorted Scans | 1.4.17.1 | Everyone |
+| Asura Scans | 1.4.62.1 | Everyone |
 | Athrea Scans | 1.4.33.1 | Mature |
 | Bakkin | 1.4.7.1 | Everyone |
 | Bakkin Self-hosted | 1.4.7.1 | Everyone |
@@ -129,6 +131,7 @@ adult/NSFW content (149 Mature, 116 Everyone).
 | Cocomic | 1.4.53.1 | Mature |
 | Coffee Manga | 1.4.56.1 | Mature |
 | Comic Asura | 1.4.34.1 | Mature |
+| ComicK Fanmade | 1.4.2.1 | Mature |
 | Comics Land | 1.4.32.1 | Mature |
 | Crow Scans | 1.4.32.1 | Everyone |
 | Cucumber Manga | 1.4.51.1 | Mature |
@@ -335,6 +338,7 @@ adult/NSFW content (149 Mature, 116 Everyone).
 | Spmanhwa | 1.4.51.1 | Everyone |
 | TCB Scans | 1.4.12.1 | Everyone |
 | TCB Scans (Unoriginal) | 1.4.32.1 | Everyone |
+| Temple Scan | 1.4.49.1 | Mature |
 | TimelessToons | 1.4.20.1 | Everyone |
 | Toon18 | 1.4.51.1 | Mature |
 | ToonGod | 1.4.56.1 | Mature |
@@ -349,6 +353,7 @@ adult/NSFW content (149 Mature, 116 Everyone).
 | Utoon | 1.4.55.1 | Everyone |
 | Vanilla Scans | 1.4.23.1 | Everyone |
 | Violet Scans | 1.4.35.1 | Everyone |
+| VyvyManga | 1.4.40.1 | Mature |
 | VyvyManga.org | 1.4.51.1 | Mature |
 | WebtoonScan | 1.4.51.1 | Mature |
 | WebtoonXYZ | 1.4.55.1 | Mature |
@@ -426,7 +431,9 @@ form, and the Cloudflare challenge interceptor.
 
 Sources that aren't built on a shared framework (currently **LikeManga**,
 **Mangago**, **WeebCentral**, **MangaPill**, **MangaFreak**, **MangaKatana**,
-**Manga Demon**, **TCB Scans** and **Flame Comics**) have a
+**Manga Demon**, **TCB Scans**, **Flame Comics**, **ReadComicOnline**,
+**AllManga**, **MangaGeko**, **Batcave**, **MangaHere**, **AsuraScans**,
+**ComicK Fanmade**, **VyvyManga** and **Temple Scan**) have a
 fully self-contained `main.ts` that implements the Paperback interfaces
 directly.
 
@@ -486,7 +493,8 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   not yet ported — sources built on a shared theme framework are all included,
   plus a growing set of standalone sources (LikeManga, Mangago, WeebCentral,
   MangaPill, MangaFreak, MangaKatana, Manga Demon, TCB Scans, Flame Comics,
-  ReadComicOnline, AllManga, MangaGeko, Batcave, MangaHere).
+  ReadComicOnline, AllManga, MangaGeko, Batcave, MangaHere, AsuraScans,
+  ComicK Fanmade, VyvyManga, Temple Scan).
 - These extensions are **not affiliated** with the source websites. They only
   scrape publicly available pages.
 
