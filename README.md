@@ -92,13 +92,14 @@ Plus several standalone sources (not built on a shared framework):
 in-app webview), **WeebCentral**, **MangaPill**, **MangaFreak**,
 **MangaKatana**, **Manga Demon**, **TCB Scans**, **Flame Comics**,
 **ReadComicOnline**, **AllManga**, **MangaGeko**, **Batcave**,
-**MangaHere**, **AsuraScans**, **ComicK Fanmade**, **VyvyManga** and
-**Temple Scan**.
+**MangaHere**, **AsuraScans**, **ComicK Fanmade**, **VyvyManga**,
+**Temple Scan**, **ReadAllComics**, **MangaBolt**, **Manhwa18**,
+**Oppai Stream** and **Comivex**.
 
 ## Available Sources
 
-**269** sources are currently published. Sources marked **Mature** contain
-adult/NSFW content (152 Mature, 117 Everyone).
+**274** sources are currently published. Sources marked **Mature** contain
+adult/NSFW content (154 Mature, 120 Everyone).
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -133,6 +134,7 @@ adult/NSFW content (152 Mature, 117 Everyone).
 | Comic Asura | 1.4.34.1 | Mature |
 | ComicK Fanmade | 1.4.2.1 | Mature |
 | Comics Land | 1.4.32.1 | Mature |
+| Comivex | 1.4.3.1 | Everyone |
 | Crow Scans | 1.4.32.1 | Everyone |
 | Cucumber Manga | 1.4.51.1 | Mature |
 | CulturedWorks | 1.4.33.1 | Mature |
@@ -215,6 +217,7 @@ adult/NSFW content (152 Mature, 117 Everyone).
 | Manga18fx | 1.4.56.1 | Mature |
 | Mangabat | 1.4.20.1 | Mature |
 | MangaBlaze | 1.4.51.1 | Everyone |
+| MangaBolt | 1.4.1.1 | Everyone |
 | MangaDia | 1.4.51.1 | Everyone |
 | Mangaforfree.com | 1.4.53.1 | Mature |
 | MangaFox.fun | 1.4.35.4 | Mature |
@@ -261,6 +264,7 @@ adult/NSFW content (152 Mature, 117 Everyone).
 | Manhwa Comics | 1.4.51.1 | Mature |
 | Manhwa Reads | 1.4.51.1 | Mature |
 | Manhwa Toon | 1.4.52.1 | Mature |
+| Manhwa18 | 1.4.13.1 | Mature |
 | Manhwa18.org | 1.4.53.1 | Mature |
 | Manhwa68 | 1.4.54.1 | Mature |
 | ManhwaDen | 1.4.51.1 | Mature |
@@ -290,6 +294,7 @@ adult/NSFW content (152 Mature, 117 Everyone).
 | OctopusManga | 1.4.51.1 | Mature |
 | Omega Scans | 1.4.50.1 | Mature |
 | OneManga.info | 1.4.35.4 | Mature |
+| Oppai Stream | 1.4.5.1 | Mature |
 | Orchisasia | 1.4.51.1 | Mature |
 | Orion Scans | 1.4.23.1 | Everyone |
 | Paradise Scans | 1.4.20.1 | Mature |
@@ -317,6 +322,7 @@ adult/NSFW content (152 Mature, 117 Everyone).
 | Read One-Punch Man Manga Online | 1.4.8.1 | Everyone |
 | Read Solo Leveling Manga Manhwa Online | 1.4.10.1 | Everyone |
 | Read Tokyo Ghoul Re & Tokyo Ghoul Manga Online | 1.4.11.1 | Everyone |
+| ReadAllComics | 1.4.8.1 | Everyone |
 | ReadComicOnline | 1.4.43.1 | Everyone |
 | Renascans | 1.4.23.1 | Everyone |
 | Reset Scans | 1.4.65.1 | Everyone |
@@ -433,7 +439,8 @@ Sources that aren't built on a shared framework (currently **LikeManga**,
 **Mangago**, **WeebCentral**, **MangaPill**, **MangaFreak**, **MangaKatana**,
 **Manga Demon**, **TCB Scans**, **Flame Comics**, **ReadComicOnline**,
 **AllManga**, **MangaGeko**, **Batcave**, **MangaHere**, **AsuraScans**,
-**ComicK Fanmade**, **VyvyManga** and **Temple Scan**) have a
+**ComicK Fanmade**, **VyvyManga**, **Temple Scan**, **ReadAllComics**,
+**MangaBolt**, **Manhwa18**, **Oppai Stream** and **Comivex**) have a
 fully self-contained `main.ts` that implements the Paperback interfaces
 directly.
 
@@ -494,7 +501,8 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   plus a growing set of standalone sources (LikeManga, Mangago, WeebCentral,
   MangaPill, MangaFreak, MangaKatana, Manga Demon, TCB Scans, Flame Comics,
   ReadComicOnline, AllManga, MangaGeko, Batcave, MangaHere, AsuraScans,
-  ComicK Fanmade, VyvyManga, Temple Scan).
+  ComicK Fanmade, VyvyManga, Temple Scan, ReadAllComics, MangaBolt, Manhwa18,
+  Oppai Stream, Comivex).
 - These extensions are **not affiliated** with the source websites. They only
   scrape publicly available pages.
 
