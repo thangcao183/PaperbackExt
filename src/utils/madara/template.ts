@@ -31,7 +31,7 @@ import {
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import { CheerioAPI, Cheerio } from "cheerio";
-import type { Element } from "domhandler";
+import type { AnyNode } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../url-builder/base";
 import { MadaraSearchForm, MadaraSearchMeta } from "./forms";
@@ -44,6 +44,37 @@ export interface MadaraConfig {
   useNewChapterEndpoint?: boolean;
   contentRating?: ContentRating;
   langCode?: string;
+
+  // --- Optional per-source overrides (mirror the upstream keiyoushi Madara
+  // subclass overrides). All default to the framework's standard behavior, so
+  // omitting them keeps a source identical to a plain Madara site. ---
+
+  /** Upstream `useLoadMoreRequest = LoadMoreStrategy.Always`: browse popular /
+   * latest through the `madara_load_more` admin-ajax endpoint instead of
+   * page-navigation. */
+  useLoadMoreRequest?: boolean;
+  /** Upstream `filterNonMangaItems` (default true): restrict listings to
+   * `_wp_manga_chapter_type = manga` in the load-more query. */
+  filterNonMangaItems?: boolean;
+  /** Upstream `supportsLatest = false`: hide the "Latest Updates" section. */
+  supportsLatest?: boolean;
+  /** Anchor selector for popular list items (upstream `popularMangaUrlSelector`). */
+  popularMangaUrlSelector?: string;
+  /** Anchor selector for search list items (upstream `searchMangaUrlSelector`). */
+  searchMangaUrlSelector?: string;
+  /** Chapter `<li>` selector (upstream `chapterListSelector`). */
+  chapterListSelector?: string;
+  /** Suffix appended to a chapter URL. Default `?style=list`; set `""` to drop. */
+  chapterUrlSuffix?: string;
+  /** Page-image container selector (upstream `pageListParseSelector`). */
+  pageListSelector?: string;
+  /** Manga-details selector overrides (upstream `mangaDetailsSelector*`). */
+  mangaDetailsTitleSelector?: string;
+  mangaDetailsStatusSelector?: string;
+  mangaDetailsDescriptionSelector?: string;
+  mangaDetailsThumbnailSelector?: string;
+  mangaDetailsAuthorSelector?: string;
+  mangaDetailsArtistSelector?: string;
 }
 
 interface MadaraMetadata {
@@ -115,6 +146,21 @@ export class MadaraExtension implements MadaraImplementation {
   readonly contentRating: ContentRating;
   readonly langCode: string;
 
+  readonly useLoadMoreRequest: boolean;
+  readonly filterNonMangaItems: boolean;
+  readonly supportsLatest: boolean;
+  readonly popularMangaUrlSelector: string;
+  readonly searchMangaUrlSelector: string;
+  readonly chapterListSelector: string;
+  readonly chapterUrlSuffix: string;
+  readonly pageListSelector: string;
+  readonly mangaDetailsTitleSelector: string;
+  readonly mangaDetailsStatusSelector?: string;
+  readonly mangaDetailsDescriptionSelector?: string;
+  readonly mangaDetailsThumbnailSelector?: string;
+  readonly mangaDetailsAuthorSelector?: string;
+  readonly mangaDetailsArtistSelector?: string;
+
   /**
    * Effective base URL: a user-configured override (set via the settings
    * form) takes precedence over the bundled default. This lets users follow
@@ -141,6 +187,29 @@ export class MadaraExtension implements MadaraImplementation {
     this.useNewChapterEndpoint = config.useNewChapterEndpoint ?? false;
     this.contentRating = config.contentRating ?? ContentRating.EVERYONE;
     this.langCode = config.langCode ?? "🇬🇧";
+
+    this.useLoadMoreRequest = config.useLoadMoreRequest ?? false;
+    this.filterNonMangaItems = config.filterNonMangaItems ?? true;
+    this.supportsLatest = config.supportsLatest ?? true;
+    this.popularMangaUrlSelector =
+      config.popularMangaUrlSelector ?? "div.post-title a";
+    this.searchMangaUrlSelector =
+      config.searchMangaUrlSelector ?? "div.post-title a";
+    this.chapterListSelector = config.chapterListSelector ?? "li.wp-manga-chapter";
+    this.chapterUrlSuffix = config.chapterUrlSuffix ?? "?style=list";
+    this.pageListSelector =
+      config.pageListSelector ??
+      "div.page-break, li.blocks-gallery-item, .reading-content .text-left:not(:has(.blocks-gallery-item)) img";
+    this.mangaDetailsTitleSelector =
+      config.mangaDetailsTitleSelector ??
+      "div.post-title h3, div.post-title h1, #manga-title > h1";
+    this.mangaDetailsStatusSelector = config.mangaDetailsStatusSelector;
+    this.mangaDetailsDescriptionSelector =
+      config.mangaDetailsDescriptionSelector;
+    this.mangaDetailsThumbnailSelector = config.mangaDetailsThumbnailSelector;
+    this.mangaDetailsAuthorSelector = config.mangaDetailsAuthorSelector;
+    this.mangaDetailsArtistSelector = config.mangaDetailsArtistSelector;
+
     this.requestManager = new MadaraInterceptor("main", () => this.baseUrl);
   }
 
@@ -159,18 +228,21 @@ export class MadaraExtension implements MadaraImplementation {
   // ----------------------------------------------------------------
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
-    return [
+    const sections: DiscoverSection[] = [
       {
         id: "popular_section",
         title: "Popular",
         type: DiscoverSectionType.featured,
       },
-      {
+    ];
+    if (this.supportsLatest) {
+      sections.push({
         id: "latest_section",
         title: "Latest Updates",
         type: DiscoverSectionType.simpleCarousel,
-      },
-    ];
+      });
+    }
+    return sections;
   }
 
   async getAdvancedSearchForm(
@@ -205,19 +277,35 @@ export class MadaraExtension implements MadaraImplementation {
     const page = metadata?.page ?? 1;
     const collectedIds = metadata?.collectedIds ?? [];
 
-    const builder = new URLBuilder(this.baseUrl).addPath(this.mangaSubString);
-    if (page > 1) {
-      builder.addPath("page").addPath(page.toString());
+    let $: CheerioAPI;
+    if (this.useLoadMoreRequest) {
+      // Sites with LoadMoreStrategy.Always serve listings only through the
+      // madara_load_more admin-ajax endpoint (page is 0-indexed).
+      $ = await this.fetchCheerio({
+        url: `${this.baseUrl}/wp-admin/admin-ajax.php`,
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "x-requested-with": "XMLHttpRequest",
+          referer: `${this.baseUrl}/`,
+        },
+        body: this.loadMoreBody(page, orderBy === "views"),
+      });
+    } else {
+      const builder = new URLBuilder(this.baseUrl).addPath(this.mangaSubString);
+      if (page > 1) {
+        builder.addPath("page").addPath(page.toString());
+      }
+      const url = builder.addQuery("m_orderby", orderBy).build();
+      $ = await this.fetchCheerio({ url, method: "GET" });
     }
-    const url = builder.addQuery("m_orderby", orderBy).build();
 
-    const $ = await this.fetchCheerio({ url, method: "GET" });
     const items: DiscoverSectionItem[] = [];
 
     $("div.page-item-detail, .manga__item").each((_, element) => {
       const unit = $(element);
-      const titleLink = unit.find("div.post-title a").first();
-      const title = titleLink.text().trim();
+      const titleLink = unit.find(this.popularMangaUrlSelector).first();
+      const title = titleLink.text().trim() || titleLink.attr("title") || "";
       const href = titleLink.attr("href") || "";
       const mangaId = this.parseMangaId(href);
       const image = this.imageFromElement(unit.find("img").first());
@@ -234,13 +322,43 @@ export class MadaraExtension implements MadaraImplementation {
       }
     });
 
-    const hasNextPage =
-      $("div.nav-previous, nav.navigation-ajax, a.nextpostslink").length > 0;
+    // With load-more, an empty fragment means no more pages.
+    const hasNextPage = this.useLoadMoreRequest
+      ? items.length > 0
+      : $("div.nav-previous, nav.navigation-ajax, a.nextpostslink").length > 0;
 
     return {
       items,
       metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
     };
+  }
+
+  /** Build the `madara_load_more` admin-ajax form body (mirrors upstream). */
+  private loadMoreBody(page: number, popular: boolean): string {
+    const params: [string, string][] = [
+      ["action", "madara_load_more"],
+      ["page", (page - 1).toString()],
+      ["template", "madara-core/content/content-archive"],
+      ["vars[orderby]", "meta_value_num"],
+      ["vars[paged]", "1"],
+    ];
+    if (this.filterNonMangaItems) {
+      params.push(["vars[meta_query][0][key]", "_wp_manga_chapter_type"]);
+      params.push(["vars[meta_query][0][value]", "manga"]);
+    }
+    params.push(
+      ["vars[post_type]", "wp-manga"],
+      ["vars[post_status]", "publish"],
+      ["vars[meta_key]", popular ? "_wp_manga_views" : "_latest_update"],
+      ["vars[order]", "desc"],
+      ["vars[sidebar]", "right"],
+      ["vars[manga_archives_item_layout]", "big_thumbnail"],
+    );
+    return params
+      .map(
+        ([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`,
+      )
+      .join("&");
   }
 
   // ----------------------------------------------------------------
@@ -366,8 +484,8 @@ export class MadaraExtension implements MadaraImplementation {
 
     $(itemSelector).each((_, element) => {
       const unit = $(element);
-      const titleLink = unit.find("div.post-title a").first();
-      const title = titleLink.text().trim();
+      const titleLink = unit.find(this.searchMangaUrlSelector).first();
+      const title = titleLink.text().trim() || titleLink.attr("title") || "";
       const href = titleLink.attr("href") || "";
       const mangaId = this.parseMangaId(href);
       const image = this.imageFromElement(unit.find("img").first());
@@ -410,10 +528,7 @@ export class MadaraExtension implements MadaraImplementation {
       .build();
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
-    const title = $("div.post-title h3, div.post-title h1, #manga-title > h1")
-      .first()
-      .text()
-      .trim();
+    const title = $(this.mangaDetailsTitleSelector).first().text().trim();
 
     const altTitles: string[] = [];
     $("div.post-content_item:contains(Alternative) div.summary-content")
@@ -425,36 +540,49 @@ export class MadaraExtension implements MadaraImplementation {
         if (trimmed) altTitles.push(trimmed);
       });
 
-    const image = this.imageFromElement($("div.summary_image img").first());
+    const image = this.imageFromElement(
+      $(this.mangaDetailsThumbnailSelector ?? "div.summary_image img").first(),
+    );
 
     const description = $(
-      "div.description-summary div.summary__content, div.summary_content div.post-content_item > h5 + div, div.summary_content div.manga-excerpt",
+      this.mangaDetailsDescriptionSelector ??
+        "div.description-summary div.summary__content, div.summary_content div.post-content_item > h5 + div, div.summary_content div.manga-excerpt",
     )
       .first()
       .text()
       .trim();
 
     const authors: string[] = [];
-    $("div.author-content > a, div.manga-authors > a").each((_, el) => {
+    $(
+      this.mangaDetailsAuthorSelector ??
+        "div.author-content > a, div.manga-authors > a",
+    ).each((_, el) => {
       const a = $(el).text().trim();
       if (a) authors.push(a);
     });
 
     const artists: string[] = [];
-    $("div.artist-content > a").each((_, el) => {
-      const a = $(el).text().trim();
-      if (a) artists.push(a);
-    });
-
-    let status = "Unknown";
-    $("div.post-content_item, div.post-status div.summary-content").each(
+    $(this.mangaDetailsArtistSelector ?? "div.artist-content > a").each(
       (_, el) => {
-        const block = $(el);
-        if (block.find("div.summary-heading").text().includes("Status")) {
-          status = block.find("div.summary-content").text().trim() || status;
-        }
+        const a = $(el).text().trim();
+        if (a) artists.push(a);
       },
     );
+
+    let status = "Unknown";
+    if (this.mangaDetailsStatusSelector) {
+      status =
+        $(this.mangaDetailsStatusSelector).first().text().trim() || status;
+    } else {
+      $("div.post-content_item, div.post-status div.summary-content").each(
+        (_, el) => {
+          const block = $(el);
+          if (block.find("div.summary-heading").text().includes("Status")) {
+            status = block.find("div.summary-content").text().trim() || status;
+          }
+        },
+      );
+    }
 
     const genres: string[] = [];
     $("div.genres-content a").each((_, el) => {
@@ -530,7 +658,7 @@ export class MadaraExtension implements MadaraImplementation {
       .build();
 
     let $ = await this.fetchCheerio({ url: mangaUrl, method: "GET" });
-    let chapterElements = $("li.wp-manga-chapter");
+    let chapterElements = $(this.chapterListSelector);
 
     // Madara frequently loads chapters via AJAX. Fall back to the
     // modern endpoint: POST {mangaUrl}/ajax/chapters
@@ -545,9 +673,9 @@ export class MadaraExtension implements MadaraImplementation {
             "x-requested-with": "XMLHttpRequest",
           },
         });
-        if (ajax("li.wp-manga-chapter").length > 0) {
+        if (ajax(this.chapterListSelector).length > 0) {
           $ = ajax;
-          chapterElements = ajax("li.wp-manga-chapter");
+          chapterElements = ajax(this.chapterListSelector);
         }
       } catch {
         // ignore, fall through with whatever we have
@@ -592,19 +720,23 @@ export class MadaraExtension implements MadaraImplementation {
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const url = new URLBuilder(this.baseUrl)
+    const builder = new URLBuilder(this.baseUrl)
       .addPath(this.mangaSubString)
       .addPath(chapter.sourceManga.mangaId)
-      .addPath(chapter.chapterId)
-      .addQuery("style", "list")
-      .build();
+      .addPath(chapter.chapterId);
+    // Default suffix `?style=list`; a source may override or disable it.
+    if (this.chapterUrlSuffix === "?style=list") {
+      builder.addQuery("style", "list");
+    }
+    let url = builder.build();
+    if (this.chapterUrlSuffix && this.chapterUrlSuffix !== "?style=list") {
+      url += this.chapterUrlSuffix;
+    }
 
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const pages: string[] = [];
 
-    $(
-      "div.page-break, li.blocks-gallery-item, .reading-content .text-left:not(:has(.blocks-gallery-item)) img",
-    ).each((_, element) => {
+    $(this.pageListSelector).each((_, element) => {
       const el = $(element);
       const img = el.is("img") ? el : el.find("img").first();
       const image = this.imageFromElement(img);
@@ -674,7 +806,7 @@ export class MadaraExtension implements MadaraImplementation {
     }
   }
 
-  private imageFromElement(img: Cheerio<Element>): string {
+  private imageFromElement(img: Cheerio<AnyNode>): string {
     if (!img || img.length === 0) return "";
     let src = img.attr("data-src") || img.attr("data-lazy-src") || "";
 
