@@ -41,6 +41,94 @@ const ENC_INCREMENT = 1234567891;
 const LCG_MULTIPLIER = 1664525;
 const LCG_INCREMENT = 1013904223;
 
+// ---------------------------------------------------------------------------
+// WebView capture bootstraps.
+//
+// comix.to is a JS SPA whose browse/search/chapter/page lists arrive via SIGNED
+// XHRs whose bodies are encrypted ({e:"blob"}); the site's own bundle decrypts
+// them and calls JSON.parse on the plaintext. A static HTTP fetch therefore has
+// NO list data. We load the page in a WebView and Proxy JSON.parse to capture
+// that decrypted plaintext — so we never reimplement the rotating signer or the
+// decryption. (Technique mirrors the inkdex Paperback extension.)
+// ---------------------------------------------------------------------------
+
+// Browse / search: resolve with the raw JSON string of the first decrypted
+// `{result:{items:[{hid,...}],meta}}` payload.
+const BROWSE_BOOTSTRAP = `
+(function(){
+  var doneResolve, done=false;
+  window.__comixResult__ = new Promise(function(r){ doneResolve = r; });
+  function finish(v){ if(done) return; done=true; doneResolve(v); }
+  var orig = JSON.parse;
+  JSON.parse = new Proxy(orig, { apply: function(t,a,args){
+    var parsed = Reflect.apply(t,a,args);
+    try {
+      var r = parsed && parsed.result;
+      if (r && Array.isArray(r.items) && r.items.length>0 && r.items[0] && r.items[0].hid !== undefined) {
+        finish(args[0]);
+      }
+    } catch(e){}
+    return parsed;
+  }});
+  setTimeout(function(){ finish(""); }, 20000);
+})();
+`;
+
+// Chapter list: accumulate items across pages (click Next until lastPage),
+// resolve with the accumulated array.
+const CHAPTERS_BOOTSTRAP = `
+(function(){
+  var items=[], seen=new Set(), totalPages=null, submitted=false, doneResolve;
+  window.__comixResult__ = new Promise(function(r){ doneResolve = r; });
+  function submit(){ if(submitted) return; submitted=true; doneResolve(items); }
+  var idleTimer;
+  function armIdle(){ if(idleTimer) clearTimeout(idleTimer); idleTimer=setTimeout(submit, 20000); }
+  armIdle();
+  function gotoNext(){
+    var tries=0;
+    var iv=setInterval(function(){
+      var btn=document.querySelector(".mchap-foot button[aria-label*=Next]");
+      if(btn && !btn.disabled){ btn.click(); clearInterval(iv); }
+      else if(++tries>50){ clearInterval(iv); submit(); }
+    },100);
+  }
+  var orig=JSON.parse;
+  JSON.parse=new Proxy(orig,{ apply:function(t,a,args){
+    var parsed=Reflect.apply(t,a,args);
+    try {
+      if(!submitted && parsed && parsed.result && Array.isArray(parsed.result.items) &&
+         parsed.result.items[0] && parsed.result.items[0].id !== undefined &&
+         parsed.result.items[0].mangaId !== undefined){
+        var meta=parsed.result.meta || parsed.result.pagination;
+        var page=(meta && meta.page) || 1;
+        if(!seen.has(page)){
+          seen.add(page);
+          for(var i=0;i<parsed.result.items.length;i++) items.push(parsed.result.items[i]);
+          if(totalPages===null && meta && typeof meta.lastPage==="number") totalPages=meta.lastPage;
+          if(totalPages!==null && page<totalPages){ armIdle(); gotoNext(); } else submit();
+        }
+      }
+    } catch(e){}
+    return parsed;
+  }});
+})();
+`;
+
+// Page list: resolve with the raw JSON string of the `{result:{pages:{...}}}`.
+const PAGES_BOOTSTRAP = `
+(function(){
+  var doneResolve;
+  window.__comixResult__ = new Promise(function(r){ doneResolve = r; });
+  var orig=JSON.parse;
+  JSON.parse=new Proxy(orig,{ apply:function(t,a,args){
+    var parsed=Reflect.apply(t,a,args);
+    try { if(parsed && parsed.result && parsed.result.pages) doneResolve(args[0]); } catch(e){}
+    return parsed;
+  }});
+  setTimeout(function(){ doneResolve(""); }, 20000);
+})();
+`;
+
 interface ComixMetadata {
   page?: number;
 }
@@ -219,10 +307,11 @@ export class ComixExtension implements ComixImplementation {
     const meta = metadata as ComixMetadata | undefined;
     const page = meta?.page ?? 1;
 
+    const rating = "content_rating=safe,suggestive,erotica,pornographic";
     const url =
       section.id === "popular"
-        ? `${BASE_URL}/browse?order%5Bscore%5D=desc&content_rating=safe,suggestive,erotica,pornographic&page=${page}`
-        : `${BASE_URL}/browse?order%5Bchapter_updated_at%5D=desc&content_rating=safe,suggestive,erotica,pornographic&page=${page}`;
+        ? `${BASE_URL}/browse?order%5Bviews_30d%5D=desc&${rating}&page=${page}`
+        : `${BASE_URL}/browse?order%5Bchapter_updated_at%5D=desc&${rating}&page=${page}`;
 
     const { mangas, hasNextPage } = await this.fetchBrowse(url);
 
@@ -273,10 +362,9 @@ export class ComixExtension implements ComixImplementation {
     const params: string[] = [];
     params.push("content_rating=safe,suggestive,erotica,pornographic");
     if (titleQuery) {
-      params.push(`q=${encodeURIComponent(titleQuery)}`);
-      params.push("sort=relevance:desc");
+      params.push(`keyword=${encodeURIComponent(titleQuery)}`);
     } else {
-      params.push("order%5Bscore%5D=desc");
+      params.push("order%5Bviews_30d%5D=desc");
     }
     params.push(`page=${page}`);
 
@@ -396,11 +484,9 @@ export class ComixExtension implements ComixImplementation {
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const mangaSlug = this.safeDecode(sourceManga.mangaId).replace(/^\/+/, "");
-    const url = this.mangaUrl(sourceManga.mangaId);
-    const $ = await this.fetchCheerio({ url, method: "GET" });
-
-    const root = this.extractInitialData($);
-    const rawChapters = root ? this.findChapterItems(root) : [];
+    const rawChapters = await this.captureChapters(
+      this.mangaUrl(sourceManga.mangaId),
+    );
 
     const chapters: Chapter[] = [];
     const seen = new Set<string>();
@@ -433,11 +519,7 @@ export class ComixExtension implements ComixImplementation {
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const url = this.chapterUrl(chapter.chapterId);
-    const $ = await this.fetchCheerio({ url, method: "GET" });
-
-    const root = this.extractInitialData($);
-    const result = root ? this.findPages(root) : undefined;
+    const result = await this.capturePages(this.chapterUrl(chapter.chapterId));
 
     const pages: string[] = [];
     if (result) {
@@ -488,16 +570,83 @@ export class ComixExtension implements ComixImplementation {
   }
 
   // ----------------------------------------------------------------
-  // Browse helper (parses the embedded initial-data JSON)
+  // WebView capture (browse/search/chapters/pages arrive via signed,
+  // encrypted XHRs — load the page and proxy JSON.parse to grab the
+  // decrypted plaintext; see the *_BOOTSTRAP scripts above).
+  // ----------------------------------------------------------------
+
+  private async runProxiedWebView(
+    pageUrl: string,
+    bootstrap: string,
+  ): Promise<unknown> {
+    const cookies = this.cookieStorageInterceptor.cookiesForUrl(`${BASE_URL}/`);
+    const userAgent = await Application.getDefaultUserAgent();
+    const [, buffer] = await Application.scheduleRequest({
+      url: pageUrl,
+      method: "GET",
+    });
+    const $ = cheerio.load(Application.arrayBufferToUTF8String(buffer));
+    $("head").prepend(`<script>${bootstrap}</script>`);
+    const raw = await Application.executeInWebView({
+      source: {
+        html: $.html(),
+        baseUrl: pageUrl,
+        loadCSS: false,
+        loadImages: false,
+        userAgent,
+      },
+      inject: `return window.__comixResult__`,
+      storage: { cookies },
+    });
+    return raw.result;
+  }
+
+  private async captureBrowse(
+    browseUrl: string,
+  ): Promise<{ items: MangaDto[]; hasNextPage: boolean } | undefined> {
+    const raw = await this.runProxiedWebView(browseUrl, BROWSE_BOOTSTRAP);
+    if (typeof raw !== "string" || !raw) return undefined;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return undefined;
+    }
+    return this.findBrowseItems({ cap: parsed });
+  }
+
+  private async captureChapters(pageUrl: string): Promise<ChapterDto[]> {
+    const raw = await this.runProxiedWebView(pageUrl, CHAPTERS_BOOTSTRAP);
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(
+      (c): c is ChapterDto =>
+        !!c && typeof c === "object" && (c as ChapterDto).id !== undefined,
+    );
+  }
+
+  private async capturePages(
+    pageUrl: string,
+  ): Promise<{ baseUrl: string; items: PageDto[] } | undefined> {
+    const raw = await this.runProxiedWebView(pageUrl, PAGES_BOOTSTRAP);
+    if (typeof raw !== "string" || !raw) return undefined;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return undefined;
+    }
+    return this.findPages({ cap: parsed });
+  }
+
+  // ----------------------------------------------------------------
+  // Browse helper
   // ----------------------------------------------------------------
 
   private async fetchBrowse(url: string): Promise<{
     mangas: { mangaId: string; imageUrl: string; title: string }[];
     hasNextPage: boolean;
   }> {
-    const $ = await this.fetchCheerio({ url, method: "GET" });
-    const root = this.extractInitialData($);
-    const items = root ? this.findBrowseItems(root) : undefined;
+    const items = await this.captureBrowse(url);
 
     if (!items) return { mangas: [], hasNextPage: false };
 
@@ -564,20 +713,6 @@ export class ComixExtension implements ComixImplementation {
     return undefined;
   }
 
-  private findChapterItems(queries: Record<string, unknown>): ChapterDto[] {
-    for (const value of Object.values(queries)) {
-      const result = this.getResult(value);
-      if (result && Array.isArray((result as { items?: unknown }).items)) {
-        const itemsRaw = (result as { items: unknown[] }).items;
-        if (itemsRaw.length === 0) continue;
-        const first = itemsRaw[0] as Record<string, unknown>;
-        if (first && first.id !== undefined && first.number !== undefined) {
-          return itemsRaw as ChapterDto[];
-        }
-      }
-    }
-    return [];
-  }
 
   private findDetailManga(
     queries: Record<string, unknown>,
