@@ -41,6 +41,13 @@ const ENC_INCREMENT = 1234567891;
 const LCG_MULTIPLIER = 1664525;
 const LCG_INCREMENT = 1013904223;
 
+// The CDN requires a per-session token (hex unix seconds) in the query string
+// to authorize the x-scramble-*/x-enc-* response headers. The SPA issues its
+// own token which we capture; if capture fails, a fresh timestamp is equivalent.
+function freshScrambleQuery(): string {
+  return Math.floor(Date.now() / 1000).toString(16);
+}
+
 // ---------------------------------------------------------------------------
 // WebView capture bootstraps.
 //
@@ -579,16 +586,17 @@ export class ComixExtension implements ComixImplementation {
     const pages: string[] = [];
     if (result) {
       const base = (result.baseUrl ?? "").replace(/\/+$/, "");
-      // The CDN only returns x-scramble-*/x-enc-* response headers (which
-      // interceptResponse descrambles) when the request URL includes a `v3`
-      // query parameter. The upstream API's `img.s` field marks ~28% of pages
-      // as scrambled (s=1), but in practice ALL page images on the CDN are
-      // encrypted/scrambled — requesting without `?v3` yields the raw scrambled
-      // bytes with no headers, so descrambling is impossible.
+      // The CDN requires TWO things in the query string for it to return the
+      // x-scramble-*/x-enc-* decrypt headers that interceptResponse uses:
+      //   1. A per-session token (hex unix seconds) — authenticates the request.
+      //   2. A `v3` query flag — signals the CDN to emit scramble headers.
+      // Without BOTH, the CDN serves scrambled bytes with no headers.
       //
-      // Solution: append `?v3` unconditionally to every page URL. The `#v3`
-      // fragment signals interceptRequest to drop the Origin header (the CDN
-      // withholds x-scramble-seed when Origin is present for off-host images).
+      // The captured `imgQuery` is the token the SPA itself uses; fallback is a
+      // fresh hex-unix-seconds timestamp. The `#v3` fragment signals our
+      // interceptRequest to drop Origin (the CDN withholds x-scramble-seed when
+      // Origin is present on off-host images).
+      const token = result.imgQuery ?? freshScrambleQuery();
       result.items.forEach((img) => {
         const raw = (img.url ?? "").trim();
         if (!raw) return;
@@ -596,10 +604,16 @@ export class ComixExtension implements ComixImplementation {
           ? raw
           : `${base}/${raw.replace(/^\/+/, "")}`;
 
-        const hasV3 = /[?&]v3(\b|=|&|$)/.test(full);
-        const pageUrl = hasV3
-          ? `${full}#v3`
-          : `${full}${full.includes("?") ? "&" : "?"}v3#v3`;
+        // If the raw URL already has query params (e.g. already contains the
+        // token), append &v3; otherwise build ?<token>&v3.
+        let pageUrl: string;
+        if (full.includes("?")) {
+          // Already has query — ensure v3 is present
+          const hasV3 = /[?&]v3(\b|=|&|$)/.test(full);
+          pageUrl = hasV3 ? `${full}#v3` : `${full}&v3#v3`;
+        } else {
+          pageUrl = `${full}?${token}&v3#v3`;
+        }
         pages.push(pageUrl);
       });
     }
