@@ -1154,7 +1154,11 @@ async function decodeScrambledImage(
       if (!w2 || !h2) return bufferOf(bytes);
     }
 
-    // Step 3: tile remap on the (now JPEG) source using 9-arg drawImage
+    // Step 3: tile remap via MANUAL PIXEL COPY (getImageData/putImageData).
+    // The polyfill's 9-arg drawImage(src, sx,sy,sw,sh, dx,dy,dw,dh) does NOT
+    // crop the source sub-rectangle (proven by v1.4.31.20 logs: pipeline
+    // completes with correct dims but output stays scrambled). So we copy raw
+    // RGBA bytes between tile rectangles by hand — no drawImage cropping.
     const tw = (width / GRID_COLS) | 0;
     const th = (height / GRID_ROWS) | 0;
     if (tw === 0 || th === 0) return bufferOf(bytes);
@@ -1164,27 +1168,40 @@ async function decodeScrambledImage(
     outCanvas.height = height;
     const outCtx = outCanvas.getContext("2d");
     if (!outCtx) return bufferOf(bytes);
-    // Draw full image first for remainder pixels
+
+    // Read the full source pixels once (draw full image, then snapshot RGBA).
     outCtx.drawImage(tileSource, 0, 0, width, height);
-    // Remap tiles: order[dstIdx] = srcIdx
+    const srcImageData = outCtx.getImageData(0, 0, width, height);
+    const srcPix = srcImageData.data;
+
+    // Start the output as a full copy so right/bottom remainder survives.
+    const outImageData = outCtx.createImageData(width, height);
+    const outPix = outImageData.data;
+    outPix.set(srcPix);
+
+    // Copy each source tile rect into its destination tile rect.
+    // order[dstIdx] = srcIdx (clean[dst] = scrambled[order[dst]]).
     for (let dstIdx = 0; dstIdx < NUM_TILES; dstIdx++) {
       const srcIdx = order[dstIdx];
       const srcCol = srcIdx % GRID_COLS;
       const srcRow = (srcIdx / GRID_COLS) | 0;
       const dstCol = dstIdx % GRID_COLS;
       const dstRow = (dstIdx / GRID_COLS) | 0;
-      outCtx.drawImage(
-        tileSource,
-        srcCol * tw,
-        srcRow * th,
-        tw,
-        th,
-        dstCol * tw,
-        dstRow * th,
-        tw,
-        th,
-      );
+      const srcX0 = srcCol * tw;
+      const srcY0 = srcRow * th;
+      const dstX0 = dstCol * tw;
+      const dstY0 = dstRow * th;
+      const rowBytes = tw * 4;
+      for (let y = 0; y < th; y++) {
+        const sOff = ((srcY0 + y) * width + srcX0) * 4;
+        const dOff = ((dstY0 + y) * width + dstX0) * 4;
+        for (let b = 0; b < rowBytes; b++) {
+          outPix[dOff + b] = srcPix[sOff + b];
+        }
+      }
     }
+
+    outCtx.putImageData(outImageData, 0, 0);
 
     const resultUrl = outCanvas.toDataURL("image/jpeg", 0.90);
     const commaIdx = resultUrl.indexOf(",");
@@ -1201,7 +1218,7 @@ async function decodeScrambledImage(
       resultBuf = resultDecoded as ArrayBuffer;
     }
     console.log(
-      `[Comix] grid descramble: complete (${width}x${height}, tile=${tw}x${th}, output=${resultBuf.byteLength} bytes)`,
+      `[Comix] grid descramble: complete (pixelcopy ${width}x${height}, tile=${tw}x${th}, output=${resultBuf.byteLength} bytes)`,
     );
     return resultBuf;
   }
