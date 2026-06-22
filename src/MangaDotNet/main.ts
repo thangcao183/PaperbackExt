@@ -387,13 +387,25 @@ export class MangaDotNetExtension implements MangaDotNetImplementation {
     }
 
     // ===================== RSC flat-array decoder =====================
-    private parseRouteData<T>(text: string, route: string, viewAll: boolean): T {
+    private parseRouteData<T>(text: string, route: string, _viewAll: boolean): T {
         const root = this.parseRoute(text, route) as Record<string, unknown>
-        if (viewAll) {
-            // ViewAllData { data: MangaList, allGenres }
-            return (root.data ?? root) as T
+        // The route payload wraps the MangaList in one or more `data` levels
+        // (ViewAllPage nests it two deep: { data: { data: { manga_list } } },
+        // SearchPage one deep). Drill through `data` wrappers until we reach
+        // the object that actually carries the list, so callers always get a
+        // MangaList regardless of how many wrappers the route added.
+        let cur: unknown = root
+        for (let depth = 0; depth < 6; depth++) {
+            if (cur == null || typeof cur !== 'object') break
+            const obj = cur as Record<string, unknown>
+            if ('manga_list' in obj || 'results' in obj) return obj as T
+            if ('data' in obj) {
+                cur = obj.data
+                continue
+            }
+            break
         }
-        return root as T
+        return (cur ?? root) as T
     }
 
     private parseRoute(text: string, route: string): unknown {
