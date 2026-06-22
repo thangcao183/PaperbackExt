@@ -175,9 +175,11 @@ export class MangaGoExtension implements MangaGoImplementation {
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
     const items: DiscoverSectionItem[] = [];
-    $(".updatesli").each((_, element) => {
-      const parsed = this.mangaFromElement($, $(element));
-      if (parsed) {
+    const seen = new Set<string>();
+    $(".thm-effect").each((_, element) => {
+      const parsed = this.mangaFromLink($, $(element));
+      if (parsed && !seen.has(parsed.mangaId)) {
+        seen.add(parsed.mangaId);
         items.push({
           type:
             section.id === "popular"
@@ -221,9 +223,15 @@ export class MangaGoExtension implements MangaGoImplementation {
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
     const results: SearchResultItem[] = [];
-    $(".updatesli, .pic_list > li").each((_, element) => {
-      const parsed = this.mangaFromElement($, $(element));
-      if (parsed) {
+    const seen = new Set<string>();
+    // Iterate the cover anchors directly: there is exactly one `.thm-effect`
+    // per result, so this is immune to the unclosed `<li>` tags Mangago emits
+    // (the bundled htmlparser2 nests them, collapsing `.pic_list > li` to a
+    // single element and yielding only one result per page).
+    $(".thm-effect").each((_, element) => {
+      const parsed = this.mangaFromLink($, $(element));
+      if (parsed && !seen.has(parsed.mangaId)) {
+        seen.add(parsed.mangaId);
         results.push({
           mangaId: parsed.mangaId,
           imageUrl: parsed.image,
@@ -242,18 +250,18 @@ export class MangaGoExtension implements MangaGoImplementation {
     };
   }
 
-  private mangaFromElement(
+  private mangaFromLink(
     $: CheerioAPI,
-    element: Cheerio<Element>,
+    link: Cheerio<Element>,
   ): { mangaId: string; title: string; image: string } | undefined {
-    const link = element.find(".thm-effect").first();
     if (link.length === 0) return undefined;
 
     const href = link.attr("href") || "";
     if (!href) return undefined;
     const mangaId = this.parseMangaId(href);
 
-    const title = (link.attr("title") || "").trim();
+    const title = (link.attr("title") || link.find("img").first().attr("alt") || "")
+      .trim();
     if (!title) return undefined;
 
     const image = this.imageFromElement(link.find("img").first());

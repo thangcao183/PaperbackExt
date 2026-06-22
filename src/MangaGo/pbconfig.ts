@@ -4,7 +4,7 @@ export default {
   name: "Mangago",
   description:
     "Mangago - custom source (mangago.me). Converted from keiyoushi.",
-  version: "1.4.34.5",
+  version: "1.4.34.6",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
