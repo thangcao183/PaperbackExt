@@ -1,6 +1,21 @@
-import { Chapter, ContentRating, SourceManga, TagSection } from "@paperback/types";
+import {
+  Chapter,
+  ContentRating,
+  Metadata,
+  PagedResults,
+  SearchQuery,
+  SearchResultItem,
+  SortingOption,
+  SourceManga,
+  TagSection,
+} from "@paperback/types";
 import { MadaraExtension } from "../utils/madara/template";
 import { URLBuilder } from "../utils/url-builder/base";
+
+interface UtoonSearchMetadata {
+  page?: number;
+  collectedIds?: string[];
+}
 
 /**
  * Utoon migrated from a stock Madara theme to a fully custom theme
@@ -106,7 +121,77 @@ class UtoonExtension extends MadaraExtension {
   }
 
   /**
-   * The custom theme embeds the full chapter list as a JSON array
+   * The custom theme replaced the stock Madara search
+   * (`?s=<q>&post_type=wp-manga` with `div.c-tabs-item__content` cards) with
+   * a `/manga/?q=<q>` browse listing whose results are `a.acard` cards
+   * (page 2+ lives at `/manga/page/N/?q=<q>`). Each card carries the manga
+   * URL (`href`), cover (`img[src]`), and title (`div.ac-t` / `img[alt]`).
+   */
+  override async getSearchResults(
+    query: SearchQuery<Metadata>,
+    metadata: Metadata | undefined,
+    _sortingOption?: SortingOption | undefined,
+  ): Promise<PagedResults<SearchResultItem>> {
+    const meta = metadata as UtoonSearchMetadata | undefined;
+    const page = meta?.page ?? 1;
+    const collectedIds = meta?.collectedIds ?? [];
+    const titleQuery = (query.title || "").trim();
+
+    const builder = new URLBuilder(this.baseUrl).addPath(this.mangaSubString);
+    if (page > 1) {
+      builder.addPath("page").addPath(page.toString());
+    }
+    if (titleQuery) {
+      builder.addQuery("q", encodeURIComponent(titleQuery));
+    }
+    const url = builder.build();
+
+    const $ = await this.fetchCheerio({ url, method: "GET" });
+
+    const results: SearchResultItem[] = [];
+    $("a.acard").each((_, el) => {
+      const link = $(el);
+      const href = link.attr("href") || "";
+      const mangaId = this.parseMangaId(href);
+      if (!mangaId || collectedIds.includes(mangaId)) return;
+
+      const img = link.find("img").first();
+      const title =
+        link.find("div.ac-t").first().text().trim() ||
+        img.attr("alt")?.trim() ||
+        "";
+      if (!title) return;
+
+      collectedIds.push(mangaId);
+      results.push({
+        mangaId,
+        imageUrl: this.imageFromElement(img),
+        title,
+        subtitle: undefined,
+        metadata: undefined,
+      });
+    });
+
+    // The pager links to numbered pages (`/manga/page/N/?q=...`); there are
+    // more results while some link points beyond the current page.
+    let maxPage = page;
+    $("div.pager a").each((_, el) => {
+      const href = $(el).attr("href") || "";
+      const m = href.match(/\/page\/(\d+)\//);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (n > maxPage) maxPage = n;
+      }
+    });
+    const hasNextPage = maxPage > page && results.length > 0;
+
+    return {
+      items: results,
+      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
+    };
+  }
+
+  /**
    * (`var CH=[{ id, label, url, ago, locked, coin, num, ... }];`) in the
    * details-page HTML, then renders/paginates it client-side. Parsing the
    * JSON is more reliable than scraping the JS-rendered `a.crow` DOM (only

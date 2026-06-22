@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Utoon",
   description: "Utoon - Madara source (utoon.net). Converted from keiyoushi.",
-  version: "1.4.55.3",
+  version: "1.4.55.4",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
