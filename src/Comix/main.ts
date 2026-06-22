@@ -1098,96 +1098,20 @@ async function decodeScrambledImage(
   }
 
   if (shouldDescrambleGrid && scrambleSeed !== null) {
-    const seed = (scrambleSeed ^ scrambleHash) | 0;
-    const order = buildTileOrder(seed, rawScrambleAlgo);
-    const decodeMime =
-      sniffImageMime(bytes) ??
-      stripMimeParams(headerValue(headers, "content-type")) ??
-      "image/jpeg";
     console.log(
-      `[Comix] grid descramble: algo=${rawScrambleAlgo ?? "?"} seed=${seed} decodeMime=${decodeMime} bytes=${bytes.length}`,
+      `[Comix] DIAGNOSTIC: grid page detected (seed=${scrambleSeed}, hash=${scrambleHash}). Returning RED test image.`,
     );
-
-    // The in-process polyfilled canvas does NOT reliably descramble tiles
-    // (9-arg drawImage and getImageData/putImageData both fail silently).
-    // Use executeInWebView with a real browser canvas — proven approach
-    // (same as AsuraScans). Encode the scrambled image as a data URL and
-    // pass the inverse permutation to the webview JS which performs the
-    // tile remap with native Canvas.
-    const b64 = Application.base64Encode(bufferOf(bytes));
-    const b64Str =
-      typeof b64 === "string"
-        ? b64
-        : Application.arrayBufferToASCIIString(b64);
-    const dataUrl = `data:${decodeMime};base64,${b64Str}`;
-
-    const inject = `
-(function(){
-  return new Promise(function(resolve){
-    var img = new Image();
-    img.onload = function(){
-      try {
-        var order = ${JSON.stringify(order)};
-        var cols = ${GRID_COLS}, rows = ${GRID_ROWS};
-        var w = img.naturalWidth, h = img.naturalHeight;
-        var tw = Math.floor(w / cols), th = Math.floor(h / rows);
-        var canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        var ctx = canvas.getContext('2d');
-        // Draw full image first so remainder pixels survive
-        ctx.drawImage(img, 0, 0, w, h);
-        for (var i = 0; i < order.length; i++) {
-          var srcIdx = order[i];
-          var srcCol = srcIdx % cols, srcRow = Math.floor(srcIdx / cols);
-          var dstCol = i % cols, dstRow = Math.floor(i / cols);
-          ctx.drawImage(img, srcCol*tw, srcRow*th, tw, th, dstCol*tw, dstRow*th, tw, th);
-        }
-        resolve(canvas.toDataURL('image/jpeg', 0.90));
-      } catch(e) { resolve('ERR:' + e.message); }
-    };
-    img.onerror = function(){ resolve(''); };
-    img.src = ${JSON.stringify(dataUrl)};
-  });
-})()
-`;
-
-    const result = await Application.executeInWebView({
-      source: {
-        html: "<html><head></head><body></body></html>",
-        baseUrl: BASE_URL,
-        loadCSS: false,
-        loadImages: true,
-      },
-      inject,
-      storage: { cookies: [] },
-    });
-
-    const resultUrl = String(result.result || "");
-    if (resultUrl.startsWith("ERR:")) {
-      console.log(`[Comix] grid descramble webview error: ${resultUrl}`);
-      return bufferOf(bytes);
-    }
-    const commaIdx = resultUrl.indexOf(",");
-    if (!resultUrl.startsWith("data:") || commaIdx < 0) {
-      console.log(
-        `[Comix] grid descramble: webview returned empty/invalid`,
-      );
-      return bufferOf(bytes);
-    }
-
-    const payload = resultUrl.slice(commaIdx + 1);
-    const decoded = Application.base64Decode(payload);
+    // 1x1 red pixel PNG (67 bytes) — hardcoded diagnostic.
+    // If the user sees a red dot/square, interceptResponse return IS used.
+    // If scrambled tiles still show, Paperback ignores our returned bytes.
+    const RED_PNG_B64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==";
+    const decoded = Application.base64Decode(RED_PNG_B64);
     if (typeof decoded === "string") {
       const out = new Uint8Array(decoded.length);
       for (let i = 0; i < decoded.length; i++) out[i] = decoded.charCodeAt(i);
-      console.log(
-        `[Comix] grid descramble: success via webview (${out.byteLength} bytes)`,
-      );
       return out.buffer;
     }
-    console.log(
-      `[Comix] grid descramble: success via webview (${(decoded as ArrayBuffer).byteLength} bytes)`,
-    );
     return decoded as ArrayBuffer;
   }
 
