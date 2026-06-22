@@ -12,6 +12,15 @@ it. A number of sources that don't share a framework (e.g. LikeManga, Mangago,
 WeebCentral, MangaPill, MangaFreak, MangaKatana, Manga Demon, TCB Scans, Flame
 Comics) are fully self-contained.
 
+> [!IMPORTANT]
+> **Not all sources have been tested.** These extensions are plain conversions
+> of the keiyoushi Tachiyomi extensions, so while many work, some may be broken,
+> incomplete, or out of date. If you find a source that isn't working, please
+> [open an issue](../../issues) describing the problem (source name, what you
+> did, and what went wrong). I maintain this in my spare time, so I'll get to
+> fixes when I have free time — thanks for your patience and for helping improve
+> the repository.
+
 ### Features
 
 - **Discover, search, details, chapters and pages** for every source.
