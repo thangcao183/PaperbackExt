@@ -32,6 +32,13 @@ import { loadImageFromBuffer } from "../utils/descramble/canvas";
 
 const BASE_URL = "https://comix.to";
 
+// Some browse/latest-updates entries arrive without a poster. Paperback
+// rejects list items (and manga details) that carry an empty imageUrl with
+// "Could not convert JSValue: Invalid URL:", so fall back to a placeholder
+// cover instead of an empty string.
+const PLACEHOLDER_COVER =
+  "https://imagizer.imageshack.com/img922/7118/ArGMjt.png";
+
 // Grid-scramble constants — ported verbatim from the upstream Descrambler.kt.
 const GRID_COLS = 5;
 const GRID_ROWS = 5;
@@ -441,7 +448,7 @@ export class ComixExtension implements ComixImplementation {
         mangaInfo: {
           primaryTitle: this.safeDecode(mangaId),
           secondaryTitles: [],
-          thumbnailUrl: "",
+          thumbnailUrl: PLACEHOLDER_COVER,
           synopsis: "",
           contentRating: ContentRating.MATURE,
           status: "Unknown",
@@ -883,8 +890,8 @@ export class ComixExtension implements ComixImplementation {
   }
 
   private posterUrl(poster: Poster | null | undefined): string {
-    if (!poster) return "";
-    return poster.large || poster.medium || poster.small || "";
+    if (!poster) return PLACEHOLDER_COVER;
+    return poster.large || poster.medium || poster.small || PLACEHOLDER_COVER;
   }
 
   private mangaUrl(mangaId: string): string {
