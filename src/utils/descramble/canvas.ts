@@ -7,13 +7,15 @@
  * is needed (that path is slow and flaky per image, and was the reason
  * scrambled pages sometimes fell through undecoded).
  *
- * Two platform quirks (verified against the working inkdex extensions):
- *   1. `Blob` / `URL` / `OffscreenCanvas` are NOT polyfilled, so raw bytes
- *      cross the boundary as `data:` URLs (base64).
- *   2. `getImageData` / `putImageData` are **Y-up** (origin at bottom-left),
- *      i.e. the returned pixel buffer is row-reversed relative to the image.
- *      We flip to standard Y-down before remapping and flip back before
- *      `putImageData`, otherwise the output is itself scrambled.
+ * Platform notes:
+ *   - `Blob` / `URL` / `OffscreenCanvas` are NOT polyfilled, so raw bytes
+ *     cross the boundary as `data:` URLs (base64).
+ *   - All remaps use 9-arg `drawImage(src, sx,sy,sw,sh, dx,dy,dw,dh)`, which
+ *     works in image coordinates and matches the keiyoushi (`drawBitmap`) and
+ *     Aidoku (`draw_image_rect`) reference algorithms exactly. We deliberately
+ *     avoid `getImageData`/`putImageData`: their Y-axis origin in the polyfill
+ *     is unreliable, and an unneeded Y-flip silently re-scrambles the output
+ *     (this was the original Mangago bug). `drawImage` sidesteps that entirely.
  */
 
 /** Decode a JPEG/PNG/WebP `ArrayBuffer` into a polyfilled `Image`. */
@@ -149,44 +151,28 @@ export async function remapTilesByLookup(
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) return data;
+  // Draw the full image first so the right/bottom remainder survives, then
+  // copy each source tile to its destination with 9-arg drawImage (image
+  // coordinates — no getImageData/Y-flip, matching the reference algorithms).
   ctx.drawImage(src, 0, 0, width, height);
-
-  const stride = width * 4;
-  // getImageData is Y-up: flip rows to standard Y-down for the remap.
-  const srcYup = ctx.getImageData(0, 0, width, height).data;
-  const srcStd = new Uint8ClampedArray(srcYup.length);
-  for (let y = 0; y < height; y++) {
-    srcStd.set(
-      srcYup.subarray(y * stride, (y + 1) * stride),
-      (height - 1 - y) * stride,
-    );
-  }
-  // Pre-copy so the untouched right/bottom margin survives the tile blits.
-  const dstStd = new Uint8ClampedArray(srcStd);
-
-  const rowBytes = tw * 4;
   for (let i = 0; i < lookup.length; i++) {
     const dstRow = (i / cols) | 0;
     const dstCol = i % cols;
     const srcIdx = lookup[i] ?? i;
     const srcRow = (srcIdx / cols) | 0;
     const srcCol = srcIdx % cols;
-    for (let y = 0; y < th; y++) {
-      const srcOff = ((srcRow * th + y) * width + srcCol * tw) * 4;
-      const dstOff = ((dstRow * th + y) * width + dstCol * tw) * 4;
-      dstStd.set(srcStd.subarray(srcOff, srcOff + rowBytes), dstOff);
-    }
-  }
-
-  // Flip back to Y-up before handing pixels to putImageData.
-  const dstYup = new Uint8ClampedArray(dstStd.length);
-  for (let y = 0; y < height; y++) {
-    dstYup.set(
-      dstStd.subarray(y * stride, (y + 1) * stride),
-      (height - 1 - y) * stride,
+    ctx.drawImage(
+      src,
+      srcCol * tw,
+      srcRow * th,
+      tw,
+      th,
+      dstCol * tw,
+      dstRow * th,
+      tw,
+      th,
     );
   }
-  ctx.putImageData(new ImageData(dstYup, width, height), 0, 0);
 
   return decodeDataUrlToArrayBuffer(canvas.toDataURL(mimeType));
 }
@@ -231,31 +217,17 @@ export async function descrambleViz(
   const blockHeight = Math.floor(newHeight / CELL_HEIGHT_COUNT);
   if (blockWidth <= 0 || blockHeight <= 0) return null;
 
-  // Decode the full scrambled source into a Y-down RGBA buffer.
-  const srcCanvas = new HTMLCanvasElement();
-  srcCanvas.width = width;
-  srcCanvas.height = height;
-  const srcCtx = srcCanvas.getContext("2d");
-  if (!srcCtx) return null;
-  srcCtx.drawImage(src, 0, 0, width, height);
+  // Reassemble onto a cropped newWidth × newHeight output canvas using 9-arg
+  // drawImage rect copies (image coordinates — no getImageData/Y-flip).
+  const outCanvas = new HTMLCanvasElement();
+  outCanvas.width = newWidth;
+  outCanvas.height = newHeight;
+  const outCtx = outCanvas.getContext("2d");
+  if (!outCtx) return null;
 
-  const srcStride = width * 4;
-  const srcYup = srcCtx.getImageData(0, 0, width, height).data;
-  const srcStd = new Uint8ClampedArray(srcYup.length);
-  for (let y = 0; y < height; y++) {
-    srcStd.set(
-      srcYup.subarray(y * srcStride, (y + 1) * srcStride),
-      (height - 1 - y) * srcStride,
-    );
-  }
-
-  // Destination Y-down RGBA buffer (cropped reassembled image).
-  const dstStride = newWidth * 4;
-  const dstStd = new Uint8ClampedArray(newHeight * dstStride);
-
-  // Copy a `w × h` rectangle from the source buffer at (sx, sy) to the
-  // destination buffer at (dx, dy). Clipped to both buffers; pure blit, no
-  // scaling (mirrors Canvas.drawBitmap with equal-size src/dst rects).
+  // Copy a `w × h` rectangle from the source image at (sx, sy) to the output
+  // canvas at (dx, dy). Clamps to both source and destination bounds and keeps
+  // equal src/dst size (no scaling, mirrors Canvas.drawBitmap).
   const blit = (
     sx: number,
     sy: number,
@@ -264,19 +236,14 @@ export async function descrambleViz(
     w: number,
     h: number,
   ): void => {
-    if (w <= 0 || h <= 0) return;
-    for (let row = 0; row < h; row++) {
-      const ssy = sy + row;
-      const ddy = dy + row;
-      if (ssy < 0 || ssy >= height || ddy < 0 || ddy >= newHeight) continue;
-      let copyW = w;
-      if (sx + copyW > width) copyW = width - sx;
-      if (dx + copyW > newWidth) copyW = newWidth - dx;
-      if (sx < 0 || dx < 0 || copyW <= 0) continue;
-      const sOff = (ssy * width + sx) * 4;
-      const dOff = (ddy * newWidth + dx) * 4;
-      dstStd.set(srcStd.subarray(sOff, sOff + copyW * 4), dOff);
-    }
+    let cw = w;
+    let ch = h;
+    if (sx + cw > width) cw = width - sx;
+    if (dx + cw > newWidth) cw = newWidth - dx;
+    if (sy + ch > height) ch = height - sy;
+    if (dy + ch > newHeight) ch = newHeight - dy;
+    if (sx < 0 || sy < 0 || dx < 0 || dy < 0 || cw <= 0 || ch <= 0) return;
+    outCtx.drawImage(src, sx, sy, cw, ch, dx, dy, cw, ch);
   };
 
   // Top border.
@@ -322,22 +289,6 @@ export async function descrambleViz(
     );
   }
 
-  // Flip back to Y-up before putImageData.
-  const dstYup = new Uint8ClampedArray(dstStd.length);
-  for (let y = 0; y < newHeight; y++) {
-    dstYup.set(
-      dstStd.subarray(y * dstStride, (y + 1) * dstStride),
-      (newHeight - 1 - y) * dstStride,
-    );
-  }
-
-  const outCanvas = new HTMLCanvasElement();
-  outCanvas.width = newWidth;
-  outCanvas.height = newHeight;
-  const outCtx = outCanvas.getContext("2d");
-  if (!outCtx) return null;
-  outCtx.putImageData(new ImageData(dstYup, newWidth, newHeight), 0, 0);
-
   return decodeDataUrlToArrayBuffer(outCanvas.toDataURL(mimeType));
 }
 
@@ -380,44 +331,27 @@ export async function remapKMangaCells(
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) return data;
+  // Full image first (remainder + region outside the 4×4 grid), then remap
+  // each cell with 9-arg drawImage (no getImageData/Y-flip).
   ctx.drawImage(src, 0, 0, width, height);
-
-  const stride = width * 4;
-  // getImageData is Y-up: flip rows to standard Y-down for the remap.
-  const srcYup = ctx.getImageData(0, 0, width, height).data;
-  const srcStd = new Uint8ClampedArray(srcYup.length);
-  for (let y = 0; y < height; y++) {
-    srcStd.set(
-      srcYup.subarray(y * stride, (y + 1) * stride),
-      (height - 1 - y) * stride,
-    );
-  }
-  // Pre-copy so the untouched right/bottom remainder survives the cell blits.
-  const dstStd = new Uint8ClampedArray(srcStd);
-
-  const rowBytes = blockWidth * 4;
   for (let i = 0; i < 16; i++) {
     const srcIdx = sourceOrder[i] ?? i;
     const srcCol = srcIdx % 4;
     const srcRow = (srcIdx / 4) | 0;
     const dstCol = i % 4;
     const dstRow = (i / 4) | 0;
-    for (let y = 0; y < blockHeight; y++) {
-      const srcOff = ((srcRow * blockHeight + y) * width + srcCol * blockWidth) * 4;
-      const dstOff = ((dstRow * blockHeight + y) * width + dstCol * blockWidth) * 4;
-      dstStd.set(srcStd.subarray(srcOff, srcOff + rowBytes), dstOff);
-    }
-  }
-
-  // Flip back to Y-up before handing pixels to putImageData.
-  const dstYup = new Uint8ClampedArray(dstStd.length);
-  for (let y = 0; y < height; y++) {
-    dstYup.set(
-      dstStd.subarray(y * stride, (y + 1) * stride),
-      (height - 1 - y) * stride,
+    ctx.drawImage(
+      src,
+      srcCol * blockWidth,
+      srcRow * blockHeight,
+      blockWidth,
+      blockHeight,
+      dstCol * blockWidth,
+      dstRow * blockHeight,
+      blockWidth,
+      blockHeight,
     );
   }
-  ctx.putImageData(new ImageData(dstYup, width, height), 0, 0);
 
   return decodeDataUrlToArrayBuffer(canvas.toDataURL(mimeType));
 }
