@@ -123,18 +123,50 @@ const CHAPTERS_BOOTSTRAP = `
 })();
 `;
 
-// Page list: resolve with the raw JSON string of the `{result:{pages:{...}}}`.
+// Page list: capture BOTH the pages payload AND the exact query the SPA appends
+// to its own CDN image requests. The CDN only emits the x-scramble-* headers
+// when the image URL carries that query (a rotating signing token + a fresh
+// timestamp, e.g. ?6a388ef0&6a389c10). We can't hardcode it (it rotates on
+// deploy), so we grab whatever the SPA uses and reuse it for every page.
+// Resolves with JSON: {"pages": "<rawPagesJson>", "q": "<imgQuery|null>"}.
 const PAGES_BOOTSTRAP = `
 (function(){
-  var doneResolve;
+  var pagesPayload=null, imgQuery=null, done=false, doneResolve;
   window.__comixResult__ = new Promise(function(r){ doneResolve = r; });
-  var orig=JSON.parse;
-  JSON.parse=new Proxy(orig,{ apply:function(t,a,args){
-    var parsed=Reflect.apply(t,a,args);
-    try { if(parsed && parsed.result && parsed.result.pages) doneResolve(args[0]); } catch(e){}
+  function finish(){ if(done) return; done=true; doneResolve(JSON.stringify({pages: pagesPayload, q: imgQuery})); }
+  function maybeFinish(){ if(pagesPayload && imgQuery) finish(); }
+  function captureImgUrl(u){
+    try {
+      if(imgQuery || !u) return;
+      if(/wowpic|\\/i5\\//.test(u)){
+        var qi = u.indexOf('?');
+        if(qi >= 0){ imgQuery = u.slice(qi+1); maybeFinish(); }
+      }
+    } catch(e){}
+  }
+  var of = window.fetch;
+  if(typeof of === 'function'){
+    window.fetch = function(){ try{ var a=arguments[0]; captureImgUrl(typeof a==='string'?a:(a&&a.url)); }catch(e){} return of.apply(this, arguments); };
+  }
+  var oo = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(m,u){ captureImgUrl(String(u||'')); return oo.apply(this, arguments); };
+  try {
+    var desc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+    if(desc && desc.set){
+      Object.defineProperty(HTMLImageElement.prototype, 'src', {
+        configurable:true, get:desc.get,
+        set:function(v){ captureImgUrl(String(v||'')); return desc.set.call(this, v); }
+      });
+    }
+  } catch(e){}
+  var op = JSON.parse;
+  JSON.parse = new Proxy(op, { apply:function(t,a,args){
+    var parsed = Reflect.apply(t,a,args);
+    try { if(!pagesPayload && parsed && parsed.result && parsed.result.pages){ pagesPayload = args[0]; maybeFinish(); } } catch(e){}
     return parsed;
   }});
-  setTimeout(function(){ doneResolve(""); }, 20000);
+  // Give the SPA time to issue at least one image request after the page list.
+  setTimeout(finish, 15000);
 })();
 `;
 
@@ -553,19 +585,19 @@ export class ComixExtension implements ComixImplementation {
     const pages: string[] = [];
     if (result) {
       const base = (result.baseUrl ?? "").replace(/\/+$/, "");
-      const stamp = freshScrambleQuery();
+      // Prefer the exact query the SPA used on its own image requests (captured
+      // live in the page webview); fall back to a fresh timestamp. This query is
+      // what makes the CDN return the x-scramble-*/x-enc-* headers that
+      // interceptResponse descrambles on. (Off-host CDN URL -> interceptRequest
+      // strips Origin, which the grid scramble requires.)
+      const query = result.imgQuery ?? freshScrambleQuery();
       result.items.forEach((img) => {
         const raw = (img.url ?? "").trim();
         if (!raw) return;
         const full = raw.startsWith("http")
           ? raw
           : `${base}/${raw.replace(/^\/+/, "")}`;
-
-        // Append a fresh hex-timestamp query so the CDN returns the
-        // x-scramble-*/x-enc-* headers; interceptResponse then descrambles.
-        // (Off-host CDN URL -> interceptRequest strips Origin, which the grid
-        // scramble requires.)
-        const pageUrl = `${full}${full.includes("?") ? "&" : "?"}${stamp}`;
+        const pageUrl = `${full}${full.includes("?") ? "&" : "?"}${query}`;
         pages.push(pageUrl);
       });
     }
@@ -636,21 +668,31 @@ export class ComixExtension implements ComixImplementation {
     );
   }
 
-  private async capturePages(
-    pageUrl: string,
-  ): Promise<{ baseUrl: string; items: PageDto[] } | undefined> {
+  private async capturePages(pageUrl: string): Promise<
+    | { baseUrl: string; items: PageDto[]; imgQuery?: string }
+    | undefined
+  > {
     const raw = await this.runProxiedWebView(pageUrl, PAGES_BOOTSTRAP);
     if (typeof raw !== "string" || !raw) return undefined;
-    // Diagnostic: dump the raw captured pages payload so we can see whether the
-    // per-image signing tokens are present in the source data or appended later.
-    console.log(`[Comix] raw pages payload (first 700): ${raw.slice(0, 700)}`);
-    let parsed: unknown;
+    let outer: unknown;
     try {
-      parsed = JSON.parse(raw);
+      outer = JSON.parse(raw);
     } catch {
       return undefined;
     }
-    return this.findPages({ cap: parsed });
+    const pagesStr = (outer as { pages?: unknown } | null)?.pages;
+    const q = (outer as { q?: unknown } | null)?.q;
+    const imgQuery = typeof q === "string" && q.length > 0 ? q : undefined;
+    console.log(`[Comix] captured imgQuery=${imgQuery ?? "NONE"}`);
+    if (typeof pagesStr !== "string") return undefined;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(pagesStr);
+    } catch {
+      return undefined;
+    }
+    const found = this.findPages({ cap: parsed });
+    return found ? { ...found, imgQuery } : undefined;
   }
 
   // ----------------------------------------------------------------
