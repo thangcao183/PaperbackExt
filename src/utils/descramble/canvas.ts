@@ -10,11 +10,11 @@
  * Platform notes:
  *   - `Blob` / `URL` / `OffscreenCanvas` are NOT polyfilled, so raw bytes
  *     cross the boundary as `data:` URLs (base64).
- *   - The helpers below use 9-arg `drawImage(src, sx,sy,sw,sh, dx,dy,dw,dh)`,
- *     mirroring the keiyoushi (`drawBitmap`) and Aidoku (`draw_image_rect`)
- *     reference algorithms. We deliberately avoid `getImageData`/`putImageData`:
- *     their Y-axis origin in the polyfill is unreliable, and an unneeded Y-flip
- *     silently re-scrambles the output (this was the original Mangago bug).
+ *   - Tile remaps crop with the 4-arg `drawImage(img, x, y, w, h)` form via the
+ *     shared `cropBlit()` helper (see the caveat below). We deliberately avoid
+ *     `getImageData`/`putImageData`: their Y-axis origin in the polyfill is
+ *     unreliable, and an unneeded Y-flip silently re-scrambles the output (this
+ *     was the original Mangago bug).
  *
  *   - !!! VERIFIED POLYFILL CAVEAT (Comix, 2026-06) !!!
  *     The 9-arg `drawImage` source-crop is NOT reliable in this polyfill — the
@@ -22,13 +22,16 @@
  *     image per tile (a no-op remap). This was proven against a real scrambled
  *     Comix page whose permutation math was independently confirmed correct
  *     (off-device seam-continuity reconstruction reproduced the page perfectly).
- *     The robust workaround — used by `src/Comix/main.ts` — is to crop with
- *     ONLY the 4-arg `drawImage(img, x, y, w, h)` form: draw the full image into
- *     a tile-sized scratch canvas shifted by `(-srcX0, -srcY0)` so just the
- *     wanted tile lands in bounds, then draw that scratch 1:1 to the destination.
- *     The 9-arg helpers in THIS file are retained only for sources confirmed
- *     working with them (e.g. Mangago); prefer the 4-arg scratch-crop technique
- *     for any new tile remap.
+ *     The robust workaround is to crop with ONLY the 4-arg
+ *     `drawImage(img, x, y, w, h)` form: draw the full image into a tile-sized
+ *     scratch canvas shifted by `(-srcX0, -srcY0)` so just the wanted tile lands
+ *     in bounds, then draw that scratch 1:1 to the destination. The shared
+ *     `cropBlit()` helper below implements this, and `remapTilesByLookup`,
+ *     `descrambleViz` and `remapKMangaCells` all use it.
+ *
+ *     `descrambleMangago` is the ONE exception still using 9-arg crop: it is
+ *     confirmed working in practice and is left untouched. Prefer `cropBlit`
+ *     (the 4-arg scratch-crop) for any new or modified tile remap.
  */
 
 /** Decode a JPEG/PNG/WebP `ArrayBuffer` into a polyfilled `Image`. */
@@ -69,6 +72,44 @@ export function decodeDataUrlToArrayBuffer(dataUrl: string): ArrayBuffer {
     return buf.buffer;
   }
   return decoded;
+}
+
+/**
+ * Copy a `cw × ch` rectangle from `src` at (sx, sy) to `ctx` at (dx, dy)
+ * using ONLY the 4-arg `drawImage(img, x, y, w, h)` primitive.
+ *
+ * The polyfill's 9-arg `drawImage` source-crop is unreliable (it can ignore the
+ * source sub-rectangle and redraw the full image — see the header caveat), and
+ * `getImageData`/`putImageData` apply an unreliable Y-flip. The robust technique
+ * (verified against a real scrambled Comix page) is: draw the FULL image into a
+ * tile-sized scratch canvas shifted by `(-sx, -sy)` so only the wanted rectangle
+ * lands inside the scratch bounds, then draw the scratch 1:1 to the destination.
+ * Both draws are plain 4-arg `drawImage`. `srcW`/`srcH` are the full source
+ * image dimensions (so the shift preserves the source's natural scale).
+ */
+function cropBlit(
+  ctx: CanvasRenderingContext2D,
+  src: HTMLImageElement,
+  srcW: number,
+  srcH: number,
+  sx: number,
+  sy: number,
+  dx: number,
+  dy: number,
+  cw: number,
+  ch: number,
+): void {
+  if (cw <= 0 || ch <= 0) return;
+  const scratch = new HTMLCanvasElement();
+  scratch.width = cw;
+  scratch.height = ch;
+  const sctx = scratch.getContext("2d");
+  if (!sctx) return;
+  sctx.clearRect(0, 0, cw, ch);
+  // Shift the whole image so source rect (sx, sy) maps to scratch (0, 0).
+  sctx.drawImage(src, -sx, -sy, srcW, srcH);
+  // Place the cropped rect (1:1, no scaling) at the destination.
+  ctx.drawImage(scratch, dx, dy, cw, ch);
 }
 
 /**
@@ -169,9 +210,9 @@ export async function remapTilesByLookup(
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) return data;
-  // Draw the full image first so the right/bottom remainder survives, then
-  // copy each source tile to its destination with 9-arg drawImage (image
-  // coordinates — no getImageData/Y-flip, matching the reference algorithms).
+  // Draw the full image first so the right/bottom remainder survives, then copy
+  // each source tile to its destination with the 4-arg scratch-crop technique
+  // (the polyfill's 9-arg drawImage source-crop is unreliable — see header).
   ctx.drawImage(src, 0, 0, width, height);
   for (let i = 0; i < lookup.length; i++) {
     const dstRow = (i / cols) | 0;
@@ -179,12 +220,13 @@ export async function remapTilesByLookup(
     const srcIdx = lookup[i] ?? i;
     const srcRow = (srcIdx / cols) | 0;
     const srcCol = srcIdx % cols;
-    ctx.drawImage(
+    cropBlit(
+      ctx,
       src,
+      width,
+      height,
       srcCol * tw,
       srcRow * th,
-      tw,
-      th,
       dstCol * tw,
       dstRow * th,
       tw,
@@ -235,8 +277,9 @@ export async function descrambleViz(
   const blockHeight = Math.floor(newHeight / CELL_HEIGHT_COUNT);
   if (blockWidth <= 0 || blockHeight <= 0) return null;
 
-  // Reassemble onto a cropped newWidth × newHeight output canvas using 9-arg
-  // drawImage rect copies (image coordinates — no getImageData/Y-flip).
+  // Reassemble onto a cropped newWidth × newHeight output canvas. The polyfill's
+  // 9-arg drawImage source-crop is unreliable, so each rectangle is copied with
+  // the 4-arg scratch-crop technique (see header / cropBlit).
   const outCanvas = new HTMLCanvasElement();
   outCanvas.width = newWidth;
   outCanvas.height = newHeight;
@@ -261,7 +304,7 @@ export async function descrambleViz(
     if (sy + ch > height) ch = height - sy;
     if (dy + ch > newHeight) ch = newHeight - dy;
     if (sx < 0 || sy < 0 || dx < 0 || dy < 0 || cw <= 0 || ch <= 0) return;
-    outCtx.drawImage(src, sx, sy, cw, ch, dx, dy, cw, ch);
+    cropBlit(outCtx, src, width, height, sx, sy, dx, dy, cw, ch);
   };
 
   // Top border.
@@ -350,7 +393,8 @@ export async function remapKMangaCells(
   const ctx = canvas.getContext("2d");
   if (!ctx) return data;
   // Full image first (remainder + region outside the 4×4 grid), then remap
-  // each cell with 9-arg drawImage (no getImageData/Y-flip).
+  // each cell with the 4-arg scratch-crop technique (the polyfill's 9-arg
+  // drawImage source-crop is unreliable — see header).
   ctx.drawImage(src, 0, 0, width, height);
   for (let i = 0; i < 16; i++) {
     const srcIdx = sourceOrder[i] ?? i;
@@ -358,12 +402,13 @@ export async function remapKMangaCells(
     const srcRow = (srcIdx / 4) | 0;
     const dstCol = i % 4;
     const dstRow = (i / 4) | 0;
-    ctx.drawImage(
+    cropBlit(
+      ctx,
       src,
+      width,
+      height,
       srcCol * blockWidth,
       srcRow * blockHeight,
-      blockWidth,
-      blockHeight,
       dstCol * blockWidth,
       dstRow * blockHeight,
       blockWidth,
