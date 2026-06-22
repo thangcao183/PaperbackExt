@@ -60,16 +60,13 @@ class MangaGoInterceptor extends PaperbackInterceptor {
       _m_superu: "1",
     };
 
-    // Image hosts that contain an underscore only serve plain HTTP.
-    let url = request.url;
-    try {
-      const host = url.replace(/^https?:\/\//, "").split("/")[0];
-      if (host.includes("_") && url.startsWith("https://")) {
-        url = "http://" + url.slice("https://".length);
-        request.url = url;
-      }
-    } catch {
-      // ignore
+    // Some image hosts (e.g. iweb_N.mangapicgallery.com) contain an
+    // underscore. These are served by Cloudflare and support HTTPS, but
+    // the site emits plain-HTTP URLs for them. iOS App Transport Security
+    // blocks cleartext HTTP (NSURLErrorDomain -1022), so force HTTPS here
+    // rather than allowing the HTTP request to fail.
+    if (request.url.startsWith("http://")) {
+      request.url = "https://" + request.url.slice("http://".length);
     }
 
     request.headers = {
