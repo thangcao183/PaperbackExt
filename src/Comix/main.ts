@@ -28,6 +28,7 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
+import { loadImageFromBuffer } from "../utils/descramble/canvas";
 
 const BASE_URL = "https://comix.to";
 
@@ -1098,21 +1099,111 @@ async function decodeScrambledImage(
   }
 
   if (shouldDescrambleGrid && scrambleSeed !== null) {
+    const seed = (scrambleSeed ^ scrambleHash) | 0;
+    const order = buildTileOrder(seed, rawScrambleAlgo);
+    const decodeMime =
+      sniffImageMime(bytes) ??
+      stripMimeParams(headerValue(headers, "content-type")) ??
+      "image/jpeg";
     console.log(
-      `[Comix] DIAGNOSTIC: grid page detected (seed=${scrambleSeed}, hash=${scrambleHash}). Returning RED test image.`,
+      `[Comix] grid descramble: algo=${rawScrambleAlgo ?? "?"} seed=${seed} decodeMime=${decodeMime} bytes=${bytes.length}`,
     );
-    // 1x1 red pixel PNG (67 bytes) — hardcoded diagnostic.
-    // If the user sees a red dot/square, interceptResponse return IS used.
-    // If scrambled tiles still show, Paperback ignores our returned bytes.
-    const RED_PNG_B64 =
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==";
-    const decoded = Application.base64Decode(RED_PNG_B64);
-    if (typeof decoded === "string") {
-      const out = new Uint8Array(decoded.length);
-      for (let i = 0; i < decoded.length; i++) out[i] = decoded.charCodeAt(i);
-      return out.buffer;
+
+    // Step 1: Load source image (may be webp/png/jpeg)
+    const srcImg = await loadImageFromBuffer(bufferOf(bytes), decodeMime);
+    const width = srcImg.naturalWidth || srcImg.width;
+    const height = srcImg.naturalHeight || srcImg.height;
+    if (!width || !height) {
+      console.log(
+        `[Comix] grid descramble: load failed (w=${width}, h=${height})`,
+      );
+      return bufferOf(bytes);
     }
-    return decoded as ArrayBuffer;
+
+    // Step 2: If source is WebP, transcode to JPEG first.
+    // The polyfill's 9-arg drawImage sub-region crop may not work correctly
+    // for WebP-sourced Image objects, but full-image drawImage (no crop) works.
+    // Mangago (JPEG) works fine with 9-arg crop — so transcode first, then crop.
+    let tileSource = srcImg;
+    if (decodeMime !== "image/jpeg") {
+      const transCanvas = new HTMLCanvasElement();
+      transCanvas.width = width;
+      transCanvas.height = height;
+      const transCtx = transCanvas.getContext("2d");
+      if (!transCtx) return bufferOf(bytes);
+      transCtx.drawImage(srcImg, 0, 0, width, height);
+      const jpegUrl = transCanvas.toDataURL("image/jpeg", 0.95);
+      const commaT = jpegUrl.indexOf(",");
+      const jpegB64 = jpegUrl.slice(commaT + 1);
+      const jpegDecoded = Application.base64Decode(jpegB64);
+      let jpegBuf: ArrayBuffer;
+      if (typeof jpegDecoded === "string") {
+        const u8 = new Uint8Array(jpegDecoded.length);
+        for (let c = 0; c < jpegDecoded.length; c++)
+          u8[c] = jpegDecoded.charCodeAt(c);
+        jpegBuf = u8.buffer;
+      } else {
+        jpegBuf = jpegDecoded as ArrayBuffer;
+      }
+      tileSource = await loadImageFromBuffer(jpegBuf, "image/jpeg");
+      const w2 = tileSource.naturalWidth || tileSource.width;
+      const h2 = tileSource.naturalHeight || tileSource.height;
+      console.log(
+        `[Comix] grid descramble: transcoded ${decodeMime} -> jpeg (${w2}x${h2})`,
+      );
+      if (!w2 || !h2) return bufferOf(bytes);
+    }
+
+    // Step 3: tile remap on the (now JPEG) source using 9-arg drawImage
+    const tw = (width / GRID_COLS) | 0;
+    const th = (height / GRID_ROWS) | 0;
+    if (tw === 0 || th === 0) return bufferOf(bytes);
+
+    const outCanvas = new HTMLCanvasElement();
+    outCanvas.width = width;
+    outCanvas.height = height;
+    const outCtx = outCanvas.getContext("2d");
+    if (!outCtx) return bufferOf(bytes);
+    // Draw full image first for remainder pixels
+    outCtx.drawImage(tileSource, 0, 0, width, height);
+    // Remap tiles: order[dstIdx] = srcIdx
+    for (let dstIdx = 0; dstIdx < NUM_TILES; dstIdx++) {
+      const srcIdx = order[dstIdx];
+      const srcCol = srcIdx % GRID_COLS;
+      const srcRow = (srcIdx / GRID_COLS) | 0;
+      const dstCol = dstIdx % GRID_COLS;
+      const dstRow = (dstIdx / GRID_COLS) | 0;
+      outCtx.drawImage(
+        tileSource,
+        srcCol * tw,
+        srcRow * th,
+        tw,
+        th,
+        dstCol * tw,
+        dstRow * th,
+        tw,
+        th,
+      );
+    }
+
+    const resultUrl = outCanvas.toDataURL("image/jpeg", 0.90);
+    const commaIdx = resultUrl.indexOf(",");
+    if (commaIdx < 0) return bufferOf(bytes);
+    const payload = resultUrl.slice(commaIdx + 1);
+    const resultDecoded = Application.base64Decode(payload);
+    let resultBuf: ArrayBuffer;
+    if (typeof resultDecoded === "string") {
+      const u8 = new Uint8Array(resultDecoded.length);
+      for (let c = 0; c < resultDecoded.length; c++)
+        u8[c] = resultDecoded.charCodeAt(c);
+      resultBuf = u8.buffer;
+    } else {
+      resultBuf = resultDecoded as ArrayBuffer;
+    }
+    console.log(
+      `[Comix] grid descramble: complete (${width}x${height}, tile=${tw}x${th}, output=${resultBuf.byteLength} bytes)`,
+    );
+    return resultBuf;
   }
 
   return bufferOf(bytes);
