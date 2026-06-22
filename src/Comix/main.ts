@@ -1095,16 +1095,31 @@ async function decodeScrambledImage(
   if (shouldDescrambleGrid && scrambleSeed !== null) {
     const seed = (scrambleSeed ^ scrambleHash) | 0;
     const order = buildTileOrder(seed, rawScrambleAlgo);
+    // The CDN serves these pages as image/webp (sometimes jpeg/png). The
+    // polyfilled Image decoder keys off the data: URL's declared MIME, so we
+    // MUST decode with the ACTUAL content-type — a wrong MIME yields zero
+    // dimensions and the shared helper then silently returns the still-
+    // scrambled bytes (no exception, so nothing is logged). Sniff the bytes
+    // and fall back to the response content-type.
+    const decodeMime =
+      sniffImageMime(bytes) ??
+      stripMimeParams(headerValue(headers, "content-type")) ??
+      "image/jpeg";
+    console.log(
+      `[Comix] grid descramble: algo=${rawScrambleAlgo ?? "?"} seed=${scrambleSeed} decodeMime=${decodeMime} bytes=${bytes.length}`,
+    );
     // Equal 5x5 tile grid over the whole image (tile = floor(W/5) x floor(H/5),
     // remainder passes through), so the shared in-process canvas remap applies
     // directly. `order[dstIdx]` is the SOURCE tile index for destination tile
-    // `dstIdx`, exactly remapTilesByLookup's lookup contract.
+    // `dstIdx`, exactly remapTilesByLookup's lookup contract. Re-encode as JPEG
+    // (matches upstream Descrambler.kt, which compresses to JPEG q90).
     return await remapTilesByLookup(
       bufferOf(bytes),
-      "image/jpeg",
+      decodeMime,
       GRID_COLS,
       GRID_ROWS,
       order,
+      "image/jpeg",
     );
   }
 
@@ -1233,6 +1248,42 @@ function hasImageSignature(bytes: Uint8Array): boolean {
     bytes[2] === 0x4e &&
     bytes[3] === 0x47;
   return isWebp || isJpeg || isPng;
+}
+
+// Detect the real image format from magic bytes so the canvas decoder gets the
+// correct data: URL MIME. Returns undefined when no signature matches (e.g. the
+// bytes are still XOR-encoded and will be handled before grid descramble).
+function sniffImageMime(bytes: Uint8Array): string | undefined {
+  if (bytes.length < 12) return undefined;
+  if (
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) return "image/jpeg";
+  if (
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  ) {
+    return "image/png";
+  }
+  return undefined;
+}
+
+// "image/webp; charset=..." -> "image/webp"
+function stripMimeParams(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const base = value.split(";")[0]?.trim().toLowerCase();
+  return base && base.startsWith("image/") ? base : undefined;
 }
 
 // ---- 5x5 tile permutation ----

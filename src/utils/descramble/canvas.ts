@@ -124,7 +124,11 @@ export async function descrambleMangago(
  * `lookup[i]` is the SOURCE tile index whose pixels belong in DESTINATION tile
  * `i` (row-major). i.e. `clean[i] = scrambled[lookup[i]]`.
  *
- * Returns the re-encoded image bytes in `mimeType`.
+ * Returns the re-encoded image bytes in `outputMimeType` (defaults to
+ * `mimeType`). The source bytes are decoded with `mimeType`, so it must reflect
+ * the ACTUAL image format of `data` (e.g. "image/webp"); a wrong MIME can make
+ * the polyfilled decoder yield zero dimensions and silently pass the scrambled
+ * bytes straight through.
  */
 export async function remapTilesByLookup(
   data: ArrayBuffer,
@@ -132,6 +136,7 @@ export async function remapTilesByLookup(
   cols: number,
   rows: number,
   lookup: number[],
+  outputMimeType: string = mimeType,
 ): Promise<ArrayBuffer> {
   if (cols <= 0 || rows <= 0 || lookup.length !== cols * rows) {
     return data;
@@ -174,7 +179,7 @@ export async function remapTilesByLookup(
     );
   }
 
-  return decodeDataUrlToArrayBuffer(canvas.toDataURL(mimeType));
+  return decodeDataUrlToArrayBuffer(canvas.toDataURL(outputMimeType));
 }
 
 /**
