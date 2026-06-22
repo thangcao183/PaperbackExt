@@ -10,12 +10,25 @@
  * Platform notes:
  *   - `Blob` / `URL` / `OffscreenCanvas` are NOT polyfilled, so raw bytes
  *     cross the boundary as `data:` URLs (base64).
- *   - All remaps use 9-arg `drawImage(src, sx,sy,sw,sh, dx,dy,dw,dh)`, which
- *     works in image coordinates and matches the keiyoushi (`drawBitmap`) and
- *     Aidoku (`draw_image_rect`) reference algorithms exactly. We deliberately
- *     avoid `getImageData`/`putImageData`: their Y-axis origin in the polyfill
- *     is unreliable, and an unneeded Y-flip silently re-scrambles the output
- *     (this was the original Mangago bug). `drawImage` sidesteps that entirely.
+ *   - The helpers below use 9-arg `drawImage(src, sx,sy,sw,sh, dx,dy,dw,dh)`,
+ *     mirroring the keiyoushi (`drawBitmap`) and Aidoku (`draw_image_rect`)
+ *     reference algorithms. We deliberately avoid `getImageData`/`putImageData`:
+ *     their Y-axis origin in the polyfill is unreliable, and an unneeded Y-flip
+ *     silently re-scrambles the output (this was the original Mangago bug).
+ *
+ *   - !!! VERIFIED POLYFILL CAVEAT (Comix, 2026-06) !!!
+ *     The 9-arg `drawImage` source-crop is NOT reliable in this polyfill — the
+ *     `sx,sy,sw,sh` source sub-rectangle can be IGNORED, redrawing the full
+ *     image per tile (a no-op remap). This was proven against a real scrambled
+ *     Comix page whose permutation math was independently confirmed correct
+ *     (off-device seam-continuity reconstruction reproduced the page perfectly).
+ *     The robust workaround — used by `src/Comix/main.ts` — is to crop with
+ *     ONLY the 4-arg `drawImage(img, x, y, w, h)` form: draw the full image into
+ *     a tile-sized scratch canvas shifted by `(-srcX0, -srcY0)` so just the
+ *     wanted tile lands in bounds, then draw that scratch 1:1 to the destination.
+ *     The 9-arg helpers in THIS file are retained only for sources confirmed
+ *     working with them (e.g. Mangago); prefer the 4-arg scratch-crop technique
+ *     for any new tile remap.
  */
 
 /** Decode a JPEG/PNG/WebP `ArrayBuffer` into a polyfilled `Image`. */

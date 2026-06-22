@@ -157,7 +157,7 @@ adult/NSFW content (232 Mature, 190 Everyone).
 | ComicLand | 1.4.1.1 | Mature |
 | Comics Land | 1.4.32.1 | Mature |
 | Comivex | 1.4.3.1 | Everyone |
-| Comix | 1.4.31.11 | Mature |
+| Comix | 1.4.31.25 | Mature |
 | Coolmic | 1.4.1.2 | Mature |
 | Crow Scans | 1.4.32.1 | Everyone |
 | Cucumber Manga | 1.4.51.2 | Mature |
@@ -667,8 +667,8 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   scope for now.
 - **DRM page-image decryption is implemented.** A source interceptor's
   `interceptResponse` transforms the raw image `ArrayBuffer`: pixel/cell/tile
-  descrambles run in-process on Paperback's polyfilled canvas via 9-arg
-  `drawImage` (shared helpers in `src/utils/descramble/canvas.ts`), byte
+  descrambles run in-process on Paperback's polyfilled canvas
+  (shared helpers in `src/utils/descramble/canvas.ts`), byte
   ciphers run directly on the `Uint8Array`, and AES/RSA use `window.crypto.subtle`.
   These sources now decode their scrambled / encrypted pages for free or owned
   content: **Mangago** (grid descramble), **Omoi** (Azuki, XOR), **K Manga**
@@ -679,6 +679,18 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   `Application.executeInWebView` is still used where a source's own JavaScript
   must run (e.g. Mangago's per-image descrambling-key derivation), not for the
   pixel work.
+- **Canvas-polyfill caveat for tile remaps.** Paperback's in-process canvas
+  polyfill does **not** reliably honour the 9-argument
+  `drawImage(src, sx,sy,sw,sh, dx,dy,dw,dh)` source-crop form (the source
+  sub-rectangle is ignored), and `getImageData`/`putImageData` apply an
+  unreliable Y-axis origin that silently re-scrambles output. Tile cropping must
+  therefore use only the 4-argument `drawImage(img, x, y, w, h)` form: draw the
+  full image into a tile-sized scratch canvas shifted by `(-srcX0, -srcY0)` so
+  only the wanted tile lands in bounds, then draw that scratch 1:1 to the
+  destination position. **Comix** uses this technique; the Comix descramble math
+  was validated off-device against a real scrambled page (seam-continuity
+  reconstruction reproduced the page perfectly), proving the bug was the canvas
+  primitive, not the permutation.
 - **What still can't be bypassed is payment/login, not decryption.** Chapters a
   site refuses to serve to an anonymous/un-purchased account (most paid content on
   **K Manga**, **VIZ**, **Kodansha**, **Mangamo**, **WebNovel**, **J-Novel**,
