@@ -41,15 +41,6 @@ const ENC_INCREMENT = 1234567891;
 const LCG_MULTIPLIER = 1664525;
 const LCG_INCREMENT = 1013904223;
 
-// comix.to serves BARE page-image URLs; the CDN only returns the `x-scramble-*`
-// grid headers when the image is requested with a FRESH timestamp query. From
-// logcat the SPA's working fetches use `?<hexUnixSeconds>` (e.g. 6a388ef0 /
-// 6a3880dc — both decode to the current date); a stale hardcoded value returns
-// no headers. So we generate the current Unix-seconds-in-hex per request.
-function freshScrambleQuery(): string {
-  return Math.floor(Date.now() / 1000).toString(16);
-}
-
 // ---------------------------------------------------------------------------
 // WebView capture bootstraps.
 //
@@ -134,7 +125,10 @@ const PAGES_BOOTSTRAP = `
   var pagesPayload=null, imgQuery=null, done=false, doneResolve;
   window.__comixResult__ = new Promise(function(r){ doneResolve = r; });
   function finish(){ if(done) return; done=true; doneResolve(JSON.stringify({pages: pagesPayload, q: imgQuery})); }
-  function maybeFinish(){ if(pagesPayload && imgQuery) finish(); }
+  // imgQuery is diagnostic only (page URLs no longer use it), so finish as soon
+  // as the page list is captured; allow a short grace window for the SPA to
+  // fire an image request so the captured imgQuery log line is populated.
+  function maybeFinish(){ if(pagesPayload){ setTimeout(finish, 400); } }
   function captureImgUrl(u){
     try {
       if(imgQuery || !u) return;
@@ -585,19 +579,35 @@ export class ComixExtension implements ComixImplementation {
     const pages: string[] = [];
     if (result) {
       const base = (result.baseUrl ?? "").replace(/\/+$/, "");
-      // Prefer the exact query the SPA used on its own image requests (captured
-      // live in the page webview); fall back to a fresh timestamp. This query is
-      // what makes the CDN return the x-scramble-*/x-enc-* headers that
-      // interceptResponse descrambles on. (Off-host CDN URL -> interceptRequest
-      // strips Origin, which the grid scramble requires.)
-      const query = result.imgQuery ?? freshScrambleQuery();
-      result.items.forEach((img) => {
+      // Page-URL construction is a 1:1 port of upstream Comix.kt fetchPageList.
+      // The CDN only emits the x-scramble-*/x-enc-* headers (which
+      // interceptResponse descrambles on) when the request carries the right
+      // shape. There are three page kinds:
+      //   - V3 grid-scramble  (img.s == 1, or url already has ?v3): append a
+      //     valueless `v3` query flag. The server then returns x-scramble-*.
+      //     Tagged #v3 so interceptRequest drops Origin (required by the server
+      //     to emit x-scramble-seed for off-host CDN images).
+      //   - Legacy byte-XOR   (every 4th non-v3 page): tagged #scrambled; Origin
+      //     is kept so the server returns x-enc-seed.
+      //   - Plain             (everything else): served as-is.
+      result.items.forEach((img, index) => {
         const raw = (img.url ?? "").trim();
         if (!raw) return;
         const full = raw.startsWith("http")
           ? raw
           : `${base}/${raw.replace(/^\/+/, "")}`;
-        const pageUrl = `${full}${full.includes("?") ? "&" : "?"}${query}`;
+
+        const isV3 = img.s === 1 || /[?&]v3(\b|=|&|$)/.test(full);
+        const isLegacyScramble = !isV3 && (index + 1) % 4 === 0;
+
+        let pageUrl: string;
+        if (isV3) {
+          pageUrl = `${full}${full.includes("?") ? "&" : "?"}v3#v3`;
+        } else if (isLegacyScramble) {
+          pageUrl = `${full}#scrambled`;
+        } else {
+          pageUrl = full;
+        }
         pages.push(pageUrl);
       });
     }
