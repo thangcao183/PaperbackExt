@@ -41,14 +41,14 @@ const ENC_INCREMENT = 1234567891;
 const LCG_MULTIPLIER = 1664525;
 const LCG_INCREMENT = 1013904223;
 
-// comix.to serves BARE page-image URLs (the pages API has no per-image `s`
-// flag or token). The CDN only returns the `x-scramble-*` grid headers when the
-// image is requested with this exact query. Confirmed from logcat: the SPA's
-// own successful image fetches use `?6a3880dc` (the constant appears across
-// sessions/chapters); requests carrying an extra `&v3` get NO headers, and bare
-// URLs get none either. We replicate `?6a3880dc` so the reader's own fetch
-// triggers the headers that interceptResponse descrambles on.
-const V3_QUERY = "6a3880dc";
+// comix.to serves BARE page-image URLs; the CDN only returns the `x-scramble-*`
+// grid headers when the image is requested with a FRESH timestamp query. From
+// logcat the SPA's working fetches use `?<hexUnixSeconds>` (e.g. 6a388ef0 /
+// 6a3880dc — both decode to the current date); a stale hardcoded value returns
+// no headers. So we generate the current Unix-seconds-in-hex per request.
+function freshScrambleQuery(): string {
+  return Math.floor(Date.now() / 1000).toString(16);
+}
 
 // ---------------------------------------------------------------------------
 // WebView capture bootstraps.
@@ -553,6 +553,7 @@ export class ComixExtension implements ComixImplementation {
     const pages: string[] = [];
     if (result) {
       const base = (result.baseUrl ?? "").replace(/\/+$/, "");
+      const stamp = freshScrambleQuery();
       result.items.forEach((img) => {
         const raw = (img.url ?? "").trim();
         if (!raw) return;
@@ -560,13 +561,11 @@ export class ComixExtension implements ComixImplementation {
           ? raw
           : `${base}/${raw.replace(/^\/+/, "")}`;
 
-        // Append the constant scramble query so the CDN returns the
+        // Append a fresh hex-timestamp query so the CDN returns the
         // x-scramble-*/x-enc-* headers; interceptResponse then descrambles.
         // (Off-host CDN URL -> interceptRequest strips Origin, which the grid
-        // scramble requires.) Already-flagged URLs are left as-is.
-        const pageUrl = full.includes("6a3880dc")
-          ? full
-          : `${full}${full.includes("?") ? "&" : "?"}${V3_QUERY}`;
+        // scramble requires.)
+        const pageUrl = `${full}${full.includes("?") ? "&" : "?"}${stamp}`;
         pages.push(pageUrl);
       });
     }
