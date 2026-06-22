@@ -379,9 +379,37 @@ export class MangaGoExtension implements MangaGoImplementation {
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     const url = this.chapterUrl(chapter.chapterId);
-    const $ = await this.fetchCheerio({ url, method: "GET" });
+    const { $, finalUrl } = await this.fetchCheerioWithUrl({
+      url,
+      method: "GET",
+    });
 
-    const pages = await this.getChapterImageUrls($);
+    // chapter.js is identical for every page of a chapter, so cache its
+    // decoded form to avoid re-fetching it once per missing page below.
+    const jsCache = new Map<string, string>();
+    const availableImages = await this.getChapterImageUrls($, jsCache);
+
+    // Happy path: the landing page embedded every image URL.
+    if (
+      availableImages.length > 0 &&
+      availableImages.every((u) => u.length > 0)
+    ) {
+      return {
+        id: chapter.chapterId,
+        mangaId: chapter.sourceManga.mangaId,
+        pages: availableImages,
+      };
+    }
+
+    // Otherwise Mangago only embedded the first few URLs (the rest are
+    // blank). Resolve every page from the chapter's per-page URL template
+    // so all pages load instead of just the handful that were embedded.
+    const pages = await this.resolveAllPages(
+      $,
+      finalUrl,
+      availableImages,
+      jsCache,
+    );
 
     return {
       id: chapter.chapterId,
@@ -390,11 +418,86 @@ export class MangaGoExtension implements MangaGoImplementation {
     };
   }
 
+  // When the chapter landing page only embeds the first few image URLs,
+  // build the rest from `total_pages` + the `input#curl` URL template,
+  // fetching each missing page's HTML to recover its image URL.
+  private async resolveAllPages(
+    $: CheerioAPI,
+    finalUrl: string,
+    availableImages: string[],
+    jsCache: Map<string, string>,
+  ): Promise<string[]> {
+    let totalPages = 0;
+    $("script").each((_, el) => {
+      if (totalPages) return;
+      const content = $(el).html() || "";
+      const m = content.match(/total_pages\s*=\s*(\d+)/);
+      if (m) totalPages = parseInt(m[1], 10);
+    });
+    // Fall back to whatever we managed to extract if the count is missing.
+    if (!totalPages) return availableImages.filter((u) => u.length > 0);
+
+    const urlTemplate = ($("input#curl").attr("value") || "")
+      .trim()
+      .replace(/^\/+/, "");
+    if (!urlTemplate.includes("{page}")) {
+      return availableImages.filter((u) => u.length > 0);
+    }
+
+    const prefix = this.computePagePrefix(finalUrl, urlTemplate);
+    if (!prefix) return availableImages.filter((u) => u.length > 0);
+
+    const pages: string[] = [];
+    for (let page = 1; page <= totalPages; page++) {
+      const existing = availableImages[page - 1];
+      if (existing && existing.length > 0) {
+        pages.push(existing);
+        continue;
+      }
+
+      const pageUrl = `${prefix}/${urlTemplate.replace("{page}", String(page))}`;
+      try {
+        const $$ = await this.fetchCheerio({ url: pageUrl, method: "GET" });
+        const pageImages = await this.getChapterImageUrls($$, jsCache);
+        pages.push(pageImages[page - 1] ?? "");
+      } catch {
+        pages.push("");
+      }
+    }
+
+    return pages.filter((u) => u.length > 0);
+  }
+
+  // Reproduces the upstream prefix logic for the per-page URL template.
+  private computePagePrefix(finalUrl: string, urlTemplate: string): string {
+    const m = finalUrl.match(/^(https?):\/\/([^/]+)(\/[^?#]*)?/);
+    if (!m) return "";
+    const host = m[2];
+    const pathSegments = (m[3] || "").split("/").filter((s) => s.length > 0);
+    const urlTemplateSegment = urlTemplate.split("/")[0];
+
+    if (
+      host.endsWith(DOMAIN) &&
+      pathSegments.length > 3 &&
+      pathSegments[0] === "read-manga" &&
+      pathSegments[2] === urlTemplateSegment
+    ) {
+      return `${BASE_URL}/read-manga/${pathSegments[1]}`;
+    }
+    if (!host.endsWith(DOMAIN) && pathSegments[0] === urlTemplateSegment) {
+      return `https://${host}`;
+    }
+    return "";
+  }
+
   // ----------------------------------------------------------------
   // Page image pipeline (the hard part)
   // ----------------------------------------------------------------
 
-  private async getChapterImageUrls($: CheerioAPI): Promise<string[]> {
+  private async getChapterImageUrls(
+    $: CheerioAPI,
+    jsCache?: Map<string, string>,
+  ): Promise<string[]> {
     // 1. Extract the base64 `imgsrcs` blob from the inline script.
     let imgSrcsB64 = "";
     $("script").each((_, el) => {
@@ -412,13 +515,17 @@ export class MangaGoExtension implements MangaGoImplementation {
     if (!chapterJsHref) return [];
     const chapterJsUrl = this.absoluteUrl(chapterJsHref);
 
-    const [jsResponse, jsData] = await Application.scheduleRequest({
-      url: chapterJsUrl,
-      method: "GET",
-    });
-    if (jsResponse.status !== 200) return [];
-    const obfuscated = Application.arrayBufferToUTF8String(jsData);
-    const chapterJs = this.sojsonV4Decode(obfuscated);
+    let chapterJs = jsCache?.get(chapterJsUrl);
+    if (chapterJs === undefined) {
+      const [jsResponse, jsData] = await Application.scheduleRequest({
+        url: chapterJsUrl,
+        method: "GET",
+      });
+      if (jsResponse.status !== 200) return [];
+      const obfuscated = Application.arrayBufferToUTF8String(jsData);
+      chapterJs = this.sojsonV4Decode(obfuscated);
+      jsCache?.set(chapterJsUrl, chapterJs);
+    }
 
     // 3. AES-CBC decrypt the imgsrcs blob with key/iv from chapter.js.
     const keyHex = this.findHexEncodedVariable(chapterJs, "key");
@@ -442,7 +549,10 @@ export class MangaGoExtension implements MangaGoImplementation {
     // 6. Extract the descrambling-key generator body.
     const imgKeys = this.extractImgKeys(chapterJs);
 
-    const urls = imageList.split(",").filter((u) => u);
+    // Keep blank entries: Mangago sometimes only embeds the first few
+    // image URLs on the landing page and leaves the rest empty. The blanks
+    // preserve page alignment so the caller can resolve them individually.
+    const urls = imageList.split(",");
 
     // 7. Resolve descrambling keys for scrambled (cspiclink) images.
     const cspiclinkUrls = urls.filter((u) => u.includes("cspiclink"));
@@ -452,6 +562,7 @@ export class MangaGoExtension implements MangaGoImplementation {
     }
 
     return urls.map((url) => {
+      if (!url) return "";
       if (url.includes("cspiclink")) {
         const descKey = keyByUrl[url];
         if (descKey) {
@@ -704,13 +815,19 @@ JSON.stringify(${JSON.stringify(urls)}.map(function(u){
   }
 
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
+    return (await this.fetchCheerioWithUrl(request)).$;
+  }
+
+  async fetchCheerioWithUrl(
+    request: Request,
+  ): Promise<{ $: CheerioAPI; finalUrl: string }> {
     const [response, data] = await Application.scheduleRequest(request);
     if (response.status === 404) {
       throw new Error("Content not found");
     }
     const htmlStr = Application.arrayBufferToUTF8String(data);
     const dom = htmlparser2.parseDocument(htmlStr);
-    return cheerio.load(dom);
+    return { $: cheerio.load(dom), finalUrl: response.url || request.url };
   }
 }
 

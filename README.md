@@ -306,7 +306,7 @@ adult/NSFW content (232 Mature, 190 Everyone).
 | Mangafree | 1.4.51.2 | Mature |
 | MangaGeko | 1.4.32.1 | Mature |
 | MangaGG | 1.4.54.2 | Mature |
-| Mangago | 1.4.34.4 | Mature |
+| Mangago | 1.4.34.5 | Mature |
 | MangaGo.fun | 1.4.51.2 | Everyone |
 | MangaHe | 1.4.51.2 | Mature |
 | Mangahere | 1.4.23.1 | Mature |
