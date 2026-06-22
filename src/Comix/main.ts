@@ -28,10 +28,6 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
-import {
-  loadImageFromBuffer,
-  decodeDataUrlToArrayBuffer,
-} from "../utils/descramble/canvas";
 
 const BASE_URL = "https://comix.to";
 
@@ -1104,9 +1100,6 @@ async function decodeScrambledImage(
   if (shouldDescrambleGrid && scrambleSeed !== null) {
     const seed = (scrambleSeed ^ scrambleHash) | 0;
     const order = buildTileOrder(seed, rawScrambleAlgo);
-    // The CDN serves these pages as image/webp (sometimes jpeg/png). The
-    // polyfilled Image decoder keys off the data: URL's declared MIME, so we
-    // MUST decode with the ACTUAL content-type.
     const decodeMime =
       sniffImageMime(bytes) ??
       stripMimeParams(headerValue(headers, "content-type")) ??
@@ -1115,59 +1108,87 @@ async function decodeScrambledImage(
       `[Comix] grid descramble: algo=${rawScrambleAlgo ?? "?"} seed=${seed} decodeMime=${decodeMime} bytes=${bytes.length}`,
     );
 
-    // Decode the scrambled image onto a source canvas so we can use
-    // getImageData to read raw pixels. This avoids the polyfill's 9-arg
-    // drawImage which may not correctly copy sub-regions from an Image source.
-    const srcImg = await loadImageFromBuffer(bufferOf(bytes), decodeMime);
-    const width = srcImg.naturalWidth || srcImg.width;
-    const height = srcImg.naturalHeight || srcImg.height;
-    if (!width || !height) {
+    // The in-process polyfilled canvas does NOT reliably descramble tiles
+    // (9-arg drawImage and getImageData/putImageData both fail silently).
+    // Use executeInWebView with a real browser canvas — proven approach
+    // (same as AsuraScans). Encode the scrambled image as a data URL and
+    // pass the inverse permutation to the webview JS which performs the
+    // tile remap with native Canvas.
+    const b64 = Application.base64Encode(bufferOf(bytes));
+    const b64Str =
+      typeof b64 === "string"
+        ? b64
+        : Application.arrayBufferToASCIIString(b64);
+    const dataUrl = `data:${decodeMime};base64,${b64Str}`;
+
+    const inject = `
+(function(){
+  return new Promise(function(resolve){
+    var img = new Image();
+    img.onload = function(){
+      try {
+        var order = ${JSON.stringify(order)};
+        var cols = ${GRID_COLS}, rows = ${GRID_ROWS};
+        var w = img.naturalWidth, h = img.naturalHeight;
+        var tw = Math.floor(w / cols), th = Math.floor(h / rows);
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        // Draw full image first so remainder pixels survive
+        ctx.drawImage(img, 0, 0, w, h);
+        for (var i = 0; i < order.length; i++) {
+          var srcIdx = order[i];
+          var srcCol = srcIdx % cols, srcRow = Math.floor(srcIdx / cols);
+          var dstCol = i % cols, dstRow = Math.floor(i / cols);
+          ctx.drawImage(img, srcCol*tw, srcRow*th, tw, th, dstCol*tw, dstRow*th, tw, th);
+        }
+        resolve(canvas.toDataURL('image/jpeg', 0.90));
+      } catch(e) { resolve('ERR:' + e.message); }
+    };
+    img.onerror = function(){ resolve(''); };
+    img.src = ${JSON.stringify(dataUrl)};
+  });
+})()
+`;
+
+    const result = await Application.executeInWebView({
+      source: {
+        html: "<html><head></head><body></body></html>",
+        baseUrl: BASE_URL,
+        loadCSS: false,
+        loadImages: true,
+      },
+      inject,
+      storage: { cookies: [] },
+    });
+
+    const resultUrl = String(result.result || "");
+    if (resultUrl.startsWith("ERR:")) {
+      console.log(`[Comix] grid descramble webview error: ${resultUrl}`);
+      return bufferOf(bytes);
+    }
+    const commaIdx = resultUrl.indexOf(",");
+    if (!resultUrl.startsWith("data:") || commaIdx < 0) {
       console.log(
-        `[Comix] grid descramble: decode failed (w=${width}, h=${height}), returning raw`,
+        `[Comix] grid descramble: webview returned empty/invalid`,
       );
       return bufferOf(bytes);
     }
 
-    const tw = (width / GRID_COLS) | 0;
-    const th = (height / GRID_ROWS) | 0;
-    if (tw === 0 || th === 0) return bufferOf(bytes);
-
-    // Draw the scrambled image onto a source canvas to get pixel data
-    const srcCanvas = new HTMLCanvasElement();
-    srcCanvas.width = width;
-    srcCanvas.height = height;
-    const srcCtx = srcCanvas.getContext("2d");
-    if (!srcCtx) return bufferOf(bytes);
-    srcCtx.drawImage(srcImg, 0, 0, width, height);
-
-    // Create the output canvas (start with full image for remainder pixels)
-    const dstCanvas = new HTMLCanvasElement();
-    dstCanvas.width = width;
-    dstCanvas.height = height;
-    const dstCtx = dstCanvas.getContext("2d");
-    if (!dstCtx) return bufferOf(bytes);
-    dstCtx.drawImage(srcImg, 0, 0, width, height);
-
-    // Remap tiles using getImageData/putImageData (pixel-block copy)
-    for (let dstIdx = 0; dstIdx < NUM_TILES; dstIdx++) {
-      const srcIdx = order[dstIdx];
-      const srcCol = srcIdx % GRID_COLS;
-      const srcRow = (srcIdx / GRID_COLS) | 0;
-      const dstCol = dstIdx % GRID_COLS;
-      const dstRow = (dstIdx / GRID_COLS) | 0;
-      const tileData = srcCtx.getImageData(
-        srcCol * tw,
-        srcRow * th,
-        tw,
-        th,
+    const payload = resultUrl.slice(commaIdx + 1);
+    const decoded = Application.base64Decode(payload);
+    if (typeof decoded === "string") {
+      const out = new Uint8Array(decoded.length);
+      for (let i = 0; i < decoded.length; i++) out[i] = decoded.charCodeAt(i);
+      console.log(
+        `[Comix] grid descramble: success via webview (${out.byteLength} bytes)`,
       );
-      dstCtx.putImageData(tileData, dstCol * tw, dstRow * th);
+      return out.buffer;
     }
-
     console.log(
-      `[Comix] grid descramble: complete (${width}x${height}, tile=${tw}x${th})`,
+      `[Comix] grid descramble: success via webview (${(decoded as ArrayBuffer).byteLength} bytes)`,
     );
-    return decodeDataUrlToArrayBuffer(dstCanvas.toDataURL("image/jpeg"));
+    return decoded as ArrayBuffer;
   }
 
   return bufferOf(bytes);
