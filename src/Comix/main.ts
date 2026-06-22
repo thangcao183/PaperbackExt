@@ -28,7 +28,11 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
-import { remapTilesByLookup } from "../utils/descramble/canvas";
+import {
+  remapTilesByLookup,
+  loadImageFromBuffer,
+  decodeDataUrlToArrayBuffer,
+} from "../utils/descramble/canvas";
 
 const BASE_URL = "https://comix.to";
 
@@ -1114,18 +1118,53 @@ async function decodeScrambledImage(
     console.log(
       `[Comix] grid descramble: algo=${rawScrambleAlgo ?? "?"} seed=${scrambleSeed} decodeMime=${decodeMime} bytes=${bytes.length}`,
     );
+
+    // Transcode non-JPEG images to JPEG before tile remap. The polyfill's
+    // 9-arg drawImage can have quirks with WebP source images (tiles may not
+    // render correctly even though the Image decodes and has valid dimensions).
+    // Converting to JPEG first (via a full-image draw to a temporary canvas)
+    // ensures the tile-remap reads from a known-good JPEG-decoded source.
+    // This also matches upstream Descrambler.kt, which always outputs JPEG.
+    let remapBuffer: ArrayBuffer;
+    let remapMime: string;
+    if (decodeMime !== "image/jpeg") {
+      const tmpSrc = await loadImageFromBuffer(bufferOf(bytes), decodeMime);
+      const w = tmpSrc.naturalWidth || tmpSrc.width;
+      const h = tmpSrc.naturalHeight || tmpSrc.height;
+      if (!w || !h) {
+        console.log(
+          `[Comix] grid descramble: transcode failed (w=${w}, h=${h}), returning raw`,
+        );
+        return bufferOf(bytes);
+      }
+      const tmpCanvas = new HTMLCanvasElement();
+      tmpCanvas.width = w;
+      tmpCanvas.height = h;
+      const tmpCtx = tmpCanvas.getContext("2d");
+      if (!tmpCtx) return bufferOf(bytes);
+      tmpCtx.drawImage(tmpSrc, 0, 0, w, h);
+      remapBuffer = decodeDataUrlToArrayBuffer(
+        tmpCanvas.toDataURL("image/jpeg"),
+      );
+      remapMime = "image/jpeg";
+      console.log(
+        `[Comix] grid descramble: transcoded ${decodeMime} -> jpeg (${remapBuffer.byteLength} bytes, ${w}x${h})`,
+      );
+    } else {
+      remapBuffer = bufferOf(bytes);
+      remapMime = "image/jpeg";
+    }
+
     // Equal 5x5 tile grid over the whole image (tile = floor(W/5) x floor(H/5),
     // remainder passes through), so the shared in-process canvas remap applies
     // directly. `order[dstIdx]` is the SOURCE tile index for destination tile
-    // `dstIdx`, exactly remapTilesByLookup's lookup contract. Re-encode as JPEG
-    // (matches upstream Descrambler.kt, which compresses to JPEG q90).
+    // `dstIdx`, exactly remapTilesByLookup's lookup contract.
     return await remapTilesByLookup(
-      bufferOf(bytes),
-      decodeMime,
+      remapBuffer,
+      remapMime,
       GRID_COLS,
       GRID_ROWS,
       order,
-      "image/jpeg",
     );
   }
 
