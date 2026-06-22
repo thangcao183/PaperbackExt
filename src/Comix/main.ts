@@ -290,29 +290,9 @@ class ComixInterceptor extends PaperbackInterceptor {
 
     if (response.status < 200 || response.status >= 300) return data;
 
-    // Diagnostic (page images only): log the FULL url + whether the server
-    // returned scramble headers, so token-vs-headers can be correlated.
-    const u = request.url.split("#")[0];
-    const isImage =
-      u.includes("wowpic") ||
-      u.includes("static.comix") ||
-      /\.(jpe?g|png|webp|avif)(\?|$)/i.test(u) ||
-      /[?&]v3(\b|&|=|$)/.test(u);
-    if (isImage) {
-      const sx = Object.keys(response.headers ?? {})
-        .filter((k) => /^x-(scramble|enc)-/i.test(k))
-        .map((k) => `${k}=${response.headers[k]}`);
-      console.log(
-        `[Comix] img headers=[${sx.join(", ") || "NONE"}] url=${u}`,
-      );
-    }
-
     try {
       return await decodeScrambledImage(response.headers, data);
-    } catch (e) {
-      console.log(
-        `[Comix] descramble error: ${e instanceof Error ? e.message : String(e)}`,
-      );
+    } catch {
       // Never throw out of interceptResponse — fall back to original bytes.
       return data;
     }
@@ -699,7 +679,6 @@ export class ComixExtension implements ComixImplementation {
     const pagesStr = (outer as { pages?: unknown } | null)?.pages;
     const q = (outer as { q?: unknown } | null)?.q;
     const imgQuery = typeof q === "string" && q.length > 0 ? q : undefined;
-    console.log(`[Comix] captured imgQuery=${imgQuery ?? "NONE"}`);
     if (typeof pagesStr !== "string") return undefined;
     let parsed: unknown;
     try {
@@ -1105,18 +1084,12 @@ async function decodeScrambledImage(
       sniffImageMime(bytes) ??
       stripMimeParams(headerValue(headers, "content-type")) ??
       "image/jpeg";
-    console.log(
-      `[Comix] grid descramble: algo=${rawScrambleAlgo ?? "?"} seed=${seed} decodeMime=${decodeMime} bytes=${bytes.length}`,
-    );
 
     // Step 1: Load source image (may be webp/png/jpeg)
     const srcImg = await loadImageFromBuffer(bufferOf(bytes), decodeMime);
     const width = srcImg.naturalWidth || srcImg.width;
     const height = srcImg.naturalHeight || srcImg.height;
     if (!width || !height) {
-      console.log(
-        `[Comix] grid descramble: load failed (w=${width}, h=${height})`,
-      );
       return bufferOf(bytes);
     }
 
@@ -1148,9 +1121,6 @@ async function decodeScrambledImage(
       tileSource = await loadImageFromBuffer(jpegBuf, "image/jpeg");
       const w2 = tileSource.naturalWidth || tileSource.width;
       const h2 = tileSource.naturalHeight || tileSource.height;
-      console.log(
-        `[Comix] grid descramble: transcoded ${decodeMime} -> jpeg (${w2}x${h2})`,
-      );
       if (!w2 || !h2) return bufferOf(bytes);
     }
 
@@ -1220,9 +1190,6 @@ async function decodeScrambledImage(
     } else {
       resultBuf = resultDecoded as ArrayBuffer;
     }
-    console.log(
-      `[Comix] grid descramble: complete (pixelcopy ${width}x${height}, tile=${tw}x${th}, output=${resultBuf.byteLength} bytes)`,
-    );
     return resultBuf;
   }
 
