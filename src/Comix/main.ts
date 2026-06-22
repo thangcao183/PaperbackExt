@@ -1172,33 +1172,38 @@ async function decodeScrambledImage(
     // Draw the full image first so the right/bottom remainder survives.
     outCtx.drawImage(tileSource, 0, 0, width, height);
 
-    // Tile remap via PER-TILE getImageData/putImageData. We deliberately do NOT
-    // hand-compute raw RGBA buffer offsets: the polyfill's getImageData/
-    // putImageData use an unreliable Y origin (see utils/descramble/canvas.ts
-    // header), so manual row math silently writes each tile to the vertically
-    // mirrored band (v1.4.31.21: tiles moved but landed in wrong cells, upright
-    // interiors). Snapshotting a region with getImageData and restoring it with
-    // putImageData round-trips correctly regardless of the polyfill's internal
-    // flip convention, because we never touch the raw buffer layout ourselves.
+    // Tile remap using ONLY the 4-arg drawImage(img, x, y, w, h) primitive,
+    // which is the one canvas op proven to work in Paperback's polyfill (the
+    // WebP->JPEG transcode above uses it successfully). We avoid:
+    //   - 9-arg drawImage crop  -> polyfill ignores the source sub-rect (no-op,
+    //     v1.4.31.20: completes with correct dims but output stays scrambled)
+    //   - getImageData/putImageData -> unreliable Y origin re-scrambles output
+    //     (v1.4.31.21: tiles moved but landed in wrong cells, upright interiors)
     //
-    // Read ALL source tiles BEFORE writing any (putImageData mutates the canvas,
-    // which would corrupt later reads of overlapping source regions).
-    // order[dstIdx] = srcIdx (clean[dst] = scrambled[order[dst]]).
-    const srcTiles: { dstX0: number; dstY0: number; img: ImageData }[] = [];
+    // To crop source tile `srcIdx` without a crop primitive: draw the FULL image
+    // into a tile-sized scratch canvas shifted by (-srcX0, -srcY0) so only that
+    // tile lands inside the scratch bounds, then draw the scratch (1:1, no
+    // scaling) to the destination tile position. Both are plain 4-arg draws.
+    //
+    // Verified against ground truth (Python seam-recovery on a real scrambled
+    // page, seed=2397601448): clean[dst] = scrambled[order[dst]] is correct.
+    const scratch = new HTMLCanvasElement();
+    scratch.width = tw;
+    scratch.height = th;
+    const scratchCtx = scratch.getContext("2d");
+    if (!scratchCtx) return bufferOf(bytes);
+
     for (let dstIdx = 0; dstIdx < NUM_TILES; dstIdx++) {
       const srcIdx = order[dstIdx];
       const srcX0 = (srcIdx % GRID_COLS) * tw;
       const srcY0 = ((srcIdx / GRID_COLS) | 0) * th;
       const dstX0 = (dstIdx % GRID_COLS) * tw;
       const dstY0 = ((dstIdx / GRID_COLS) | 0) * th;
-      srcTiles.push({
-        dstX0,
-        dstY0,
-        img: outCtx.getImageData(srcX0, srcY0, tw, th),
-      });
-    }
-    for (const t of srcTiles) {
-      outCtx.putImageData(t.img, t.dstX0, t.dstY0);
+      // Shift the whole image so source tile (srcX0,srcY0) maps to scratch (0,0).
+      scratchCtx.clearRect(0, 0, tw, th);
+      scratchCtx.drawImage(tileSource, -srcX0, -srcY0, width, height);
+      // Place the cropped tile (1:1) at the destination position.
+      outCtx.drawImage(scratch, dstX0, dstY0, tw, th);
     }
 
     // DIAGNOSTIC (v1.4.31.22): draw an unmistakable magenta border around every
