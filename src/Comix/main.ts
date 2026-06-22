@@ -1169,39 +1169,37 @@ async function decodeScrambledImage(
     const outCtx = outCanvas.getContext("2d");
     if (!outCtx) return bufferOf(bytes);
 
-    // Read the full source pixels once (draw full image, then snapshot RGBA).
+    // Draw the full image first so the right/bottom remainder survives.
     outCtx.drawImage(tileSource, 0, 0, width, height);
-    const srcImageData = outCtx.getImageData(0, 0, width, height);
-    const srcPix = srcImageData.data;
 
-    // Start the output as a full copy so right/bottom remainder survives.
-    const outImageData = outCtx.createImageData(width, height);
-    const outPix = outImageData.data;
-    outPix.set(srcPix);
-
-    // Copy each source tile rect into its destination tile rect.
+    // Tile remap via PER-TILE getImageData/putImageData. We deliberately do NOT
+    // hand-compute raw RGBA buffer offsets: the polyfill's getImageData/
+    // putImageData use an unreliable Y origin (see utils/descramble/canvas.ts
+    // header), so manual row math silently writes each tile to the vertically
+    // mirrored band (v1.4.31.21: tiles moved but landed in wrong cells, upright
+    // interiors). Snapshotting a region with getImageData and restoring it with
+    // putImageData round-trips correctly regardless of the polyfill's internal
+    // flip convention, because we never touch the raw buffer layout ourselves.
+    //
+    // Read ALL source tiles BEFORE writing any (putImageData mutates the canvas,
+    // which would corrupt later reads of overlapping source regions).
     // order[dstIdx] = srcIdx (clean[dst] = scrambled[order[dst]]).
+    const srcTiles: { dstX0: number; dstY0: number; img: ImageData }[] = [];
     for (let dstIdx = 0; dstIdx < NUM_TILES; dstIdx++) {
       const srcIdx = order[dstIdx];
-      const srcCol = srcIdx % GRID_COLS;
-      const srcRow = (srcIdx / GRID_COLS) | 0;
-      const dstCol = dstIdx % GRID_COLS;
-      const dstRow = (dstIdx / GRID_COLS) | 0;
-      const srcX0 = srcCol * tw;
-      const srcY0 = srcRow * th;
-      const dstX0 = dstCol * tw;
-      const dstY0 = dstRow * th;
-      const rowBytes = tw * 4;
-      for (let y = 0; y < th; y++) {
-        const sOff = ((srcY0 + y) * width + srcX0) * 4;
-        const dOff = ((dstY0 + y) * width + dstX0) * 4;
-        for (let b = 0; b < rowBytes; b++) {
-          outPix[dOff + b] = srcPix[sOff + b];
-        }
-      }
+      const srcX0 = (srcIdx % GRID_COLS) * tw;
+      const srcY0 = ((srcIdx / GRID_COLS) | 0) * th;
+      const dstX0 = (dstIdx % GRID_COLS) * tw;
+      const dstY0 = ((dstIdx / GRID_COLS) | 0) * th;
+      srcTiles.push({
+        dstX0,
+        dstY0,
+        img: outCtx.getImageData(srcX0, srcY0, tw, th),
+      });
     }
-
-    outCtx.putImageData(outImageData, 0, 0);
+    for (const t of srcTiles) {
+      outCtx.putImageData(t.img, t.dstX0, t.dstY0);
+    }
 
     // DIAGNOSTIC (v1.4.31.22): draw an unmistakable magenta border around every
     // page that went through this grid-descramble path. Lets us tell apart a
