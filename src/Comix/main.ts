@@ -248,9 +248,28 @@ class ComixInterceptor extends PaperbackInterceptor {
 
     if (response.status < 200 || response.status >= 300) return data;
 
+    // Diagnostic: surface whether the server's scramble headers actually reach
+    // interceptResponse (keiyoushi gets them from Android OkHttp; Paperback may
+    // filter custom x-* headers). Run `npm run logcat` to inspect. Only logs for
+    // requests that look like page images.
+    const u = request.url.split("#")[0];
+    if (/\.(jpe?g|png|webp|avif)(\?|$)/i.test(u) || u.includes("?v3")) {
+      const sx = Object.keys(response.headers ?? {}).filter((k) =>
+        /^x-(scramble|enc)-/i.test(k),
+      );
+      console.log(
+        `[Comix] image ${u.slice(0, 80)} scrambleHeaders=[${sx
+          .map((k) => `${k}=${response.headers[k]}`)
+          .join(", ")}]`,
+      );
+    }
+
     try {
       return await decodeScrambledImage(response.headers, data);
-    } catch {
+    } catch (e) {
+      console.log(
+        `[Comix] descramble error: ${e instanceof Error ? e.message : String(e)}`,
+      );
       // Never throw out of interceptResponse — fall back to original bytes.
       return data;
     }
@@ -1017,6 +1036,12 @@ async function decodeScrambledImage(
       rawScrambleAlgo === "3") &&
     scrambleSeed !== null &&
     scrambleSeed !== 0;
+
+  console.log(
+    `[Comix] decode grid=${rawScrambleGrid} algo=${rawScrambleAlgo} ` +
+      `scrambleSeed=${scrambleSeed} encSeed=${encSeed} encLen=${encLen} ` +
+      `=> needsXor=${needsXor} grid=${shouldDescrambleGrid}`,
+  );
 
   if (!needsXor && !shouldDescrambleGrid) return data;
 
