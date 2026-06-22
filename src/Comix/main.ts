@@ -41,6 +41,14 @@ const ENC_INCREMENT = 1234567891;
 const LCG_MULTIPLIER = 1664525;
 const LCG_INCREMENT = 1013904223;
 
+// comix.to serves BARE page-image URLs (the pages API has no per-image `s`
+// flag or token). The CDN only returns the `x-scramble-*` grid headers when the
+// image is requested with this exact query — confirmed from logcat: the same
+// `6a3880dc&v3` value appears across sessions/chapters, while `?v3` alone or a
+// bare URL returns no headers (tile-shuffled). The SPA appends it client-side;
+// we replicate it so the reader's fetch triggers the headers we descramble on.
+const V3_QUERY = "6a3880dc&v3";
+
 // ---------------------------------------------------------------------------
 // WebView capture bootstraps.
 //
@@ -544,36 +552,20 @@ export class ComixExtension implements ComixImplementation {
     const pages: string[] = [];
     if (result) {
       const base = (result.baseUrl ?? "").replace(/\/+$/, "");
-      result.items.forEach((img, index) => {
+      result.items.forEach((img) => {
         const raw = (img.url ?? "").trim();
         if (!raw) return;
         const full = raw.startsWith("http")
           ? raw
           : `${base}/${raw.replace(/^\/+/, "")}`;
 
-        // Mirror upstream imageRequest/fetchPageList logic:
-        //  - V3 pages (s == 1 or ?v3 already present) get the ?v3 flag so the
-        //    server returns the x-scramble-* grid headers. These hosts must NOT
-        //    receive an Origin header (the interceptor strips it by default for
-        //    off-host images that are not legacy-scrambled).
-        //  - Legacy byte-XOR pages occur on every 4th page; we tag them with a
-        //    #scrambled fragment so the interceptRequest keeps Origin (needed
-        //    for x-enc-seed) and so we know the intent.
-        const isV3 = img.s === 1 || full.includes("?v3");
-        const isLegacyScramble = !isV3 && (index + 1) % 4 === 0;
-
-        let pageUrl: string;
-        if (isV3) {
-          pageUrl = full.includes("?")
-            ? full.includes("v3")
-              ? full
-              : `${full}&v3`
-            : `${full}?v3`;
-        } else if (isLegacyScramble) {
-          pageUrl = `${full}#scrambled`;
-        } else {
-          pageUrl = full;
-        }
+        // Append the constant scramble query so the CDN returns the
+        // x-scramble-*/x-enc-* headers; interceptResponse then descrambles.
+        // (Off-host CDN URL -> interceptRequest strips Origin, which the grid
+        // scramble requires.) Already-flagged URLs are left as-is.
+        const pageUrl = full.includes("6a3880dc")
+          ? full
+          : `${full}${full.includes("?") ? "&" : "?"}${V3_QUERY}`;
         pages.push(pageUrl);
       });
     }
