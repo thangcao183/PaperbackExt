@@ -1206,17 +1206,6 @@ async function decodeScrambledImage(
       outCtx.drawImage(scratch, dstX0, dstY0, tw, th);
     }
 
-    // DIAGNOSTIC (v1.4.31.22): draw an unmistakable magenta border around every
-    // page that went through this grid-descramble path. Lets us tell apart a
-    // "descrambled-but-wrong" page (HAS border) from a "never descrambled / raw
-    // server scramble" page (NO border) in the next screenshot.
-    outCtx.fillStyle = "#FF00FF";
-    const bw = 16;
-    outCtx.fillRect(0, 0, width, bw);
-    outCtx.fillRect(0, height - bw, width, bw);
-    outCtx.fillRect(0, 0, bw, height);
-    outCtx.fillRect(width - bw, 0, bw, height);
-
     const resultUrl = outCanvas.toDataURL("image/jpeg", 0.90);
     const commaIdx = resultUrl.indexOf(",");
     if (commaIdx < 0) return bufferOf(bytes);
