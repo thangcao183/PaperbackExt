@@ -157,7 +157,7 @@ adult/NSFW content (232 Mature, 190 Everyone).
 | ComicLand | 1.4.1.1 | Mature |
 | Comics Land | 1.4.32.1 | Mature |
 | Comivex | 1.4.3.1 | Everyone |
-| Comix | 1.4.31.8 | Mature |
+| Comix | 1.4.31.9 | Mature |
 | Coolmic | 1.4.1.2 | Mature |
 | Crow Scans | 1.4.32.1 | Everyone |
 | Cucumber Manga | 1.4.51.2 | Mature |

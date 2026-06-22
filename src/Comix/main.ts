@@ -43,11 +43,12 @@ const LCG_INCREMENT = 1013904223;
 
 // comix.to serves BARE page-image URLs (the pages API has no per-image `s`
 // flag or token). The CDN only returns the `x-scramble-*` grid headers when the
-// image is requested with this exact query — confirmed from logcat: the same
-// `6a3880dc&v3` value appears across sessions/chapters, while `?v3` alone or a
-// bare URL returns no headers (tile-shuffled). The SPA appends it client-side;
-// we replicate it so the reader's fetch triggers the headers we descramble on.
-const V3_QUERY = "6a3880dc&v3";
+// image is requested with this exact query. Confirmed from logcat: the SPA's
+// own successful image fetches use `?6a3880dc` (the constant appears across
+// sessions/chapters); requests carrying an extra `&v3` get NO headers, and bare
+// URLs get none either. We replicate `?6a3880dc` so the reader's own fetch
+// triggers the headers that interceptResponse descrambles on.
+const V3_QUERY = "6a3880dc";
 
 // ---------------------------------------------------------------------------
 // WebView capture bootstraps.
