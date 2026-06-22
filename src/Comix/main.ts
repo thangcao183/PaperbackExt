@@ -579,35 +579,27 @@ export class ComixExtension implements ComixImplementation {
     const pages: string[] = [];
     if (result) {
       const base = (result.baseUrl ?? "").replace(/\/+$/, "");
-      // Page-URL construction is a 1:1 port of upstream Comix.kt fetchPageList.
-      // The CDN only emits the x-scramble-*/x-enc-* headers (which
-      // interceptResponse descrambles on) when the request carries the right
-      // shape. There are three page kinds:
-      //   - V3 grid-scramble  (img.s == 1, or url already has ?v3): append a
-      //     valueless `v3` query flag. The server then returns x-scramble-*.
-      //     Tagged #v3 so interceptRequest drops Origin (required by the server
-      //     to emit x-scramble-seed for off-host CDN images).
-      //   - Legacy byte-XOR   (every 4th non-v3 page): tagged #scrambled; Origin
-      //     is kept so the server returns x-enc-seed.
-      //   - Plain             (everything else): served as-is.
-      result.items.forEach((img, index) => {
+      // The CDN only returns x-scramble-*/x-enc-* response headers (which
+      // interceptResponse descrambles) when the request URL includes a `v3`
+      // query parameter. The upstream API's `img.s` field marks ~28% of pages
+      // as scrambled (s=1), but in practice ALL page images on the CDN are
+      // encrypted/scrambled — requesting without `?v3` yields the raw scrambled
+      // bytes with no headers, so descrambling is impossible.
+      //
+      // Solution: append `?v3` unconditionally to every page URL. The `#v3`
+      // fragment signals interceptRequest to drop the Origin header (the CDN
+      // withholds x-scramble-seed when Origin is present for off-host images).
+      result.items.forEach((img) => {
         const raw = (img.url ?? "").trim();
         if (!raw) return;
         const full = raw.startsWith("http")
           ? raw
           : `${base}/${raw.replace(/^\/+/, "")}`;
 
-        const isV3 = img.s === 1 || /[?&]v3(\b|=|&|$)/.test(full);
-        const isLegacyScramble = !isV3 && (index + 1) % 4 === 0;
-
-        let pageUrl: string;
-        if (isV3) {
-          pageUrl = `${full}${full.includes("?") ? "&" : "?"}v3#v3`;
-        } else if (isLegacyScramble) {
-          pageUrl = `${full}#scrambled`;
-        } else {
-          pageUrl = full;
-        }
+        const hasV3 = /[?&]v3(\b|=|&|$)/.test(full);
+        const pageUrl = hasV3
+          ? `${full}#v3`
+          : `${full}${full.includes("?") ? "&" : "?"}v3#v3`;
         pages.push(pageUrl);
       });
     }
