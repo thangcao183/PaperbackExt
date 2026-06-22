@@ -665,15 +665,20 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   ported as well, so essentially the full English catalog (framework-based and
   standalone) is available. Multi-language (`src/all`) sources remain out of
   scope for now.
-- **DRM page-image decryption is implemented.** Using the same mechanism the
-  Mangago source uses — a source interceptor's `interceptResponse` transforming
-  the raw image `ArrayBuffer`, plus `Application.executeInWebView` for canvas
-  remaps and `window.crypto.subtle` — these sources now decode their scrambled /
-  encrypted pages for free or owned content: **Omoi** (Azuki, XOR), **K Manga**
+- **DRM page-image decryption is implemented.** A source interceptor's
+  `interceptResponse` transforms the raw image `ArrayBuffer`: pixel/cell/tile
+  descrambles run in-process on Paperback's polyfilled canvas via 9-arg
+  `drawImage` (shared helpers in `src/utils/descramble/canvas.ts`), byte
+  ciphers run directly on the `Uint8Array`, and AES/RSA use `window.crypto.subtle`.
+  These sources now decode their scrambled / encrypted pages for free or owned
+  content: **Mangago** (grid descramble), **Omoi** (Azuki, XOR), **K Manga**
   (cell descramble), **VIZ** (EXIF grid unshuffle), **Comix** (tile descramble +
   byte-XOR), **Coolmic** (PBKDF2 + AES-CBC), **Philia Scans** (AES-CTR/ChaCha20 +
   tile unscramble), **emaqi** (RSA-OAEP + AES-GCM). HentaiNexus and Sunshine
   Butterfly encrypt only metadata (already handled), not image bytes.
+  `Application.executeInWebView` is still used where a source's own JavaScript
+  must run (e.g. Mangago's per-image descrambling-key derivation), not for the
+  pixel work.
 - **What still can't be bypassed is payment/login, not decryption.** Chapters a
   site refuses to serve to an anonymous/un-purchased account (most paid content on
   **K Manga**, **VIZ**, **Kodansha**, **Mangamo**, **WebNovel**, **J-Novel**,
