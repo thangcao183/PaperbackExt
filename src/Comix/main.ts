@@ -248,19 +248,20 @@ class ComixInterceptor extends PaperbackInterceptor {
 
     if (response.status < 200 || response.status >= 300) return data;
 
-    // Diagnostic: surface whether the server's scramble headers actually reach
-    // interceptResponse (keiyoushi gets them from Android OkHttp; Paperback may
-    // filter custom x-* headers). Run `npm run logcat` to inspect. Only logs for
-    // requests that look like page images.
+    // Diagnostic (page images only): log the FULL url + whether the server
+    // returned scramble headers, so token-vs-headers can be correlated.
     const u = request.url.split("#")[0];
-    if (/\.(jpe?g|png|webp|avif)(\?|$)/i.test(u) || u.includes("?v3")) {
-      const sx = Object.keys(response.headers ?? {}).filter((k) =>
-        /^x-(scramble|enc)-/i.test(k),
-      );
+    const isImage =
+      u.includes("wowpic") ||
+      u.includes("static.comix") ||
+      /\.(jpe?g|png|webp|avif)(\?|$)/i.test(u) ||
+      /[?&]v3(\b|&|=|$)/.test(u);
+    if (isImage) {
+      const sx = Object.keys(response.headers ?? {})
+        .filter((k) => /^x-(scramble|enc)-/i.test(k))
+        .map((k) => `${k}=${response.headers[k]}`);
       console.log(
-        `[Comix] image ${u.slice(0, 80)} scrambleHeaders=[${sx
-          .map((k) => `${k}=${response.headers[k]}`)
-          .join(", ")}]`,
+        `[Comix] img headers=[${sx.join(", ") || "NONE"}] url=${u}`,
       );
     }
 
@@ -648,6 +649,9 @@ export class ComixExtension implements ComixImplementation {
   ): Promise<{ baseUrl: string; items: PageDto[] } | undefined> {
     const raw = await this.runProxiedWebView(pageUrl, PAGES_BOOTSTRAP);
     if (typeof raw !== "string" || !raw) return undefined;
+    // Diagnostic: dump the raw captured pages payload so we can see whether the
+    // per-image signing tokens are present in the source data or appended later.
+    console.log(`[Comix] raw pages payload (first 700): ${raw.slice(0, 700)}`);
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
@@ -1036,12 +1040,6 @@ async function decodeScrambledImage(
       rawScrambleAlgo === "3") &&
     scrambleSeed !== null &&
     scrambleSeed !== 0;
-
-  console.log(
-    `[Comix] decode grid=${rawScrambleGrid} algo=${rawScrambleAlgo} ` +
-      `scrambleSeed=${scrambleSeed} encSeed=${encSeed} encLen=${encLen} ` +
-      `=> needsXor=${needsXor} grid=${shouldDescrambleGrid}`,
-  );
 
   if (!needsXor && !shouldDescrambleGrid) return data;
 
