@@ -29,7 +29,6 @@ import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
 import {
-  remapTilesByLookup,
   loadImageFromBuffer,
   decodeDataUrlToArrayBuffer,
 } from "../utils/descramble/canvas";
@@ -1107,65 +1106,68 @@ async function decodeScrambledImage(
     const order = buildTileOrder(seed, rawScrambleAlgo);
     // The CDN serves these pages as image/webp (sometimes jpeg/png). The
     // polyfilled Image decoder keys off the data: URL's declared MIME, so we
-    // MUST decode with the ACTUAL content-type — a wrong MIME yields zero
-    // dimensions and the shared helper then silently returns the still-
-    // scrambled bytes (no exception, so nothing is logged). Sniff the bytes
-    // and fall back to the response content-type.
+    // MUST decode with the ACTUAL content-type.
     const decodeMime =
       sniffImageMime(bytes) ??
       stripMimeParams(headerValue(headers, "content-type")) ??
       "image/jpeg";
     console.log(
-      `[Comix] grid descramble: algo=${rawScrambleAlgo ?? "?"} seed=${scrambleSeed} decodeMime=${decodeMime} bytes=${bytes.length}`,
+      `[Comix] grid descramble: algo=${rawScrambleAlgo ?? "?"} seed=${seed} decodeMime=${decodeMime} bytes=${bytes.length}`,
     );
 
-    // Transcode non-JPEG images to JPEG before tile remap. The polyfill's
-    // 9-arg drawImage can have quirks with WebP source images (tiles may not
-    // render correctly even though the Image decodes and has valid dimensions).
-    // Converting to JPEG first (via a full-image draw to a temporary canvas)
-    // ensures the tile-remap reads from a known-good JPEG-decoded source.
-    // This also matches upstream Descrambler.kt, which always outputs JPEG.
-    let remapBuffer: ArrayBuffer;
-    let remapMime: string;
-    if (decodeMime !== "image/jpeg") {
-      const tmpSrc = await loadImageFromBuffer(bufferOf(bytes), decodeMime);
-      const w = tmpSrc.naturalWidth || tmpSrc.width;
-      const h = tmpSrc.naturalHeight || tmpSrc.height;
-      if (!w || !h) {
-        console.log(
-          `[Comix] grid descramble: transcode failed (w=${w}, h=${h}), returning raw`,
-        );
-        return bufferOf(bytes);
-      }
-      const tmpCanvas = new HTMLCanvasElement();
-      tmpCanvas.width = w;
-      tmpCanvas.height = h;
-      const tmpCtx = tmpCanvas.getContext("2d");
-      if (!tmpCtx) return bufferOf(bytes);
-      tmpCtx.drawImage(tmpSrc, 0, 0, w, h);
-      remapBuffer = decodeDataUrlToArrayBuffer(
-        tmpCanvas.toDataURL("image/jpeg"),
-      );
-      remapMime = "image/jpeg";
+    // Decode the scrambled image onto a source canvas so we can use
+    // getImageData to read raw pixels. This avoids the polyfill's 9-arg
+    // drawImage which may not correctly copy sub-regions from an Image source.
+    const srcImg = await loadImageFromBuffer(bufferOf(bytes), decodeMime);
+    const width = srcImg.naturalWidth || srcImg.width;
+    const height = srcImg.naturalHeight || srcImg.height;
+    if (!width || !height) {
       console.log(
-        `[Comix] grid descramble: transcoded ${decodeMime} -> jpeg (${remapBuffer.byteLength} bytes, ${w}x${h})`,
+        `[Comix] grid descramble: decode failed (w=${width}, h=${height}), returning raw`,
       );
-    } else {
-      remapBuffer = bufferOf(bytes);
-      remapMime = "image/jpeg";
+      return bufferOf(bytes);
     }
 
-    // Equal 5x5 tile grid over the whole image (tile = floor(W/5) x floor(H/5),
-    // remainder passes through), so the shared in-process canvas remap applies
-    // directly. `order[dstIdx]` is the SOURCE tile index for destination tile
-    // `dstIdx`, exactly remapTilesByLookup's lookup contract.
-    return await remapTilesByLookup(
-      remapBuffer,
-      remapMime,
-      GRID_COLS,
-      GRID_ROWS,
-      order,
+    const tw = (width / GRID_COLS) | 0;
+    const th = (height / GRID_ROWS) | 0;
+    if (tw === 0 || th === 0) return bufferOf(bytes);
+
+    // Draw the scrambled image onto a source canvas to get pixel data
+    const srcCanvas = new HTMLCanvasElement();
+    srcCanvas.width = width;
+    srcCanvas.height = height;
+    const srcCtx = srcCanvas.getContext("2d");
+    if (!srcCtx) return bufferOf(bytes);
+    srcCtx.drawImage(srcImg, 0, 0, width, height);
+
+    // Create the output canvas (start with full image for remainder pixels)
+    const dstCanvas = new HTMLCanvasElement();
+    dstCanvas.width = width;
+    dstCanvas.height = height;
+    const dstCtx = dstCanvas.getContext("2d");
+    if (!dstCtx) return bufferOf(bytes);
+    dstCtx.drawImage(srcImg, 0, 0, width, height);
+
+    // Remap tiles using getImageData/putImageData (pixel-block copy)
+    for (let dstIdx = 0; dstIdx < NUM_TILES; dstIdx++) {
+      const srcIdx = order[dstIdx];
+      const srcCol = srcIdx % GRID_COLS;
+      const srcRow = (srcIdx / GRID_COLS) | 0;
+      const dstCol = dstIdx % GRID_COLS;
+      const dstRow = (dstIdx / GRID_COLS) | 0;
+      const tileData = srcCtx.getImageData(
+        srcCol * tw,
+        srcRow * th,
+        tw,
+        th,
+      );
+      dstCtx.putImageData(tileData, dstCol * tw, dstRow * th);
+    }
+
+    console.log(
+      `[Comix] grid descramble: complete (${width}x${height}, tile=${tw}x${th})`,
     );
+    return decodeDataUrlToArrayBuffer(dstCanvas.toDataURL("image/jpeg"));
   }
 
   return bufferOf(bytes);
