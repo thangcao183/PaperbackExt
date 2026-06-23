@@ -28,6 +28,17 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
+import {
+  base64Decode,
+  base64Encode,
+  bufToHex,
+  decryptSecretStream,
+  getRandomBytes,
+  hmacSha256Hex,
+  sha256,
+  x25519PublicKey,
+  x25519ScalarMult,
+} from "./crypto";
 
 const BASE_URL = "https://theblank.net";
 
@@ -152,6 +163,8 @@ interface MangaResponse {
 interface PageListResponse {
   props?: {
     page_count?: number;
+    chapter_token?: string;
+    server_pubkey?: string;
     data?: {
       slug?: string;
       serie?: { slug?: string };
@@ -159,21 +172,55 @@ interface PageListResponse {
   };
 }
 
+// ----------------------------------------------------------------
+// Chapter crypto session (per-chapter X25519 handshake result)
+// ----------------------------------------------------------------
+
+interface ChapterSession {
+  chapterToken: string;
+  sharedSecret: Uint8Array;
+  clientPubkeyB64: string;
+}
+
+/**
+ * Global session store keyed by "serieSlug--chapterSlug".
+ * Populated during getChapterDetails, consumed by the interceptor.
+ */
+const chapterSessions = new Map<string, ChapterSession>();
+
+function sessionKey(serieSlug: string, chapterSlug: string): string {
+  return `${serieSlug}--${chapterSlug}`;
+}
+
 class TheBlankInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
     // Defaults first, then spread the request's own headers LAST so that
     // per-request headers (Accept: application/json, X-Requested-With,
     // X-Inertia, X-XSRF-TOKEN, ...) set by fetchJson/fetchInertia win.
-    // Otherwise this would clobber `accept` back to text/html and the
-    // Laravel/Inertia endpoints would return the full HTML page instead of
-    // JSON, breaking JSON.parse ("Unrecognized token '<'").
 
-    // The /page/{N} endpoint serves chapter images and requires an image
-    // Accept header — sending text/html causes a 400 Bad Request.
-    const isPageImage = /\/page\/\d+/.test(request.url ?? "");
+    // The /page/{N} endpoint serves encrypted chapter images.
+    const url = request.url ?? "";
+    const isPageImage = /\/serie\/[^/]+\/chapter\/[^/]+\/page\/\d+/.test(url);
     const defaultAccept = isPageImage
       ? "image/webp,image/apng,image/*,*/*;q=0.8"
       : "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
+
+    const extraHeaders: Record<string, string> = {};
+
+    // Add X-Client-Pubkey header for page image requests
+    if (isPageImage) {
+      const m = url.match(/\/serie\/([^/?#]+)\/chapter\/([^/?#]+)\/page/);
+      if (m) {
+        const serieSlug = decodeURIComponent(m[1]);
+        const chapterSlug = decodeURIComponent(m[2]);
+        const session = chapterSessions.get(
+          sessionKey(serieSlug, chapterSlug),
+        );
+        if (session) {
+          extraHeaders["x-client-pubkey"] = session.clientPubkeyB64;
+        }
+      }
+    }
 
     request.headers = {
       referer: `${BASE_URL}/`,
@@ -181,6 +228,7 @@ class TheBlankInterceptor extends PaperbackInterceptor {
       "user-agent": await Application.getDefaultUserAgent(),
       accept: defaultAccept,
       "accept-language": "en-US,en;q=0.5",
+      ...extraHeaders,
       ...request.headers,
     };
     return request;
@@ -200,6 +248,50 @@ class TheBlankInterceptor extends PaperbackInterceptor {
         },
       });
     }
+
+    // Decrypt encrypted page image responses from the /page/ endpoint
+    const url = request.url ?? "";
+    const pageMatch = url.match(
+      /\/serie\/([^/]+)\/chapter\/([^/]+)\/page\/\d+/,
+    );
+    if (pageMatch && data.byteLength > 0) {
+      const serieSlug = decodeURIComponent(pageMatch[1]);
+      const chapterSlug = decodeURIComponent(pageMatch[2]);
+      const session = chapterSessions.get(sessionKey(serieSlug, chapterSlug));
+
+      if (session) {
+        const pageName = response.headers?.["x-page-name"] ?? "";
+        const keyHintB64 = response.headers?.["x-key-hint"] ?? "";
+
+        if (pageName && keyHintB64) {
+          const keyHint = base64Decode(keyHintB64);
+          if (keyHint.length >= 32) {
+            // Derive the stream key: SHA256(sharedSecret ‖ pageName) XOR keyHint[0:32]
+            const enc = new TextEncoder();
+            const pageNameBytes = enc.encode(pageName);
+            const hashInput = new Uint8Array(
+              session.sharedSecret.length + pageNameBytes.length,
+            );
+            hashInput.set(session.sharedSecret);
+            hashInput.set(pageNameBytes, session.sharedSecret.length);
+
+            const hash = await sha256(hashInput);
+            const streamKey = new Uint8Array(32);
+            for (let i = 0; i < 32; i++) {
+              streamKey[i] = hash[i] ^ keyHint[i];
+            }
+
+            // Decrypt the secretstream payload
+            const payload = new Uint8Array(data);
+            const decrypted = decryptSecretStream(streamKey, payload);
+            if (decrypted) {
+              return decrypted.buffer as ArrayBuffer;
+            }
+          }
+        }
+      }
+    }
+
     return data;
   }
 }
@@ -500,16 +592,52 @@ export class TheBlankExtension implements TheBlankImplementation {
     const pageCount = props?.page_count ?? 0;
     const serieSlug = props?.data?.serie?.slug ?? "";
     const chapterSlug = props?.data?.slug ?? "";
+    const serverPubkeyB64 = props?.server_pubkey ?? "";
+    const chapterToken = props?.chapter_token ?? "";
 
-    // Page images are served at /serie/{slug}/chapter/{chapterSlug}/page/{N}.
-    // The endpoint requires an image Accept header and session cookies
-    // (provided by the cookie interceptor after Cloudflare bypass).
+    // Perform X25519 handshake to derive shared secret
+    let session: ChapterSession | undefined;
+    if (serverPubkeyB64 && chapterToken) {
+      const serverPub = base64Decode(serverPubkeyB64);
+      if (serverPub.length === 32) {
+        const privateKey = getRandomBytes(32);
+        const clientPub = x25519PublicKey(privateKey);
+        const shared = x25519ScalarMult(privateKey, serverPub);
+        // Clear private key
+        privateKey.fill(0);
+
+        session = {
+          chapterToken,
+          sharedSecret: shared,
+          clientPubkeyB64: base64Encode(clientPub),
+        };
+        chapterSessions.set(sessionKey(serieSlug, chapterSlug), session);
+      }
+    }
+
+    // Construct signed page URLs with HMAC authentication
     const pages: string[] = [];
     if (serieSlug && chapterSlug) {
       for (let i = 1; i <= pageCount; i++) {
-        pages.push(
-          `${BASE_URL}/serie/${serieSlug}/chapter/${chapterSlug}/page/${i}`,
-        );
+        if (session) {
+          // Build signed URL: /serie/{slug}/chapter/{slug}/page/{N}?token=...&ts=...&nonce=...&sig=...
+          const ts = Math.floor(Date.now() / 1000).toString();
+          const nonce = bufToHex(getRandomBytes(16));
+          const sig = await hmacSha256Hex(
+            session.chapterToken,
+            `${i}${ts}${nonce}`,
+          );
+          const pageUrl =
+            `${BASE_URL}/serie/${serieSlug}/chapter/${chapterSlug}/page/${i}` +
+            `?token=${encodeURIComponent(session.chapterToken)}` +
+            `&ts=${ts}&nonce=${nonce}&sig=${sig}`;
+          pages.push(pageUrl);
+        } else {
+          // Fallback: unsigned URL (will likely fail but preserves old behavior)
+          pages.push(
+            `${BASE_URL}/serie/${serieSlug}/chapter/${chapterSlug}/page/${i}`,
+          );
+        }
       }
     }
 
