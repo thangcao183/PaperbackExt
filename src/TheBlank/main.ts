@@ -161,14 +161,20 @@ interface PageListResponse {
 
 class TheBlankInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
+    // Defaults first, then spread the request's own headers LAST so that
+    // per-request headers (Accept: application/json, X-Requested-With,
+    // X-Inertia, X-XSRF-TOKEN, ...) set by fetchJson/fetchInertia win.
+    // Otherwise this would clobber `accept` back to text/html and the
+    // Laravel/Inertia endpoints would return the full HTML page instead of
+    // JSON, breaking JSON.parse ("Unrecognized token '<'").
     request.headers = {
-      ...request.headers,
       referer: `${BASE_URL}/`,
       origin: BASE_URL,
       "user-agent": await Application.getDefaultUserAgent(),
       accept:
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.5",
+      ...request.headers,
     };
     return request;
   }
