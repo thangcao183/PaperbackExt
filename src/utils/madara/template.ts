@@ -34,6 +34,7 @@ import { CheerioAPI, Cheerio } from "cheerio";
 import type { AnyNode } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../url-builder/base";
+import { decryptChapterProtector } from "./chapter-protector";
 import { MadaraSearchForm, MadaraSearchMeta } from "./forms";
 import { getBaseUrlOverride, MadaraSettingsForm } from "./settings";
 
@@ -750,12 +751,24 @@ export class MadaraExtension implements MadaraImplementation {
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const pages: string[] = [];
 
-    $(this.pageListSelector).each((_, element) => {
-      const el = $(element);
-      const img = el.is("img") ? el : el.find("img").first();
-      const image = this.imageFromElement(img);
-      if (image) pages.push(image);
-    });
+    // Real (image) manga may be served behind the Madara "chapter protector":
+    // the page list is AES-encrypted in a `#chapter-protector-data` script
+    // rather than inline `<img>` tags. Decrypt it when present; otherwise fall
+    // back to scraping plain image elements.
+    const protectedPages = await decryptChapterProtector($);
+    if (protectedPages) {
+      for (const p of protectedPages) {
+        const src = (p || "").trim();
+        if (src) pages.push(src);
+      }
+    } else {
+      $(this.pageListSelector).each((_, element) => {
+        const el = $(element);
+        const img = el.is("img") ? el : el.find("img").first();
+        const image = this.imageFromElement(img);
+        if (image) pages.push(image);
+      });
+    }
 
     return {
       id: chapter.chapterId,

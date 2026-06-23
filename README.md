@@ -220,7 +220,7 @@ a source is broken, please open an issue.
 | GirlsTop | 1.4.1.1 | Mature | Not yet tested |
 | Goda | 1.4.3.1 | Everyone | Not yet tested |
 | Gone with the Blastwave | 1.4.3.1 | Everyone | Not yet tested |
-| Gourmet Scans | 1.4.51.2 | Mature | Not yet tested |
+| Gourmet Scans | 1.4.51.4 | Mature | ✅ Tested |
 | Greed Scans | 1.4.32.1 | Everyone | Not yet tested |
 | Grim Scans | 1.4.20.1 | Everyone | Not yet tested |
 | Grrl Power Comic | 1.4.4.1 | Everyone | Not yet tested |
