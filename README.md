@@ -278,7 +278,7 @@ a source is broken, please open an issue.
 | Leslie&Victims | 1.4.1.1 | Everyone | Not yet tested |
 | LHTranslation | 1.4.52.2 | Everyone | Not yet tested |
 | LikeManga | 1.4.8.1 | Everyone | ✅ Tested |
-| Lily Manga | 1.4.58.2 | Mature | Not yet tested |
+| Lily Manga | 1.4.58.4 | Mature | ✅ Tested |
 | LinkManga | 1.4.51.2 | Mature | Not yet tested |
 | Loading Artist | 1.4.3.1 | Everyone | Not yet tested |
 | Lua Scans | 1.4.51.1 | Everyone | Not yet tested |
