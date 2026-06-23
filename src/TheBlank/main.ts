@@ -167,12 +167,19 @@ class TheBlankInterceptor extends PaperbackInterceptor {
     // Otherwise this would clobber `accept` back to text/html and the
     // Laravel/Inertia endpoints would return the full HTML page instead of
     // JSON, breaking JSON.parse ("Unrecognized token '<'").
+
+    // The /page/{N} endpoint serves chapter images and requires an image
+    // Accept header — sending text/html causes a 400 Bad Request.
+    const isPageImage = /\/page\/\d+/.test(request.url ?? "");
+    const defaultAccept = isPageImage
+      ? "image/webp,image/apng,image/*,*/*;q=0.8"
+      : "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
+
     request.headers = {
       referer: `${BASE_URL}/`,
       origin: BASE_URL,
       "user-agent": await Application.getDefaultUserAgent(),
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      accept: defaultAccept,
       "accept-language": "en-US,en;q=0.5",
       ...request.headers,
     };
@@ -494,12 +501,9 @@ export class TheBlankExtension implements TheBlankImplementation {
     const serieSlug = props?.data?.serie?.slug ?? "";
     const chapterSlug = props?.data?.slug ?? "";
 
-    // NOTE: Page images on this source are encrypted with libsodium
-    // secretstream behind an X25519 key-exchange + per-request HMAC
-    // signature. That decryption is not reproducible in the Paperback
-    // runtime, so we emit the best-effort page URLs (without the signed
-    // token or the client decryption layer). They will not render as plain
-    // images. See the conversion notes for details.
+    // Page images are served at /serie/{slug}/chapter/{chapterSlug}/page/{N}.
+    // The endpoint requires an image Accept header and session cookies
+    // (provided by the cookie interceptor after Cloudflare bypass).
     const pages: string[] = [];
     if (serieSlug && chapterSlug) {
       for (let i = 1; i <= pageCount; i++) {
