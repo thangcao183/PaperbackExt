@@ -478,9 +478,11 @@ export class MadaraExtension implements MadaraImplementation {
     const results: SearchResultItem[] = [];
 
     // The listing page and the search page use different item containers.
+    // Some themes use `c-tabs-item__content` for search; others reuse
+    // `page-item-detail` (the same container as browse pages). Include both.
     const itemSelector = browseAll
       ? "div.page-item-detail, .manga__item"
-      : "div.c-tabs-item__content, .manga__item";
+      : "div.c-tabs-item__content, div.page-item-detail, .manga__item";
 
     $(itemSelector).each((_, element) => {
       const unit = $(element);
