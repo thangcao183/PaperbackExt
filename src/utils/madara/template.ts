@@ -770,11 +770,51 @@ export class MadaraExtension implements MadaraImplementation {
       });
     }
 
+    const uniquePages = [...new Set(pages)];
+
+    // Some Madara sites host text novels (`chapter-type-text`) where the
+    // chapter body is prose inside `.reading-content` with no page images.
+    // Returning an empty image page list crashes the reader, so emit an HTML
+    // (novel) chapter instead when no images were found but text content
+    // exists.
+    if (uniquePages.length === 0) {
+      const html = this.extractNovelHtml($);
+      if (html) {
+        return {
+          id: chapter.chapterId,
+          mangaId: chapter.sourceManga.mangaId,
+          type: "html",
+          html,
+        };
+      }
+    }
+
     return {
       id: chapter.chapterId,
       mangaId: chapter.sourceManga.mangaId,
-      pages: [...new Set(pages)],
+      pages: uniquePages,
     };
+  }
+
+  // Extract readable prose for text-novel chapters. Returns the inner HTML of
+  // the chapter's reading content, or "" if no meaningful text is present.
+  protected extractNovelHtml($: CheerioAPI): string {
+    const container = $(
+      ".reading-content .text-left, .reading-content .text-right, .reading-content .entry-content",
+    ).first();
+    const target = container.length > 0 ? container : $(".reading-content");
+    if (target.length === 0) return "";
+
+    // Drop non-prose noise (scripts, ads, nav, related widgets).
+    const clone = target.clone();
+    clone
+      .find("script, style, ins, .code-block, .adsbygoogle, nav, .navigation")
+      .remove();
+
+    const html = (clone.html() ?? "").trim();
+    // Require some actual text so we don't emit an empty/whitespace body.
+    if (clone.text().trim().length === 0) return "";
+    return html;
   }
 
   getMangaShareUrl(mangaId: string): string {
