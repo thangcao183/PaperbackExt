@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Gourmet Scans",
   description: "Gourmet Scans - Madara source (gourmetsupremacy.com). Converted from keiyoushi.",
-  version: "1.4.51.5",
+  version: "1.4.51.6",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

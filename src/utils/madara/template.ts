@@ -631,6 +631,25 @@ export class MadaraExtension implements MadaraImplementation {
       if (!isNaN(parsed)) rating = parsed / 5;
     }
 
+    // Some Madara sites host both comics and text novels. The reader the app
+    // opens is chosen by `contentType`; misclassifying a novel as a comic
+    // makes the comic reader reject the HTML chapter details. Detect novels
+    // via the title badge (e.g. `manga-title-badges ... novel-15` -> "Novel")
+    // or a "Type: Novel" metadata row, falling back to comic.
+    const badgeText = $(".manga-title-badges").text().toLowerCase();
+    let typeMeta = "";
+    $("div.post-content_item").each((_, el) => {
+      const block = $(el);
+      if (block.find("div.summary-heading").text().toLowerCase().includes("type")) {
+        typeMeta = block.find("div.summary-content").text().toLowerCase();
+      }
+    });
+    const isNovel =
+      /\bnovel\b/.test(badgeText) ||
+      $(".manga-title-badges.novel, .manga-title-badges[class*='novel']").length >
+        0 ||
+      /\bnovel\b/.test(typeMeta);
+
     return {
       mangaId,
       mangaInfo: {
@@ -642,6 +661,7 @@ export class MadaraExtension implements MadaraImplementation {
         synopsis: description,
         rating,
         contentRating: this.contentRating,
+        contentType: isNovel ? "novel" : "comic",
         status: this.parseStatus(status),
         tagGroups,
         shareUrl: url,
