@@ -694,12 +694,24 @@ export class MadaraExtension implements MadaraImplementation {
       if (!chapterId) return;
 
       let chapNum = 0;
-      const numMatch = chapterTitle.match(/chapter[.\s-]*(\d+(?:\.\d+)?)/i);
+      // Sites label chapters as "Chapter", "Episode", "Ch.", etc. Match the
+      // known keywords first, then fall back to the slug, then to any trailing
+      // number in the title.
+      const numMatch = chapterTitle.match(
+        /(?:chapter|episode|ch)[.\s-]*(\d+(?:\.\d+)?)/i,
+      );
       if (numMatch) {
         chapNum = parseFloat(numMatch[1]);
       } else {
-        const slugMatch = chapterId.match(/chapter-(\d+(?:[.-]\d+)?)/i);
-        if (slugMatch) chapNum = parseFloat(slugMatch[1].replace("-", "."));
+        const slugMatch = chapterId.match(
+          /(?:chapter|episode|ch)-(\d+(?:[.-]\d+)?)/i,
+        );
+        if (slugMatch) {
+          chapNum = parseFloat(slugMatch[1].replace("-", "."));
+        } else {
+          const titleNum = chapterTitle.match(/(\d+(?:\.\d+)?)/);
+          if (titleNum) chapNum = parseFloat(titleNum[1]);
+        }
       }
 
       const dateText = el.find("span.chapter-release-date").text().trim();
