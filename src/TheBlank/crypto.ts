@@ -1163,17 +1163,57 @@ export function bufToHex(buf: Uint8Array): string {
   return hex;
 }
 
+const B64_CHARS =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+// Pure-JS base64 that operates directly on raw bytes. We deliberately avoid
+// the runtime's atob/btoa: the Paperback btoa polyfill UTF-8-encodes the input
+// string, so any byte >= 0x80 (common in X25519 keys) gets mangled into a
+// 2-byte sequence, corrupting the X-Client-Pubkey header and causing the
+// server to reject page image requests with HTTP 400.
 export function base64Decode(b64: string): Uint8Array {
-  const raw = atob(b64);
-  const buf = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
-  return buf;
+  const clean = b64.replace(/[^A-Za-z0-9+/]/g, "");
+  const out = new Uint8Array(Math.floor((clean.length * 6) / 8));
+  let bits = 0;
+  let bitCount = 0;
+  let oi = 0;
+  for (let i = 0; i < clean.length; i++) {
+    const idx = B64_CHARS.indexOf(clean[i]);
+    if (idx < 0) continue;
+    bits = (bits << 6) | idx;
+    bitCount += 6;
+    if (bitCount >= 8) {
+      bitCount -= 8;
+      out[oi++] = (bits >> bitCount) & 0xff;
+    }
+  }
+  return out;
 }
 
 export function base64Encode(buf: Uint8Array): string {
-  let binary = "";
-  for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]);
-  return btoa(binary);
+  let out = "";
+  let i = 0;
+  for (; i + 2 < buf.length; i += 3) {
+    const n = (buf[i] << 16) | (buf[i + 1] << 8) | buf[i + 2];
+    out +=
+      B64_CHARS[(n >> 18) & 0x3f] +
+      B64_CHARS[(n >> 12) & 0x3f] +
+      B64_CHARS[(n >> 6) & 0x3f] +
+      B64_CHARS[n & 0x3f];
+  }
+  const rem = buf.length - i;
+  if (rem === 1) {
+    const n = buf[i] << 16;
+    out += B64_CHARS[(n >> 18) & 0x3f] + B64_CHARS[(n >> 12) & 0x3f] + "==";
+  } else if (rem === 2) {
+    const n = (buf[i] << 16) | (buf[i + 1] << 8);
+    out +=
+      B64_CHARS[(n >> 18) & 0x3f] +
+      B64_CHARS[(n >> 12) & 0x3f] +
+      B64_CHARS[(n >> 6) & 0x3f] +
+      "=";
+  }
+  return out;
 }
 
 export function getRandomBytes(n: number): Uint8Array {
