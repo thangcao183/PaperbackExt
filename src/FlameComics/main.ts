@@ -130,6 +130,14 @@ export class FlameComicsExtension implements FlameComicsImplementation {
 
     private buildId = ''
 
+    // Cache the (large) browse listing so search keystrokes and pagination
+    // don't re-download it on every call. Searching/paging is done entirely
+    // client-side over this list, and the 2-req/2-sec rate limiter otherwise
+    // serializes dozens of identical browse.json fetches, making search feel
+    // unreliable (late/empty results while typing).
+    private browseCache?: { at: number; series: FlameSeries[] }
+    private static readonly BROWSE_TTL_MS = 5 * 60 * 1000
+
     async initialise(): Promise<void> {
         this.requestManager.registerInterceptor()
         this.cookieStorageInterceptor.registerInterceptor()
@@ -158,9 +166,8 @@ export class FlameComicsExtension implements FlameComicsImplementation {
             return { items, metadata: undefined }
         }
 
-        const data = await this.fetchData<SearchPageData>('browse.json')
-        const series = (data.pageProps?.series ?? [])
-            .filter((s) => s.series_id != null)
+        const series = (await this.getBrowseSeries())
+            .slice()
             .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
         const start = (page - 1) * ITEMS_PER_PAGE
         const end = Math.min(page * ITEMS_PER_PAGE, series.length)
@@ -175,8 +182,7 @@ export class FlameComicsExtension implements FlameComicsImplementation {
         const page = (metadata as { page?: number } | undefined)?.page ?? 1
         const titleQuery = query.title?.trim() ?? ''
 
-        const data = await this.fetchData<SearchPageData>('browse.json')
-        let series = (data.pageProps?.series ?? []).filter((s) => s.series_id != null)
+        let series = await this.getBrowseSeries()
 
         if (titleQuery) {
             const norm = titleQuery.toLowerCase().replace(SPECIAL_CHARS, '')
@@ -388,6 +394,17 @@ export class FlameComicsExtension implements FlameComicsImplementation {
         }
         this.buildId = parsed.buildId
         return this.buildId
+    }
+
+    private async getBrowseSeries(): Promise<FlameSeries[]> {
+        const cached = this.browseCache
+        if (cached && Date.now() - cached.at < FlameComicsExtension.BROWSE_TTL_MS) {
+            return cached.series
+        }
+        const data = await this.fetchData<SearchPageData>('browse.json')
+        const series = (data.pageProps?.series ?? []).filter((s) => s.series_id != null)
+        this.browseCache = { at: Date.now(), series }
+        return series
     }
 
     private async fetchData<T>(path: string): Promise<T> {
