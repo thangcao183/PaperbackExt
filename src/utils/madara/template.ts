@@ -32,6 +32,7 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI, Cheerio } from "cheerio";
 import type { AnyNode } from "domhandler";
+import { render as renderDom } from "dom-serializer";
 import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../url-builder/base";
 import { decryptChapterProtector } from "./chapter-protector";
@@ -808,7 +809,6 @@ export class MadaraExtension implements MadaraImplementation {
         };
       }
     }
-
     return {
       id: chapter.chapterId,
       mangaId: chapter.sourceManga.mangaId,
@@ -816,8 +816,16 @@ export class MadaraExtension implements MadaraImplementation {
     };
   }
 
-  // Extract readable prose for text-novel chapters. Returns the inner HTML of
-  // the chapter's reading content, or "" if no meaningful text is present.
+  // Extract readable prose for text-novel chapters. Returns a well-formed
+  // XHTML document, or "" if no meaningful text is present.
+  //
+  // The Paperback novel reader parses the returned `html` as XHTML (XML), so
+  // the string MUST be a single rooted, well-formed document: void tags
+  // self-closed (`<br/>`, `<img/>`), named entities like `&nbsp;` converted to
+  // numeric/character form, and `&`/`<`/`>` escaped. Returning the container's
+  // raw innerHTML (dozens of sibling `<p>` nodes, unclosed `<br>`, `&nbsp;`)
+  // triggers `Extra content at the end of the document` / parse errors. We
+  // serialize through dom-serializer in `xmlMode` to guarantee well-formedness.
   protected extractNovelHtml($: CheerioAPI): string {
     const container = $(
       ".reading-content .text-left, .reading-content .text-right, .reading-content .entry-content",
@@ -828,13 +836,43 @@ export class MadaraExtension implements MadaraImplementation {
     // Drop non-prose noise (scripts, ads, nav, related widgets).
     const clone = target.clone();
     clone
-      .find("script, style, ins, .code-block, .adsbygoogle, nav, .navigation")
+      .find(
+        "script, style, ins, .code-block, .adsbygoogle, nav, .navigation, iframe, .chapter-warning, .c-ads",
+      )
       .remove();
 
-    const html = (clone.html() ?? "").trim();
     // Require some actual text so we don't emit an empty/whitespace body.
     if (clone.text().trim().length === 0) return "";
-    return html;
+
+    // Serialize each child node as XML (self-closes void elements, encodes
+    // entities) so the concatenation is well-formed XHTML.
+    let inner = "";
+    const children = clone.children().toArray();
+    if (children.length > 0) {
+      for (const node of children) {
+        inner += renderDom(node, { xmlMode: true, decodeEntities: true });
+      }
+    } else {
+      // No element children (plain text only): escape and wrap in a paragraph.
+      inner = `<p>${this.escapeXml(clone.text().trim())}</p>`;
+    }
+
+    if (!inner.trim()) return "";
+
+    return (
+      `<?xml version="1.0" encoding="UTF-8"?>` +
+      `<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>${inner}</body></html>`
+    );
+  }
+
+  /** Escape the five XML special characters for use in text content. */
+  protected escapeXml(text: string): string {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
   }
 
   getMangaShareUrl(mangaId: string): string {
