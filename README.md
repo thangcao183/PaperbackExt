@@ -331,7 +331,7 @@ a source is broken, please open an issue.
 | MangaGo.fun | 1.4.51.2 | Everyone | Not yet tested |
 | MangaHe | 1.4.51.2 | Mature | Not yet tested |
 | Mangahere | 1.4.23.1 | Mature | Not yet tested |
-| MangaHere.onl | 1.4.35.4 | Mature | Not yet tested |
+| MangaHere.onl | 1.4.35.4 | Mature | ✅ Tested |
 | MangaHub | 1.4.45.4 | Mature | ✅ Tested |
 | MangaK | 1.4.30.1 | Mature | Not yet tested |
 | MangaKa | 1.4.51.2 | Everyone | Not yet tested |
@@ -419,7 +419,7 @@ a source is broken, please open an issue.
 | OctopusManga | 1.4.51.2 | Mature | Not yet tested |
 | Oglaf | 1.4.4.1 | Mature | Not yet tested |
 | Oh Joy Sex Toy | 1.4.3.1 | Mature | Not yet tested |
-| Omega Scans | 1.4.50.1 | Mature | Not yet tested |
+| Omega Scans | 1.4.50.1 | Mature | ✅ Tested |
 | Omoi | 1.4.2.2 | Mature | Not yet tested |
 | One Punch Man Online | 1.4.2.1 | Everyone | Not yet tested |
 | OneManga.info | 1.4.35.4 | Mature | Not yet tested |
