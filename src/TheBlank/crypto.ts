@@ -532,67 +532,59 @@ function hchacha20(out: Uint8Array, inp: Uint8Array, k: Uint8Array): void {
 }
 
 // ================================================================
-// Poly1305 — ported from keiyoushi Poly1305.java (26-bit limbs, long arithmetic)
+// Poly1305 — ported from TweetNaCl (poly1305-donna, 13-bit limbs)
 // ================================================================
-
-// JavaScript doesn't have 64-bit integers. We use BigInt for the
-// multiplication steps where Java uses long (which overflows at 2^63).
-// However, the intermediate values in poly1305 with 26-bit limbs fit
-// within 53 bits for the multiplication (26+26+3 = ~55 bits max).
-// Actually with 5 terms: max product per limb ≈ 5 * 2^26 * 2^26 ≈ 2^55.
-// This exceeds Number.MAX_SAFE_INTEGER (2^53). We must use BigInt.
 //
-// Alternative: Use 32-bit limbs with a more complex carry chain.
-// For simplicity and correctness, we'll use a Number-safe approach with
-// careful splitting. Actually let's just use the same approach with Number
-// since the Java `long` values don't exceed safe range for these inputs.
-// The r values are clamped to ≤ 20 bits per limb effectively, so:
-// max per d_i = 5 * (2^26) * (2^20 * 5) ≈ 5 * 2^26 * 2^22 = 5 * 2^48 ≈ 2^50.3
-// This is safe for Number (< 2^53).
+// Uses 10 limbs of 13 bits each (Uint16Array) so every intermediate
+// product/sum stays well within Number.MAX_SAFE_INTEGER. This replaces
+// an earlier 26-bit-limb port whose d_i sums overflowed 2^53 and
+// silently corrupted the MAC. Reference: tweetnacl-js nacl-fast.js
+// (floodyberry poly1305-donna).
 
 interface Poly1305State {
-  r0: number;
-  r1: number;
-  r2: number;
-  r3: number;
-  r4: number;
-  h0: number;
-  h1: number;
-  h2: number;
-  h3: number;
-  h4: number;
-  pad0: number;
-  pad1: number;
-  pad2: number;
-  pad3: number;
-  buffer: Uint8Array;
+  r: Uint16Array; // 10
+  h: Uint16Array; // 10
+  pad: Uint16Array; // 8
+  buffer: Uint8Array; // 16
   leftover: number;
+  fin: number;
 }
 
 function poly1305Init(key: Uint8Array): Poly1305State {
-  const t0 = load32LE(key, 0) >>> 0;
-  const t1 = load32LE(key, 4) >>> 0;
-  const t2 = load32LE(key, 8) >>> 0;
-  const t3 = load32LE(key, 12) >>> 0;
+  const r = new Uint16Array(10);
+  const h = new Uint16Array(10);
+  const pad = new Uint16Array(8);
 
-  return {
-    r0: t0 & 0x3ffffff,
-    r1: ((t0 >>> 26) | (t1 << 6)) & 0x3ffff03,
-    r2: ((t1 >>> 20) | (t2 << 12)) & 0x3ffc0ff,
-    r3: ((t2 >>> 14) | (t3 << 18)) & 0x3f03fff,
-    r4: (t3 >>> 8) & 0x00fffff,
-    h0: 0,
-    h1: 0,
-    h2: 0,
-    h3: 0,
-    h4: 0,
-    pad0: load32LE(key, 16) >>> 0,
-    pad1: load32LE(key, 20) >>> 0,
-    pad2: load32LE(key, 24) >>> 0,
-    pad3: load32LE(key, 28) >>> 0,
-    buffer: new Uint8Array(16),
-    leftover: 0,
-  };
+  let t0, t1, t2, t3, t4, t5, t6, t7;
+  t0 = (key[0] & 0xff) | ((key[1] & 0xff) << 8);
+  r[0] = t0 & 0x1fff;
+  t1 = (key[2] & 0xff) | ((key[3] & 0xff) << 8);
+  r[1] = ((t0 >>> 13) | (t1 << 3)) & 0x1fff;
+  t2 = (key[4] & 0xff) | ((key[5] & 0xff) << 8);
+  r[2] = ((t1 >>> 10) | (t2 << 6)) & 0x1f03;
+  t3 = (key[6] & 0xff) | ((key[7] & 0xff) << 8);
+  r[3] = ((t2 >>> 7) | (t3 << 9)) & 0x1fff;
+  t4 = (key[8] & 0xff) | ((key[9] & 0xff) << 8);
+  r[4] = ((t3 >>> 4) | (t4 << 12)) & 0x00ff;
+  r[5] = (t4 >>> 1) & 0x1ffe;
+  t5 = (key[10] & 0xff) | ((key[11] & 0xff) << 8);
+  r[6] = ((t4 >>> 14) | (t5 << 2)) & 0x1fff;
+  t6 = (key[12] & 0xff) | ((key[13] & 0xff) << 8);
+  r[7] = ((t5 >>> 11) | (t6 << 5)) & 0x1f81;
+  t7 = (key[14] & 0xff) | ((key[15] & 0xff) << 8);
+  r[8] = ((t6 >>> 8) | (t7 << 8)) & 0x1fff;
+  r[9] = (t7 >>> 5) & 0x007f;
+
+  pad[0] = (key[16] & 0xff) | ((key[17] & 0xff) << 8);
+  pad[1] = (key[18] & 0xff) | ((key[19] & 0xff) << 8);
+  pad[2] = (key[20] & 0xff) | ((key[21] & 0xff) << 8);
+  pad[3] = (key[22] & 0xff) | ((key[23] & 0xff) << 8);
+  pad[4] = (key[24] & 0xff) | ((key[25] & 0xff) << 8);
+  pad[5] = (key[26] & 0xff) | ((key[27] & 0xff) << 8);
+  pad[6] = (key[28] & 0xff) | ((key[29] & 0xff) << 8);
+  pad[7] = (key[30] & 0xff) | ((key[31] & 0xff) << 8);
+
+  return { r, h, pad, buffer: new Uint8Array(16), leftover: 0, fin: 0 };
 }
 
 function poly1305Blocks(
@@ -601,118 +593,249 @@ function poly1305Blocks(
   offset: number,
   bytes: number,
 ): void {
-  const hibit = 1 << 24;
-  const { r0, r1, r2, r3, r4 } = state;
-  let { h0, h1, h2, h3, h4 } = state;
-  const s1 = r1 * 5;
-  const s2 = r2 * 5;
-  const s3 = r3 * 5;
-  const s4 = r4 * 5;
+  const hibit = state.fin ? 0 : 1 << 11;
+  const h = state.h;
+  const r = state.r;
+
+  let h0 = h[0],
+    h1 = h[1],
+    h2 = h[2],
+    h3 = h[3],
+    h4 = h[4],
+    h5 = h[5],
+    h6 = h[6],
+    h7 = h[7],
+    h8 = h[8],
+    h9 = h[9];
+
+  const r0 = r[0],
+    r1 = r[1],
+    r2 = r[2],
+    r3 = r[3],
+    r4 = r[4],
+    r5 = r[5],
+    r6 = r[6],
+    r7 = r[7],
+    r8 = r[8],
+    r9 = r[9];
 
   let pos = offset;
+  let t0, t1, t2, t3, t4, t5, t6, t7, c;
+  let d0, d1, d2, d3, d4, d5, d6, d7, d8, d9;
+
   while (bytes >= 16) {
-    const t0 = load32LE(m, pos) >>> 0;
-    const t1 = load32LE(m, pos + 4) >>> 0;
-    const t2 = load32LE(m, pos + 8) >>> 0;
-    const t3 = load32LE(m, pos + 12) >>> 0;
+    t0 = (m[pos + 0] & 0xff) | ((m[pos + 1] & 0xff) << 8);
+    h0 += t0 & 0x1fff;
+    t1 = (m[pos + 2] & 0xff) | ((m[pos + 3] & 0xff) << 8);
+    h1 += ((t0 >>> 13) | (t1 << 3)) & 0x1fff;
+    t2 = (m[pos + 4] & 0xff) | ((m[pos + 5] & 0xff) << 8);
+    h2 += ((t1 >>> 10) | (t2 << 6)) & 0x1fff;
+    t3 = (m[pos + 6] & 0xff) | ((m[pos + 7] & 0xff) << 8);
+    h3 += ((t2 >>> 7) | (t3 << 9)) & 0x1fff;
+    t4 = (m[pos + 8] & 0xff) | ((m[pos + 9] & 0xff) << 8);
+    h4 += ((t3 >>> 4) | (t4 << 12)) & 0x1fff;
+    h5 += (t4 >>> 1) & 0x1fff;
+    t5 = (m[pos + 10] & 0xff) | ((m[pos + 11] & 0xff) << 8);
+    h6 += ((t4 >>> 14) | (t5 << 2)) & 0x1fff;
+    t6 = (m[pos + 12] & 0xff) | ((m[pos + 13] & 0xff) << 8);
+    h7 += ((t5 >>> 11) | (t6 << 5)) & 0x1fff;
+    t7 = (m[pos + 14] & 0xff) | ((m[pos + 15] & 0xff) << 8);
+    h8 += ((t6 >>> 8) | (t7 << 8)) & 0x1fff;
+    h9 += (t7 >>> 5) | hibit;
 
-    h0 += t0 & 0x3ffffff;
-    h1 += ((t0 >>> 26) | (t1 << 6)) & 0x3ffffff;
-    h2 += ((t1 >>> 20) | (t2 << 12)) & 0x3ffffff;
-    h3 += ((t2 >>> 14) | (t3 << 18)) & 0x3ffffff;
-    h4 += (t3 >>> 8) | hibit;
+    c = 0;
 
-    const d0 = h0 * r0 + h1 * s4 + h2 * s3 + h3 * s2 + h4 * s1;
-    const d1 = h0 * r1 + h1 * r0 + h2 * s4 + h3 * s3 + h4 * s2;
-    const d2 = h0 * r2 + h1 * r1 + h2 * r0 + h3 * s4 + h4 * s3;
-    const d3 = h0 * r3 + h1 * r2 + h2 * r1 + h3 * r0 + h4 * s4;
-    const d4 = h0 * r4 + h1 * r3 + h2 * r2 + h3 * r1 + h4 * r0;
+    d0 = c;
+    d0 += h0 * r0;
+    d0 += h1 * (5 * r9);
+    d0 += h2 * (5 * r8);
+    d0 += h3 * (5 * r7);
+    d0 += h4 * (5 * r6);
+    c = d0 >>> 13;
+    d0 &= 0x1fff;
+    d0 += h5 * (5 * r5);
+    d0 += h6 * (5 * r4);
+    d0 += h7 * (5 * r3);
+    d0 += h8 * (5 * r2);
+    d0 += h9 * (5 * r1);
+    c += d0 >>> 13;
+    d0 &= 0x1fff;
 
-    let c: number;
-    c = Math.floor(d0 / 0x4000000);
-    h0 = d0 - c * 0x4000000;
-    const e1 = d1 + c;
-    c = Math.floor(e1 / 0x4000000);
-    h1 = e1 - c * 0x4000000;
-    const e2 = d2 + c;
-    c = Math.floor(e2 / 0x4000000);
-    h2 = e2 - c * 0x4000000;
-    const e3 = d3 + c;
-    c = Math.floor(e3 / 0x4000000);
-    h3 = e3 - c * 0x4000000;
-    const e4 = d4 + c;
-    c = Math.floor(e4 / 0x4000000);
-    h4 = e4 - c * 0x4000000;
-    h0 += c * 5;
-    c = Math.floor(h0 / 0x4000000);
-    h0 -= c * 0x4000000;
-    h1 += c;
+    d1 = c;
+    d1 += h0 * r1;
+    d1 += h1 * r0;
+    d1 += h2 * (5 * r9);
+    d1 += h3 * (5 * r8);
+    d1 += h4 * (5 * r7);
+    c = d1 >>> 13;
+    d1 &= 0x1fff;
+    d1 += h5 * (5 * r6);
+    d1 += h6 * (5 * r5);
+    d1 += h7 * (5 * r4);
+    d1 += h8 * (5 * r3);
+    d1 += h9 * (5 * r2);
+    c += d1 >>> 13;
+    d1 &= 0x1fff;
+
+    d2 = c;
+    d2 += h0 * r2;
+    d2 += h1 * r1;
+    d2 += h2 * r0;
+    d2 += h3 * (5 * r9);
+    d2 += h4 * (5 * r8);
+    c = d2 >>> 13;
+    d2 &= 0x1fff;
+    d2 += h5 * (5 * r7);
+    d2 += h6 * (5 * r6);
+    d2 += h7 * (5 * r5);
+    d2 += h8 * (5 * r4);
+    d2 += h9 * (5 * r3);
+    c += d2 >>> 13;
+    d2 &= 0x1fff;
+
+    d3 = c;
+    d3 += h0 * r3;
+    d3 += h1 * r2;
+    d3 += h2 * r1;
+    d3 += h3 * r0;
+    d3 += h4 * (5 * r9);
+    c = d3 >>> 13;
+    d3 &= 0x1fff;
+    d3 += h5 * (5 * r8);
+    d3 += h6 * (5 * r7);
+    d3 += h7 * (5 * r6);
+    d3 += h8 * (5 * r5);
+    d3 += h9 * (5 * r4);
+    c += d3 >>> 13;
+    d3 &= 0x1fff;
+
+    d4 = c;
+    d4 += h0 * r4;
+    d4 += h1 * r3;
+    d4 += h2 * r2;
+    d4 += h3 * r1;
+    d4 += h4 * r0;
+    c = d4 >>> 13;
+    d4 &= 0x1fff;
+    d4 += h5 * (5 * r9);
+    d4 += h6 * (5 * r8);
+    d4 += h7 * (5 * r7);
+    d4 += h8 * (5 * r6);
+    d4 += h9 * (5 * r5);
+    c += d4 >>> 13;
+    d4 &= 0x1fff;
+
+    d5 = c;
+    d5 += h0 * r5;
+    d5 += h1 * r4;
+    d5 += h2 * r3;
+    d5 += h3 * r2;
+    d5 += h4 * r1;
+    c = d5 >>> 13;
+    d5 &= 0x1fff;
+    d5 += h5 * r0;
+    d5 += h6 * (5 * r9);
+    d5 += h7 * (5 * r8);
+    d5 += h8 * (5 * r7);
+    d5 += h9 * (5 * r6);
+    c += d5 >>> 13;
+    d5 &= 0x1fff;
+
+    d6 = c;
+    d6 += h0 * r6;
+    d6 += h1 * r5;
+    d6 += h2 * r4;
+    d6 += h3 * r3;
+    d6 += h4 * r2;
+    c = d6 >>> 13;
+    d6 &= 0x1fff;
+    d6 += h5 * r1;
+    d6 += h6 * r0;
+    d6 += h7 * (5 * r9);
+    d6 += h8 * (5 * r8);
+    d6 += h9 * (5 * r7);
+    c += d6 >>> 13;
+    d6 &= 0x1fff;
+
+    d7 = c;
+    d7 += h0 * r7;
+    d7 += h1 * r6;
+    d7 += h2 * r5;
+    d7 += h3 * r4;
+    d7 += h4 * r3;
+    c = d7 >>> 13;
+    d7 &= 0x1fff;
+    d7 += h5 * r2;
+    d7 += h6 * r1;
+    d7 += h7 * r0;
+    d7 += h8 * (5 * r9);
+    d7 += h9 * (5 * r8);
+    c += d7 >>> 13;
+    d7 &= 0x1fff;
+
+    d8 = c;
+    d8 += h0 * r8;
+    d8 += h1 * r7;
+    d8 += h2 * r6;
+    d8 += h3 * r5;
+    d8 += h4 * r4;
+    c = d8 >>> 13;
+    d8 &= 0x1fff;
+    d8 += h5 * r3;
+    d8 += h6 * r2;
+    d8 += h7 * r1;
+    d8 += h8 * r0;
+    d8 += h9 * (5 * r9);
+    c += d8 >>> 13;
+    d8 &= 0x1fff;
+
+    d9 = c;
+    d9 += h0 * r9;
+    d9 += h1 * r8;
+    d9 += h2 * r7;
+    d9 += h3 * r6;
+    d9 += h4 * r5;
+    c = d9 >>> 13;
+    d9 &= 0x1fff;
+    d9 += h5 * r4;
+    d9 += h6 * r3;
+    d9 += h7 * r2;
+    d9 += h8 * r1;
+    d9 += h9 * r0;
+    c += d9 >>> 13;
+    d9 &= 0x1fff;
+
+    c = ((c << 2) + c) | 0;
+    c = (c + d0) | 0;
+    d0 = c & 0x1fff;
+    c = c >>> 13;
+    d1 += c;
+
+    h0 = d0;
+    h1 = d1;
+    h2 = d2;
+    h3 = d3;
+    h4 = d4;
+    h5 = d5;
+    h6 = d6;
+    h7 = d7;
+    h8 = d8;
+    h9 = d9;
 
     pos += 16;
     bytes -= 16;
   }
 
-  state.h0 = h0;
-  state.h1 = h1;
-  state.h2 = h2;
-  state.h3 = h3;
-  state.h4 = h4;
-}
-
-function poly1305BlocksPartial(
-  state: Poly1305State,
-  m: Uint8Array,
-  offset: number,
-): void {
-  const { r0, r1, r2, r3, r4 } = state;
-  let { h0, h1, h2, h3, h4 } = state;
-  const s1 = r1 * 5;
-  const s2 = r2 * 5;
-  const s3 = r3 * 5;
-  const s4 = r4 * 5;
-
-  const t0 = load32LE(m, offset) >>> 0;
-  const t1 = load32LE(m, offset + 4) >>> 0;
-  const t2 = load32LE(m, offset + 8) >>> 0;
-  const t3 = load32LE(m, offset + 12) >>> 0;
-
-  h0 += t0 & 0x3ffffff;
-  h1 += ((t0 >>> 26) | (t1 << 6)) & 0x3ffffff;
-  h2 += ((t1 >>> 20) | (t2 << 12)) & 0x3ffffff;
-  h3 += ((t2 >>> 14) | (t3 << 18)) & 0x3ffffff;
-  h4 += t3 >>> 8; // no hibit for partial block
-
-  const d0 = h0 * r0 + h1 * s4 + h2 * s3 + h3 * s2 + h4 * s1;
-  const d1 = h0 * r1 + h1 * r0 + h2 * s4 + h3 * s3 + h4 * s2;
-  const d2 = h0 * r2 + h1 * r1 + h2 * r0 + h3 * s4 + h4 * s3;
-  const d3 = h0 * r3 + h1 * r2 + h2 * r1 + h3 * r0 + h4 * s4;
-  const d4 = h0 * r4 + h1 * r3 + h2 * r2 + h3 * r1 + h4 * r0;
-
-  let c: number;
-  c = Math.floor(d0 / 0x4000000);
-  h0 = d0 - c * 0x4000000;
-  const e1 = d1 + c;
-  c = Math.floor(e1 / 0x4000000);
-  h1 = e1 - c * 0x4000000;
-  const e2 = d2 + c;
-  c = Math.floor(e2 / 0x4000000);
-  h2 = e2 - c * 0x4000000;
-  const e3 = d3 + c;
-  c = Math.floor(e3 / 0x4000000);
-  h3 = e3 - c * 0x4000000;
-  const e4 = d4 + c;
-  c = Math.floor(e4 / 0x4000000);
-  h4 = e4 - c * 0x4000000;
-  h0 += c * 5;
-  c = Math.floor(h0 / 0x4000000);
-  h0 -= c * 0x4000000;
-  h1 += c;
-
-  state.h0 = h0;
-  state.h1 = h1;
-  state.h2 = h2;
-  state.h3 = h3;
-  state.h4 = h4;
+  h[0] = h0;
+  h[1] = h1;
+  h[2] = h2;
+  h[3] = h3;
+  h[4] = h4;
+  h[5] = h5;
+  h[6] = h6;
+  h[7] = h7;
+  h[8] = h8;
+  h[9] = h9;
 }
 
 function poly1305Update(
@@ -727,7 +850,9 @@ function poly1305Update(
   if (state.leftover > 0) {
     let want = 16 - state.leftover;
     if (want > remaining) want = remaining;
-    state.buffer.set(m.subarray(pos, pos + want), state.leftover);
+    for (let i = 0; i < want; i++) {
+      state.buffer[state.leftover + i] = m[pos + i];
+    }
     remaining -= want;
     pos += want;
     state.leftover += want;
@@ -737,100 +862,95 @@ function poly1305Update(
   }
 
   if (remaining >= 16) {
-    const want = remaining & ~15;
+    const want = remaining - (remaining % 16);
     poly1305Blocks(state, m, pos, want);
     pos += want;
     remaining -= want;
   }
 
   if (remaining > 0) {
-    state.buffer.set(m.subarray(pos, pos + remaining), 0);
-    state.leftover = remaining;
+    for (let i = 0; i < remaining; i++) {
+      state.buffer[state.leftover + i] = m[pos + i];
+    }
+    state.leftover += remaining;
   }
 }
 
 function poly1305Finalize(state: Poly1305State, mac: Uint8Array): void {
+  const g = new Uint16Array(10);
+  const h = state.h;
+  let c, mask, f, i;
+
   if (state.leftover > 0) {
-    state.buffer[state.leftover] = 1;
-    for (let i = state.leftover + 1; i < 16; i++) state.buffer[i] = 0;
-    poly1305BlocksPartial(state, state.buffer, 0);
+    i = state.leftover;
+    state.buffer[i++] = 1;
+    for (; i < 16; i++) state.buffer[i] = 0;
+    state.fin = 1;
+    poly1305Blocks(state, state.buffer, 0, 16);
   }
 
-  let { h0, h1, h2, h3, h4 } = state;
+  c = h[1] >>> 13;
+  h[1] &= 0x1fff;
+  for (i = 2; i < 10; i++) {
+    h[i] += c;
+    c = h[i] >>> 13;
+    h[i] &= 0x1fff;
+  }
+  h[0] += c * 5;
+  c = h[0] >>> 13;
+  h[0] &= 0x1fff;
+  h[1] += c;
+  c = h[1] >>> 13;
+  h[1] &= 0x1fff;
+  h[2] += c;
 
-  let c: number;
-  c = Math.floor(h1 / 0x4000000);
-  h1 -= c * 0x4000000;
-  h2 += c;
-  c = Math.floor(h2 / 0x4000000);
-  h2 -= c * 0x4000000;
-  h3 += c;
-  c = Math.floor(h3 / 0x4000000);
-  h3 -= c * 0x4000000;
-  h4 += c;
-  c = Math.floor(h4 / 0x4000000);
-  h4 -= c * 0x4000000;
-  h0 += c * 5;
-  c = Math.floor(h0 / 0x4000000);
-  h0 -= c * 0x4000000;
-  h1 += c;
+  g[0] = h[0] + 5;
+  c = g[0] >>> 13;
+  g[0] &= 0x1fff;
+  for (i = 1; i < 10; i++) {
+    g[i] = h[i] + c;
+    c = g[i] >>> 13;
+    g[i] &= 0x1fff;
+  }
+  g[9] -= 1 << 13;
 
-  // Compute h + -p
-  let g0 = h0 + 5;
-  c = Math.floor(g0 / 0x4000000);
-  g0 -= c * 0x4000000;
-  let g1 = h1 + c;
-  c = Math.floor(g1 / 0x4000000);
-  g1 -= c * 0x4000000;
-  let g2 = h2 + c;
-  c = Math.floor(g2 / 0x4000000);
-  g2 -= c * 0x4000000;
-  let g3 = h3 + c;
-  c = Math.floor(g3 / 0x4000000);
-  g3 -= c * 0x4000000;
-  let g4 = h4 + c - 0x4000000; // subtract 2^26
+  mask = (c ^ 1) - 1;
+  for (i = 0; i < 10; i++) g[i] &= mask;
+  mask = ~mask;
+  for (i = 0; i < 10; i++) h[i] = (h[i] & mask) | g[i];
 
-  // Select: if g4 >= 0 use g, else use h
-  // g4 < 0 means h < p, so use h
-  const mask = g4 < 0 ? 0 : -1;
-  const nmask = ~mask;
-  h0 = (h0 & nmask) | (g0 & mask);
-  h1 = (h1 & nmask) | (g1 & mask);
-  h2 = (h2 & nmask) | (g2 & mask);
-  h3 = (h3 & nmask) | (g3 & mask);
-  h4 = (h4 & nmask) | (g4 & mask);
+  h[0] = (h[0] | (h[1] << 13)) & 0xffff;
+  h[1] = ((h[1] >>> 3) | (h[2] << 10)) & 0xffff;
+  h[2] = ((h[2] >>> 6) | (h[3] << 7)) & 0xffff;
+  h[3] = ((h[3] >>> 9) | (h[4] << 4)) & 0xffff;
+  h[4] = ((h[4] >>> 12) | (h[5] << 1) | (h[6] << 14)) & 0xffff;
+  h[5] = ((h[6] >>> 2) | (h[7] << 11)) & 0xffff;
+  h[6] = ((h[7] >>> 5) | (h[8] << 8)) & 0xffff;
+  h[7] = ((h[8] >>> 8) | (h[9] << 5)) & 0xffff;
 
-  // h = h % (2^128) as four 32-bit limbs
-  let f0 = ((h0 | (h1 << 26)) >>> 0);
-  let f1 = (((h1 >>> 6) | (h2 << 20)) >>> 0);
-  let f2 = (((h2 >>> 12) | (h3 << 14)) >>> 0);
-  let f3 = (((h3 >>> 18) | (h4 << 8)) >>> 0);
+  f = h[0] + state.pad[0];
+  h[0] = f & 0xffff;
+  for (i = 1; i < 8; i++) {
+    f = (((h[i] + state.pad[i]) | 0) + (f >>> 16)) | 0;
+    h[i] = f & 0xffff;
+  }
 
-  // mac = (h + pad) % (2^128) using 16-bit half-word addition for carry
-  let carry: number;
-  const s0 = (f0 & 0xffff) + (state.pad0 & 0xffff);
-  const s0h = (f0 >>> 16) + (state.pad0 >>> 16) + (s0 >>> 16);
-  f0 = ((s0h << 16) | (s0 & 0xffff)) >>> 0;
-  carry = s0h >>> 16;
-
-  const s1v = (f1 & 0xffff) + (state.pad1 & 0xffff) + carry;
-  const s1h = (f1 >>> 16) + (state.pad1 >>> 16) + (s1v >>> 16);
-  f1 = ((s1h << 16) | (s1v & 0xffff)) >>> 0;
-  carry = s1h >>> 16;
-
-  const s2v = (f2 & 0xffff) + (state.pad2 & 0xffff) + carry;
-  const s2h = (f2 >>> 16) + (state.pad2 >>> 16) + (s2v >>> 16);
-  f2 = ((s2h << 16) | (s2v & 0xffff)) >>> 0;
-  carry = s2h >>> 16;
-
-  const s3v = (f3 & 0xffff) + (state.pad3 & 0xffff) + carry;
-  const s3h = (f3 >>> 16) + (state.pad3 >>> 16) + (s3v >>> 16);
-  f3 = ((s3h << 16) | (s3v & 0xffff)) >>> 0;
-
-  store32LE(mac, 0, f0);
-  store32LE(mac, 4, f1);
-  store32LE(mac, 8, f2);
-  store32LE(mac, 12, f3);
+  mac[0] = (h[0] >>> 0) & 0xff;
+  mac[1] = (h[0] >>> 8) & 0xff;
+  mac[2] = (h[1] >>> 0) & 0xff;
+  mac[3] = (h[1] >>> 8) & 0xff;
+  mac[4] = (h[2] >>> 0) & 0xff;
+  mac[5] = (h[2] >>> 8) & 0xff;
+  mac[6] = (h[3] >>> 0) & 0xff;
+  mac[7] = (h[3] >>> 8) & 0xff;
+  mac[8] = (h[4] >>> 0) & 0xff;
+  mac[9] = (h[4] >>> 8) & 0xff;
+  mac[10] = (h[5] >>> 0) & 0xff;
+  mac[11] = (h[5] >>> 8) & 0xff;
+  mac[12] = (h[6] >>> 0) & 0xff;
+  mac[13] = (h[6] >>> 8) & 0xff;
+  mac[14] = (h[7] >>> 0) & 0xff;
+  mac[15] = (h[7] >>> 8) & 0xff;
 }
 
 // ================================================================
@@ -911,11 +1031,10 @@ function secretStreamPull(
   // Update poly1305 with ciphertext (inp[1..1+mlen])
   poly1305Update(polyState, inp, 1, mlen);
 
-  // Pad to 16-byte boundary: padLen = (0x10 - (64 + mlen)) & 0xf
-  const padLen = (0x10 - ((64 + mlen) & 0xf)) & 0xf;
-  if (padLen > 0) {
-    poly1305Update(polyState, PAD0, 0, padLen);
-  }
+  // Pad to 16-byte boundary. Matches keiyoushi SecretStream.java / libsodium:
+  // padLen = (0x10 - sizeof(block) + mlen) & 0xf, with block size 64.
+  const padLen = (0x10 - 64 + mlen) & 0xf;
+  poly1305Update(polyState, PAD0, 0, padLen);
 
   // Finalize length encoding
   const slen = new Uint8Array(8);
