@@ -14,22 +14,36 @@
 // X25519 (Curve25519 Diffie-Hellman) — RFC 7748
 // ================================================================
 
-type Fe = Int32Array;
+// Field element: 16 limbs of base-2^16, stored in a Float64Array so that the
+// 16x16 schoolbook multiply (products up to ~2^53) stays within JS Number
+// safe-integer range. This is the TweetNaCl `gf` representation.
+type Fe = Float64Array;
 
-function feNew(): Fe {
-  return new Int32Array(16);
+function feNew(init?: number[]): Fe {
+  const r = new Float64Array(16);
+  if (init) for (let i = 0; i < init.length; i++) r[i] = init[i];
+  return r;
 }
 
-function feCarry(o: Fe): void {
+const _121665 = feNew([0xdb41, 1]);
+
+function feSet(o: Fe, a: Fe): void {
+  for (let i = 0; i < 16; i++) o[i] = a[i];
+}
+
+function feCar(o: Fe): void {
+  // car25519: propagate carries; the top limb wraps with the *38 reduction.
+  let c = 1;
   for (let i = 0; i < 16; i++) {
-    o[i] += 65536;
-    const carry = Math.floor(o[i] / 65536);
-    o[(i + 1) % 16] += carry - 1 + (i === 15 ? 37 * (carry - 1) : 0);
-    o[i] -= carry * 65536;
+    const v = o[i] + c + 65535;
+    c = Math.floor(v / 65536);
+    o[i] = v - c * 65536;
   }
+  o[0] += c - 1 + 37 * (c - 1);
 }
 
 function feSel(p: Fe, q: Fe, b: number): void {
+  // sel25519: constant-time conditional swap.
   const c = ~(b - 1);
   for (let i = 0; i < 16; i++) {
     const t = c & (p[i] ^ q[i]);
@@ -41,10 +55,10 @@ function feSel(p: Fe, q: Fe, b: number): void {
 function fePack(o: Uint8Array, n: Fe): void {
   const m = feNew();
   const t = feNew();
-  for (let i = 0; i < 16; i++) t[i] = n[i];
-  feCarry(t);
-  feCarry(t);
-  feCarry(t);
+  feSet(t, n);
+  feCar(t);
+  feCar(t);
+  feCar(t);
   for (let j = 0; j < 2; j++) {
     m[0] = t[0] - 0xffed;
     for (let i = 1; i < 15; i++) {
@@ -82,12 +96,12 @@ function feMul(o: Fe, a: Fe, b: Fe): void {
       t[i + j] += a[i] * b[j];
     }
   }
-  for (let i = 16; i < 31; i++) {
-    t[i - 16] += 38 * t[i];
+  for (let i = 0; i < 15; i++) {
+    t[i] += 38 * t[i + 16];
   }
   for (let i = 0; i < 16; i++) o[i] = t[i];
-  feCarry(o);
-  feCarry(o);
+  feCar(o);
+  feCar(o);
 }
 
 function feSq(o: Fe, a: Fe): void {
@@ -96,64 +110,64 @@ function feSq(o: Fe, a: Fe): void {
 
 function feInv(o: Fe, a: Fe): void {
   const c = feNew();
-  for (let i = 0; i < 16; i++) c[i] = a[i];
+  feSet(c, a);
   for (let i = 253; i >= 0; i--) {
     feSq(c, c);
     if (i !== 2 && i !== 4) feMul(c, c, a);
   }
-  for (let i = 0; i < 16; i++) o[i] = c[i];
+  feSet(o, c);
 }
 
 function feScalarMult(q: Uint8Array, n: Uint8Array, p: Uint8Array): void {
+  // crypto_scalarmult from TweetNaCl.
   const z = new Uint8Array(32);
   for (let i = 0; i < 31; i++) z[i] = n[i];
   z[31] = (n[31] & 127) | 64;
   z[0] &= 248;
 
-  const xFe = feNew();
-  feUnpack(xFe, p);
+  const x = feNew();
+  feUnpack(x, p);
 
-  const aFe = feNew(),
-    bFe = feNew(),
-    cFe = feNew(),
-    dFe = feNew();
-  const e = feNew(),
+  const a = feNew(),
+    b = feNew(),
+    c = feNew(),
+    d = feNew(),
+    e = feNew(),
     f = feNew();
-  bFe[0] = 1;
-  for (let i = 0; i < 16; i++) aFe[i] = xFe[i];
-  dFe[0] = 1;
+  feSet(b, x);
+  a[0] = 1;
+  d[0] = 1;
 
   for (let i = 254; i >= 0; --i) {
-    const bit = (z[i >>> 3] >>> (i & 7)) & 1;
-    feSel(aFe, cFe, bit);
-    feSel(bFe, dFe, bit);
-    feAdd(e, aFe, bFe);
-    feSub(aFe, aFe, bFe);
-    feAdd(f, cFe, dFe);
-    feSub(cFe, cFe, dFe);
-    feMul(dFe, e, cFe);
-    feMul(cFe, aFe, f);
-    feAdd(e, dFe, cFe);
-    feSub(aFe, dFe, cFe);
-    feSq(bFe, aFe);
-    feSub(cFe, e, f);
-    const a121665 = feNew();
-    a121665[0] = 0xdb41;
-    a121665[1] = 1;
-    feMul(aFe, cFe, a121665);
-    feAdd(aFe, aFe, e);
-    feMul(cFe, cFe, aFe);
-    feMul(aFe, e, f);
-    feMul(dFe, bFe, xFe);
-    feSq(bFe, e);
-    feSel(aFe, cFe, bit);
-    feSel(bFe, dFe, bit);
+    const r = (z[i >>> 3] >>> (i & 7)) & 1;
+    feSel(a, b, r);
+    feSel(c, d, r);
+    feAdd(e, a, c);
+    feSub(a, a, c);
+    feAdd(c, b, d);
+    feSub(b, b, d);
+    feSq(d, e);
+    feSq(f, a);
+    feMul(a, c, a);
+    feMul(c, b, e);
+    feAdd(e, a, c);
+    feSub(a, a, c);
+    feSq(b, a);
+    feSub(c, d, f);
+    feMul(a, c, _121665);
+    feAdd(a, a, d);
+    feMul(c, c, a);
+    feMul(a, d, f);
+    feMul(d, b, x);
+    feSq(b, e);
+    feSel(a, b, r);
+    feSel(c, d, r);
   }
 
   const inv = feNew();
-  feInv(inv, bFe);
-  feMul(aFe, aFe, inv);
-  fePack(q, aFe);
+  feInv(inv, c);
+  feMul(a, a, inv);
+  fePack(q, a);
 }
 
 const BASEPOINT = new Uint8Array(32);

@@ -500,7 +500,7 @@ a source is broken, please open an issue.
 | TCB Scans (Unoriginal) | 1.4.32.1 | Everyone | Not yet tested |
 | Team Shadowi | 1.4.1.1 | Mature | Not yet tested |
 | Temple Scan | 1.4.49.1 | Mature | Not yet tested |
-| The Blank | 1.4.56.6 | Mature | Not yet tested |
+| The Blank | 1.4.56.7 | Mature | Not yet tested |
 | The Duck Webcomics | 1.4.3.1 | Mature | Not yet tested |
 | The Property of Hate | 1.4.5.1 | Everyone | Not yet tested |
 | TimelessToons | 1.4.20.1 | Everyone | Not yet tested |
