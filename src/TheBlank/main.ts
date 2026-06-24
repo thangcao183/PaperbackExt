@@ -192,6 +192,26 @@ function sessionKey(serieSlug: string, chapterSlug: string): string {
   return `${serieSlug}--${chapterSlug}`;
 }
 
+/**
+ * Case-insensitive header lookup. Paperback delivers response headers as a
+ * plain Record<string,string>, and the casing of server-sent headers
+ * (e.g. X-Page-Name / X-Key-Hint) is not guaranteed, so we scan keys
+ * case-insensitively rather than assuming a lowercase key.
+ */
+function headerValue(
+  headers: Record<string, string> | undefined,
+  name: string,
+): string {
+  if (!headers) return "";
+  const direct = headers[name];
+  if (direct !== undefined) return direct;
+  const lower = name.toLowerCase();
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === lower) return headers[key];
+  }
+  return "";
+}
+
 class TheBlankInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
     // Defaults first, then spread the request's own headers LAST so that
@@ -239,7 +259,7 @@ class TheBlankInterceptor extends PaperbackInterceptor {
     response: Response,
     data: ArrayBuffer,
   ): Promise<ArrayBuffer> {
-    if (response.headers?.["cf-mitigated"] === "challenge") {
+    if (headerValue(response.headers, "cf-mitigated") === "challenge") {
       throw new CloudflareError({
         url: request.url,
         method: request.method ?? "GET",
@@ -260,8 +280,8 @@ class TheBlankInterceptor extends PaperbackInterceptor {
       const session = chapterSessions.get(sessionKey(serieSlug, chapterSlug));
 
       if (session) {
-        const pageName = response.headers?.["x-page-name"] ?? "";
-        const keyHintB64 = response.headers?.["x-key-hint"] ?? "";
+        const pageName = headerValue(response.headers, "x-page-name");
+        const keyHintB64 = headerValue(response.headers, "x-key-hint");
 
         if (pageName && keyHintB64) {
           const keyHint = base64Decode(keyHintB64);
