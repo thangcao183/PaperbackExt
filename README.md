@@ -21,6 +21,13 @@ Comics) are fully self-contained.
 > fixes when I have free time — thanks for your patience and for helping improve
 > the repository.
 
+> [!NOTE]
+> **Only sources that already exist in keiyoushi will be added here.** This
+> repository is a port of the keiyoushi Tachiyomi extensions, not a place for
+> brand-new sources. If a source exists in keiyoushi but isn't available here
+> yet, please [open an issue](../../issues) to request it and I'll work on
+> converting it.
+
 ### Features
 
 - **Discover, search, details, chapters and pages** for every source.
