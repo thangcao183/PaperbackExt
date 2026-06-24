@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from '@paperback/types'
 export default {
     name: 'Flame Comics',
     description: 'Flame Comics - custom source (flamecomics.xyz). Converted from keiyoushi.',
-    version: '1.4.49.1',
+    version: '1.4.49.2',
     icon: 'icon.png',
     language: 'en',
     contentRating: ContentRating.EVERYONE,

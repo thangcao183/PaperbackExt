@@ -49,7 +49,7 @@ interface FlameSeries {
 }
 
 interface FlameChapter {
-    chapter: number
+    chapter: number | string
     title?: string | null
     release_date: number
     series_id: number
@@ -199,7 +199,9 @@ export class FlameComicsExtension implements FlameComicsImplementation {
         )
         const s = data.pageProps.series
         const genres = s.tags ? [s.type, ...s.tags] : [s.type]
-        const tags = genres.filter((g) => !!g).map((g) => ({ id: g.toLowerCase(), title: g }))
+        const tags = genres
+            .filter((g) => !!g)
+            .map((g) => ({ id: this.tagId(g), title: g }))
         const tagGroups: TagSection[] = tags.length
             ? [{ id: 'genres', title: 'Genres', tags }]
             : []
@@ -227,7 +229,14 @@ export class FlameComicsExtension implements FlameComicsImplementation {
             `series/${seriesId}.json?id=${encodeURIComponent(seriesId)}`,
         )
         return data.pageProps.chapters.map((ch) => {
-            const chapStr = String(ch.chapter).replace(/\.0$/, '')
+            // The API returns `chapter` as a string like "214.00"; coerce to a
+            // number so Paperback can decode chapNum as a Double, and format a
+            // clean label ("214", "97.5").
+            const chapNum = Number(ch.chapter)
+            const safeNum = Number.isFinite(chapNum) ? chapNum : 0
+            const chapStr = Number.isFinite(chapNum)
+                ? String(chapNum)
+                : String(ch.chapter)
             let title = `Chapter ${chapStr}`
             if (ch.title && ch.title.trim()) {
                 title += ` - ${ch.title.trim()}`
@@ -237,7 +246,7 @@ export class FlameComicsExtension implements FlameComicsImplementation {
                 sourceManga,
                 title,
                 volume: 0,
-                chapNum: ch.chapter,
+                chapNum: safeNum,
                 publishDate: new Date(ch.release_date * 1000),
                 langCode: '🇬🇧',
             }
@@ -312,6 +321,17 @@ export class FlameComicsExtension implements FlameComicsImplementation {
 
     private thumbnailUrl(s: FlameSeries): string {
         return `${CDN}/uploads/images/series/${s.series_id}/${s.cover}?${s.last_edit}#thumbnail`
+    }
+
+    // Build a Paperback-safe tag id (allowed charset is alphanumeric plus
+    // `._-@()[]%?#+=/&:`; spaces and other characters are not permitted).
+    private tagId(genre: string): string {
+        const slug = genre
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9._\-@()[\]%?#+=/&:]/g, '')
+        return slug || genre.toLowerCase().replace(/[^a-z0-9]/g, '') || 'tag'
     }
 
     private parseStatus(status: string): string {
