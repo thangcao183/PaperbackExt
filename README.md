@@ -70,6 +70,18 @@ override instead of the built-in domain until you reset it. Self-hosted
 frameworks (e.g. Monochrome Custom, Bakkin Self-hosted) rely on this to point at
 your own server.
 
+## Contributing
+
+Contributions are welcome — anyone can help fix a broken source or keep sources
+up to date. You don't need write access; just fork the repo, make your change,
+and open a pull request against `0.9/stable`. See
+**[CONTRIBUTING.md](CONTRIBUTING.md)** for the full workflow (project layout,
+version bumping, type-checking, and the stray-`.js` cleanup step).
+
+If you've found a broken source but can't fix it yourself, please
+[open an issue](../../issues) — a source name, the exact error, and an HTTP log
+(Charles/Pulse) help a lot.
+
 ## Frameworks
 
 The repository implements **24 shared theme frameworks** plus standalone

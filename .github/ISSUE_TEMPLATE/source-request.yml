@@ -1,0 +1,33 @@
+name: Request a source
+description: Request a source that exists in keiyoushi but isn't available here yet
+title: "[Request] <source name>"
+labels: ["enhancement", "source-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Only sources that already exist in
+        [keiyoushi](https://github.com/keiyoushi/extensions-source) can be added,
+        since this repository is a port of those extensions.
+  - type: input
+    id: source
+    attributes:
+      label: Source name
+      placeholder: Example Scans
+    validations:
+      required: true
+  - type: input
+    id: keiyoushi-link
+    attributes:
+      label: Link to the keiyoushi source
+      description: Confirm the source exists upstream by linking to it.
+      placeholder: https://github.com/keiyoushi/extensions-source/tree/main/src/...
+    validations:
+      required: true
+  - type: input
+    id: site
+    attributes:
+      label: Site URL
+      placeholder: https://example.com
+    validations:
+      required: false

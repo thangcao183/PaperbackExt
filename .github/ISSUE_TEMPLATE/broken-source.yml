@@ -1,0 +1,66 @@
+name: Broken source
+description: Report a source that isn't working (homepage, search, details, chapters, or images)
+title: "[Broken] <source name>: <short description>"
+labels: ["bug", "broken-source"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the repository! Please fill in as much as you
+        can — the source name and exact error message are the most important.
+  - type: input
+    id: source
+    attributes:
+      label: Source name
+      description: The exact name as it appears in Paperback (e.g. "Comix", "Gourmet Scans").
+      placeholder: Comix
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Source version
+      description: Shown on the source page in Paperback (e.g. 1.4.31.27).
+      placeholder: 1.4.31.27
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: What's broken?
+      options:
+        - Homepage / Discover
+        - Search
+        - Manga details (title, cover, description)
+        - Chapter list
+        - Reading / page images
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what went wrong? Include the exact error message if there is one.
+      placeholder: |
+        Opening any manga shows: [Comix] error: Could not convert JSValue: Invalid URL: ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional but very helpful)
+      description: |
+        If you can, attach a Charles/Pulse HTTP log or paste relevant log lines.
+        These are especially useful for scraping/CDN issues.
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: device
+    attributes:
+      label: Paperback / device version
+      description: Paperback app version and iOS version, if known.
+      placeholder: Paperback 0.9.x, iOS 18.x
+    validations:
+      required: false

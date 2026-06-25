@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Installation help & general questions
+    url: https://github.com/Nicartjay/PaperbackExt#installation
+    about: See the README for how to add the repository and change a source's domain.
