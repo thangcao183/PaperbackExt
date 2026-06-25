@@ -31,6 +31,15 @@ jobs:
       - name: Bundle Extensions
         run: npm run bundle
 
+      - name: Make GitHub Pages indexable by search engines
+        run: |
+          for f in $(find bundles -name 'index.html'); do
+            # Remove the default noindex directive that blocks search engines
+            sed -i '/<meta name="robots" content="noindex" \/>/d' "$f"
+            # Add Google Search Console verification + allow indexing
+            sed -i 's#<head>#<head>\n    <meta name="robots" content="index, follow" />\n    <meta name="google-site-verification" content="GehRSH4VThL1APWOewuQMUaZ7RlTT-wDpZviQvRqjKA" />#' "$f"
+          done
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
