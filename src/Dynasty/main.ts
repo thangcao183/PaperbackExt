@@ -273,37 +273,49 @@ export class DynastyExtension implements DynastyImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: Metadata | undefined,
+    _metadata: Metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const meta = metadata as DynastyMetadata | undefined;
-    const page = meta?.page ?? 1;
-
     if (section.id !== "added") {
       return { items: [], metadata: undefined };
     }
 
-    const url = `${BASE_URL}/${CHAPTERS_DIR}/added.json?page=${page}`;
-    const data = await this.fetchJson<BrowseResponseJson>(url);
+    // The homepage `/` is the "Recently Released Chapters" list and is the
+    // only listing that embeds cover thumbnails inline (a single request).
+    // Paperback's carousel image loader needs a real, direct image URL, so we
+    // scrape the homepage rather than added.json (which carries no cover).
+    // Paginated /chapters/added pages drop the covers, so the carousel is a
+    // single page.
+    const $ = await this.fetchCheerio({ url: `${BASE_URL}/`, method: "GET" });
 
     const items: DiscoverSectionItem[] = [];
     const seen = new Set<string>();
 
-    for (const entry of this.entriesFromBrowse(data)) {
-      if (seen.has(entry.mangaId)) continue;
-      seen.add(entry.mangaId);
+    $("a.chapter.media.thumbnail").each((_, element) => {
+      const anchor = $(element);
+      const href = anchor.attr("href") || "";
+      if (!href || !href.includes(`/${CHAPTERS_DIR}/`)) return;
+
+      const permalink = href.split(`/${CHAPTERS_DIR}/`)[1]?.split(/[?#]/)[0];
+      if (!permalink) return;
+
+      const mangaId = this.toSafeId(`${CHAPTERS_DIR}/${permalink}`);
+      if (seen.has(mangaId)) return;
+      seen.add(mangaId);
+
+      const imageUrl = absoluteUrlStr(anchor.find("img").first().attr("src") || "");
+      const title = anchor.find(".title").first().text().trim();
+      if (!title) return;
+
       items.push({
         type: "simpleCarouselItem",
-        mangaId: entry.mangaId,
-        imageUrl: entry.imageUrl,
-        title: entry.title,
+        mangaId,
+        imageUrl,
+        title,
         metadata: undefined,
       });
-    }
+    });
 
-    const current = data.current_page ?? 1;
-    const total = data.total_pages ?? 1;
-    const hasNext = current < total;
-    return { items, metadata: hasNext ? { page: page + 1 } : undefined };
+    return { items, metadata: undefined };
   }
 
   private entriesFromBrowse(
