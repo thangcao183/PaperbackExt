@@ -409,13 +409,20 @@ export class DynastyExtension implements DynastyImplementation {
     const results: SearchResultItem[] = [];
     const seen = new Set<string>();
 
+    // NOTE: the upstream Jsoup selector uses `[href~=/(series|...)/]` where
+    // `~=` is Jsoup's REGEX-match operator. In cheerio `~=` means a
+    // whitespace-separated word match, so that selector matches nothing. We
+    // instead select the anchors broadly and filter the href with a regex.
+    const hrefRegex = new RegExp(
+      `/(${SERIES_DIR}|${ANTHOLOGIES_DIR}|${CHAPTERS_DIR}|${DOUJINS_DIR}|${ISSUES_DIR})/`,
+    );
     const selector =
-      `.chapter-list a.name[href~=/(${SERIES_DIR}|${ANTHOLOGIES_DIR}|${CHAPTERS_DIR}|${DOUJINS_DIR}|${ISSUES_DIR})/], ` +
-      `.chapter-list .doujin_tags a[href~=/${DOUJINS_DIR}/]`;
+      ".chapter-list a.name, .chapter-list .doujin_tags a[href]";
 
     $(selector).each((_, element) => {
       const el = $(element);
       const href = el.attr("href") || "";
+      if (!hrefRegex.test(href)) return;
       const parsed = this.parseDirAndPermalink(href);
       if (!parsed) return;
 
