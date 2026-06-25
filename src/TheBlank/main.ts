@@ -227,20 +227,42 @@ class TheBlankInterceptor extends PaperbackInterceptor {
 
     const extraHeaders: Record<string, string> = {};
 
-    // Add X-Client-Pubkey header for page image requests
+    // Add X-Client-Pubkey header AND sign the URL freshly for page image
+    // requests. Signing must happen here (not in getChapterDetails) because
+    // Paperback re-requests the same page URL when the reader scrolls back to
+    // an already-viewed page. A signature baked in at getChapterDetails time
+    // carries a stale `ts` and the server rejects it on re-fetch, so the image
+    // "disappears". Computing ts/nonce/sig per request keeps every (re)fetch
+    // valid. This mirrors keiyoushi's Pam.imageRequest.
     if (isPageImage) {
-      const m = url.match(/\/serie\/([^/?#]+)\/chapter\/([^/?#]+)\/page/);
+      const m = url.match(
+        /\/serie\/([^/?#]+)\/chapter\/([^/?#]+)\/page\/(\d+)/,
+      );
       if (m) {
         const serieSlug = decodeURIComponent(m[1]);
         const chapterSlug = decodeURIComponent(m[2]);
+        const pageIndex = m[3];
         const session = chapterSessions.get(
           sessionKey(serieSlug, chapterSlug),
         );
         if (session) {
           extraHeaders["x-client-pubkey"] = session.clientPubkeyB64;
+
+          // Re-sign every request with a fresh timestamp + nonce.
+          const ts = Math.floor(Date.now() / 1000).toString();
+          const nonce = bufToHex(getRandomBytes(16));
+          const sig = await hmacSha256Hex(
+            session.chapterToken,
+            `${pageIndex}${ts}${nonce}`,
+          );
+          request.url =
+            `${BASE_URL}/serie/${serieSlug}/chapter/${chapterSlug}/page/${pageIndex}` +
+            `?token=${encodeURIComponent(session.chapterToken)}` +
+            `&ts=${ts}&nonce=${nonce}&sig=${sig}`;
+
           console.log(
-            `[TheBlank] req page pubkey sent=${session.clientPubkeyB64} ` +
-              `serie=${serieSlug} chapter=${chapterSlug}`,
+            `[TheBlank] req page signed pubkey=${session.clientPubkeyB64} ` +
+              `serie=${serieSlug} chapter=${chapterSlug} page=${pageIndex} ts=${ts}`,
           );
         } else {
           console.log(
@@ -640,7 +662,6 @@ export class TheBlankExtension implements TheBlankImplementation {
     const chapterToken = props?.chapter_token ?? "";
 
     // Perform X25519 handshake to derive shared secret
-    let session: ChapterSession | undefined;
     if (serverPubkeyB64 && chapterToken) {
       const serverPub = base64Decode(serverPubkeyB64);
       if (serverPub.length === 32) {
@@ -650,38 +671,23 @@ export class TheBlankExtension implements TheBlankImplementation {
         // Clear private key
         privateKey.fill(0);
 
-        session = {
+        chapterSessions.set(sessionKey(serieSlug, chapterSlug), {
           chapterToken,
           sharedSecret: shared,
           clientPubkeyB64: base64Encode(clientPub),
-        };
-        chapterSessions.set(sessionKey(serieSlug, chapterSlug), session);
+        });
       }
     }
 
-    // Construct signed page URLs with HMAC authentication
+    // Construct bare page URLs. The actual HMAC signing (token/ts/nonce/sig)
+    // and X-Client-Pubkey header are added per-request in the interceptor so
+    // that scroll-back re-fetches always carry a fresh, non-stale signature.
     const pages: string[] = [];
     if (serieSlug && chapterSlug) {
       for (let i = 1; i <= pageCount; i++) {
-        if (session) {
-          // Build signed URL: /serie/{slug}/chapter/{slug}/page/{N}?token=...&ts=...&nonce=...&sig=...
-          const ts = Math.floor(Date.now() / 1000).toString();
-          const nonce = bufToHex(getRandomBytes(16));
-          const sig = await hmacSha256Hex(
-            session.chapterToken,
-            `${i}${ts}${nonce}`,
-          );
-          const pageUrl =
-            `${BASE_URL}/serie/${serieSlug}/chapter/${chapterSlug}/page/${i}` +
-            `?token=${encodeURIComponent(session.chapterToken)}` +
-            `&ts=${ts}&nonce=${nonce}&sig=${sig}`;
-          pages.push(pageUrl);
-        } else {
-          // Fallback: unsigned URL (will likely fail but preserves old behavior)
-          pages.push(
-            `${BASE_URL}/serie/${serieSlug}/chapter/${chapterSlug}/page/${i}`,
-          );
-        }
+        pages.push(
+          `${BASE_URL}/serie/${serieSlug}/chapter/${chapterSlug}/page/${i}`,
+        );
       }
     }
 
