@@ -756,3 +756,10 @@ and should be reviewed; reset its internal revision to `.1` when you do.
 - [Paperback](https://github.com/Paperback-iOS/app) for the app and extension SDK.
 - [keiyoushi/extensions-source](https://github.com/keiyoushi/extensions-source)
   for the original Tachiyomi sources and icons.
+- The **keiyoushi extension developers and contributors**, whose original work
+  every source in this repository is ported from. All credit for the source
+  logic, scraping, and decryption belongs to them — this repository only adapts
+  their extensions to the Paperback runtime. See the
+  [keiyoushi contributors](https://github.com/keiyoushi/extensions-source/graphs/contributors)
+  for the full list of authors.
+
