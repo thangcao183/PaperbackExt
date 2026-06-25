@@ -198,7 +198,7 @@ a source is broken, please open an issue.
 | Doujins | 1.4.6.1 | Mature | Not yet tested |
 | DragonTea | 1.4.56.2 | Everyone | Not yet tested |
 | Drake Scans | 1.4.48.1 | Everyone | Not yet tested |
-| Dynasty | 1.4.30.1 | Mature | Not yet tested |
+| Dynasty | 1.4.30.2 | Mature | Not yet tested |
 | Eggporncomics | 1.4.3.1 | Mature | Not yet tested |
 | El Goonish Shive | 1.4.2.1 | Everyone | Not yet tested |
 | Elan School | 1.4.1.1 | Everyone | Not yet tested |

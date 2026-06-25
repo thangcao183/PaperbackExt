@@ -56,6 +56,12 @@ const CHAPTER_SLUG_REGEX = /(.*?)_(ch[0-9_]+|volume_[0-9_\w]+)/;
 const UNICODE_REGEX = /\\u([0-9A-Fa-f]{4})/g;
 const AUTHORS_UPPER_LIMIT = 15;
 
+// Sentinel path used as the placeholder thumbnail URL for browse/search
+// entries (whose JSON listing carries no cover). The interceptor resolves it
+// to the real cover by fetching the entry's `.json`. Mirrors the upstream
+// cover-fetch interceptor (COVER_FETCH_HOST) approach.
+const COVER_FETCH_PATH = "/__pbcover__";
+
 // Number of chapter-listing pages to fetch (upstream default is 2)
 const CHAPTER_FETCH_LIMIT = 5;
 
@@ -117,8 +123,55 @@ interface ChapterResponseJson {
   released_on?: string;
 }
 
+// ----------------------------------------------------------------
+// Module-level URL helpers (shared by the extension + interceptor)
+// ----------------------------------------------------------------
+
+function absoluteUrlStr(src: string): string {
+  const s = (src || "").trim();
+  if (!s) return "";
+  if (s.startsWith("http")) return s;
+  if (s.startsWith("//")) return `https:${s}`;
+  return s.startsWith("/") ? `${BASE_URL}${s}` : `${BASE_URL}/${s}`;
+}
+
+function buildCoverUrlStr(file: string): string {
+  const abs = absoluteUrlStr(file);
+  let path: string;
+  try {
+    path = new URL(abs).pathname.replace(/^\/+/, "");
+  } catch {
+    path = file.replace(/^\/+/, "");
+  }
+  if (path.startsWith("system/")) {
+    return `${BASE_URL}/${path}`;
+  }
+  return `${BASE_URL}/system/tag_contents_covers/000/${path}`;
+}
+
+// The placeholder cover URL stored on browse/search items. The interceptor
+// recognises it, fetches the entry JSON, and rewrites the request to the
+// real cover image. directory + permalink are carried as query params.
+function buildCoverFetchUrl(directory: string, permalink: string): string {
+  return (
+    `${BASE_URL}${COVER_FETCH_PATH}` +
+    `?dir=${encodeURIComponent(directory)}` +
+    `&permalink=${encodeURIComponent(permalink)}`
+  );
+}
+
 class DynastyInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
+    // Resolve placeholder cover URLs to the real image before the request
+    // is sent. The listing JSON carries no cover, so we fetch the entry's
+    // `.json` here and rewrite the URL to its cover / first page.
+    if (request.url.includes(COVER_FETCH_PATH)) {
+      const resolved = await this.resolveCoverUrl(request.url);
+      if (resolved) {
+        request.url = resolved;
+      }
+    }
+
     request.headers = {
       ...request.headers,
       referer: `${BASE_URL}/`,
@@ -129,6 +182,37 @@ class DynastyInterceptor extends PaperbackInterceptor {
       "accept-language": "en-US,en;q=0.5",
     };
     return request;
+  }
+
+  private async resolveCoverUrl(url: string): Promise<string | undefined> {
+    let dir = "";
+    let permalink = "";
+    try {
+      const u = new URL(url);
+      dir = u.searchParams.get("dir") ?? "";
+      permalink = u.searchParams.get("permalink") ?? "";
+    } catch {
+      return undefined;
+    }
+    if (!dir || !permalink) return undefined;
+
+    const jsonUrl = `${BASE_URL}/${dir}/${encodeURIComponent(permalink)}.json`;
+    try {
+      const [response, data] = await Application.scheduleRequest({
+        url: jsonUrl,
+        method: "GET",
+      });
+      if (response.status !== 200) return undefined;
+      const json = JSON.parse(Application.arrayBufferToUTF8String(data)) as {
+        cover?: string;
+        pages?: { url?: string }[];
+      };
+      const cover = json.cover ?? json.pages?.[0]?.url;
+      if (!cover) return undefined;
+      return buildCoverUrlStr(cover);
+    } catch {
+      return undefined;
+    }
   }
 
   override async interceptResponse(
@@ -242,7 +326,7 @@ export class DynastyExtension implements DynastyImplementation {
           out.push({
             mangaId: this.toSafeId(`${dir}/${tag.permalink ?? ""}`),
             title: tag.name ?? "",
-            imageUrl: "",
+            imageUrl: buildCoverFetchUrl(dir, tag.permalink ?? ""),
           });
           isSeries = isSeries || tag.type === SERIES_TYPE;
         }
@@ -252,7 +336,7 @@ export class DynastyExtension implements DynastyImplementation {
         out.push({
           mangaId: this.toSafeId(`${CHAPTERS_DIR}/${chapter.permalink ?? ""}`),
           title: chapter.title ?? "",
-          imageUrl: "",
+          imageUrl: buildCoverFetchUrl(CHAPTERS_DIR, chapter.permalink ?? ""),
         });
       }
     }
@@ -341,7 +425,7 @@ export class DynastyExtension implements DynastyImplementation {
 
       results.push({
         mangaId,
-        imageUrl: "",
+        imageUrl: buildCoverFetchUrl(directory, permalink),
         title,
         subtitle: undefined,
         metadata: undefined,
@@ -370,7 +454,7 @@ export class DynastyExtension implements DynastyImplementation {
 
     return {
       mangaId: this.toSafeId(`${directory}/${permalink}`),
-      imageUrl: "",
+      imageUrl: buildCoverFetchUrl(directory, permalink),
       title: this.permalinkToTitle(permalink),
       subtitle: undefined,
       metadata: undefined,
@@ -463,7 +547,9 @@ export class DynastyExtension implements DynastyImplementation {
       mangaInfo: {
         primaryTitle: data.name ?? this.permalinkToTitle(permalink),
         secondaryTitles: data.aliases ?? [],
-        thumbnailUrl: data.cover ? this.buildCoverUrl(data.cover) : "",
+        thumbnailUrl: data.cover
+          ? this.buildCoverUrl(data.cover)
+          : buildCoverFetchUrl(directory, permalink),
         author: authorStr || undefined,
         artist: authorStr || undefined,
         synopsis,
@@ -556,7 +642,9 @@ export class DynastyExtension implements DynastyImplementation {
       mangaInfo: {
         primaryTitle: data.title ?? this.permalinkToTitle(permalink),
         secondaryTitles: [],
-        thumbnailUrl: firstPage ? this.buildCoverUrl(firstPage) : "",
+        thumbnailUrl: firstPage
+          ? this.buildCoverUrl(firstPage)
+          : buildCoverFetchUrl(CHAPTERS_DIR, permalink),
         author: Array.from(authors).join(", ") || undefined,
         artist: Array.from(authors).join(", ") || undefined,
         synopsis: synopsisParts.join("\n\n").trim(),
