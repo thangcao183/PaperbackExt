@@ -39,6 +39,12 @@ import { decryptChapterProtector } from "./chapter-protector";
 import { MadaraSearchForm, MadaraSearchMeta } from "./forms";
 import { getBaseUrlOverride, MadaraSettingsForm } from "./settings";
 
+// Paperback rejects an empty `thumbnailUrl`/`imageUrl` ("Could not convert
+// JSValue: Invalid URL:"), so any item that genuinely has no cover falls back
+// to this 1x1-ish placeholder (same image used by other sources in this repo).
+const PLACEHOLDER_COVER =
+  "https://imagizer.imageshack.com/img922/7118/ArGMjt.png";
+
 export interface MadaraConfig {
   name: string;
   baseUrl: string;
@@ -317,7 +323,7 @@ export class MadaraExtension implements MadaraImplementation {
         items.push({
           type: itemType,
           mangaId,
-          imageUrl: image,
+          imageUrl: image || PLACEHOLDER_COVER,
           title,
           metadata: undefined,
         });
@@ -498,7 +504,7 @@ export class MadaraExtension implements MadaraImplementation {
         collectedIds.push(mangaId);
         results.push({
           mangaId,
-          imageUrl: image,
+          imageUrl: image || PLACEHOLDER_COVER,
           title,
           subtitle: undefined,
           metadata: undefined,
@@ -565,6 +571,11 @@ export class MadaraExtension implements MadaraImplementation {
         $('meta[name="twitter:image"]').attr("content") ||
         "";
       image = this.absoluteUrl(ogImage.trim());
+    }
+    // Last resort: never return an empty thumbnail or Paperback throws
+    // "Invalid URL" and the whole manga fails to open.
+    if (!image) {
+      image = PLACEHOLDER_COVER;
     }
 
     const description = $(
