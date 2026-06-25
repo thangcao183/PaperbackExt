@@ -384,12 +384,24 @@ export class HentaiNexusExtension implements HentaiNexusImplementation {
           typeof entry === "object" &&
           (entry as Record<string, unknown>).type === "image"
         ) {
-          const image = (entry as Record<string, unknown>).image;
-          if (typeof image === "string" && image) {
+          const record = entry as Record<string, unknown>;
+          const image =
+            typeof record.image === "string" && record.image
+              ? record.image
+              : typeof record.image_fallback === "string"
+                ? record.image_fallback
+                : "";
+          if (image) {
             pages.push(this.absoluteUrl(image));
           }
         }
       }
+    }
+
+    if (pages.length === 0) {
+      throw new Error(
+        "No pages found for this chapter; the reader payload may have changed",
+      );
     }
 
     return {

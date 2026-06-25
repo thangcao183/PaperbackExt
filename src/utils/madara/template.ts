@@ -776,13 +776,22 @@ export class MadaraExtension implements MadaraImplementation {
     // the page list is AES-encrypted in a `#chapter-protector-data` script
     // rather than inline `<img>` tags. Decrypt it when present; otherwise fall
     // back to scraping plain image elements.
-    const protectedPages = await decryptChapterProtector($);
-    if (protectedPages) {
+    // The protector decrypt parses/decrypts site-controlled data; never let a
+    // malformed payload throw out of here (that surfaces as a chapter error /
+    // crash). On any failure, fall back to scraping plain `<img>` elements.
+    let protectedPages: string[] | null = null;
+    try {
+      protectedPages = await decryptChapterProtector($);
+    } catch {
+      protectedPages = null;
+    }
+    if (protectedPages && protectedPages.length > 0) {
       for (const p of protectedPages) {
         const src = (p || "").trim();
         if (src) pages.push(src);
       }
-    } else {
+    }
+    if (pages.length === 0) {
       $(this.pageListSelector).each((_, element) => {
         const el = $(element);
         const img = el.is("img") ? el : el.find("img").first();
@@ -808,6 +817,12 @@ export class MadaraExtension implements MadaraImplementation {
           html,
         };
       }
+      // No images and no prose. Returning an empty `pages` array crashes the
+      // reader, so surface a clean error instead.
+      throw new Error(
+        "No pages found for this chapter; the page list may be loaded " +
+          "dynamically or the site layout changed.",
+      );
     }
     return {
       id: chapter.chapterId,

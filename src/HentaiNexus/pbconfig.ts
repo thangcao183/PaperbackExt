@@ -4,7 +4,7 @@ export default {
   name: "HentaiNexus",
   description:
     "HentaiNexus - HTML scraper source (hentainexus.com). Converted from keiyoushi.",
-  version: "1.4.17.1",
+  version: "1.4.17.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
