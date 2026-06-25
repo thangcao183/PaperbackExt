@@ -278,10 +278,19 @@ class TheBlankInterceptor extends PaperbackInterceptor {
       const serieSlug = decodeURIComponent(pageMatch[1]);
       const chapterSlug = decodeURIComponent(pageMatch[2]);
       const session = chapterSessions.get(sessionKey(serieSlug, chapterSlug));
+      console.log(
+        `[TheBlank] page response url=${url} bytes=${data.byteLength} ` +
+          `headerKeys=[${Object.keys(response.headers ?? {}).join(",")}] ` +
+          `sessionFound=${!!session} ` +
+          `knownSessions=[${[...chapterSessions.keys()].join(" | ")}]`,
+      );
 
       if (session) {
         const pageName = headerValue(response.headers, "x-page-name");
         const keyHintB64 = headerValue(response.headers, "x-key-hint");
+        console.log(
+          `[TheBlank] pageName="${pageName}" keyHintB64Len=${keyHintB64.length}`,
+        );
 
         if (pageName && keyHintB64) {
           const keyHint = base64Decode(keyHintB64);
@@ -304,9 +313,15 @@ class TheBlankInterceptor extends PaperbackInterceptor {
             // Decrypt the secretstream payload
             const payload = new Uint8Array(data);
             const decrypted = decryptSecretStream(streamKey, payload);
+            console.log(
+              `[TheBlank] decrypt result=${decrypted ? "ok len=" + decrypted.length : "NULL"} ` +
+                `sharedLen=${session.sharedSecret.length} keyHintLen=${keyHint.length} payloadLen=${payload.length}`,
+            );
             if (decrypted) {
               return decrypted.buffer as ArrayBuffer;
             }
+          } else {
+            console.log(`[TheBlank] keyHint too short: ${keyHint.length}`);
           }
         }
       }
