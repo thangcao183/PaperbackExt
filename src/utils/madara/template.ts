@@ -41,9 +41,18 @@ import { getBaseUrlOverride, MadaraSettingsForm } from "./settings";
 
 // Paperback rejects an empty `thumbnailUrl`/`imageUrl` ("Could not convert
 // JSValue: Invalid URL:"), so any item that genuinely has no cover falls back
-// to this 1x1-ish placeholder (same image used by other sources in this repo).
+// to this placeholder. It is an inline data: URI (a tiny self-contained SVG)
+// rather than an external image, so it can never 404/402/expire the way a
+// hosted placeholder can (the previous imageshack URL started returning
+// "402 Bandwidth Limit Exceeded", breaking every cover-less manga).
 const PLACEHOLDER_COVER =
-  "https://imagizer.imageshack.com/img922/7118/ArGMjt.png";
+  "data:image/svg+xml;base64," +
+  "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAi" +
+  "IGhlaWdodD0iNDUwIiB2aWV3Qm94PSIwIDAgMzAwIDQ1MCI+PHJlY3Qgd2lkdGg9IjMw" +
+  "MCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMyMzI4MmYiLz48dGV4dCB4PSIxNTAiIHk9IjIy" +
+  "NSIgZmlsbD0iIzhhOTNhMyIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6" +
+  "ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRk" +
+  "bGUiPk5vIENvdmVyPC90ZXh0Pjwvc3ZnPg==";
 
 export interface MadaraConfig {
   name: string;
@@ -714,25 +723,31 @@ export class MadaraExtension implements MadaraImplementation {
     let $ = await this.fetchCheerio({ url: mangaUrl, method: "GET" });
     let chapterElements = $(this.chapterListSelector);
 
-    // Madara frequently loads chapters via AJAX. Fall back to the
-    // modern endpoint: POST {mangaUrl}/ajax/chapters
+    // Madara frequently loads chapters via AJAX. There are TWO endpoints:
+    //   - legacy: POST {baseUrl}/wp-admin/admin-ajax.php
+    //             body `action=manga_get_chapters&manga=<postId>`
+    //   - modern: POST {mangaUrl}/ajax/chapters (no body)
+    // Older sites only accept the legacy endpoint and actively block (403)
+    // the modern one, and vice-versa. Mirror upstream: try the endpoint
+    // implied by `useNewChapterEndpoint` first, then fall back to the other.
     if (chapterElements.length === 0) {
-      try {
-        const ajax = await this.fetchCheerio({
-          url: `${mangaUrl}/ajax/chapters`,
-          method: "POST",
-          headers: {
-            "content-type": "application/x-www-form-urlencoded",
-            referer: `${mangaUrl}/`,
-            "x-requested-with": "XMLHttpRequest",
-          },
-        });
-        if (ajax(this.chapterListSelector).length > 0) {
+      // The WP post id lives on the chapters-holder wrapper.
+      const postId = $("div[id^=manga-chapters-holder]").attr("data-id") ?? "";
+      const tryOrder = this.useNewChapterEndpoint
+        ? ["new", "legacy"]
+        : ["legacy", "new"];
+
+      for (const kind of tryOrder) {
+        if (kind === "legacy" && !postId) continue;
+        const ajax =
+          kind === "new"
+            ? await this.fetchChaptersNew(mangaUrl)
+            : await this.fetchChaptersLegacy(postId);
+        if (ajax && ajax(this.chapterListSelector).length > 0) {
           $ = ajax;
           chapterElements = ajax(this.chapterListSelector);
+          break;
         }
-      } catch {
-        // ignore, fall through with whatever we have
       }
     }
 
@@ -783,6 +798,51 @@ export class MadaraExtension implements MadaraImplementation {
     });
 
     return chapters;
+  }
+
+  /** Modern chapter list: POST {mangaUrl}/ajax/chapters (no body). */
+  private async fetchChaptersNew(
+    mangaUrl: string,
+  ): Promise<CheerioAPI | undefined> {
+    try {
+      return await this.fetchCheerio({
+        url: `${mangaUrl}/ajax/chapters`,
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          referer: `${mangaUrl}/`,
+          "x-requested-with": "XMLHttpRequest",
+        },
+      });
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Legacy chapter list: POST {baseUrl}/wp-admin/admin-ajax.php with
+   * `action=manga_get_chapters&manga=<postId>`. Used by older Madara sites
+   * (and by sites that block the modern /ajax/chapters route).
+   */
+  private async fetchChaptersLegacy(
+    postId: string,
+  ): Promise<CheerioAPI | undefined> {
+    if (!postId) return undefined;
+    try {
+      return await this.fetchCheerio({
+        url: `${this.baseUrl}/wp-admin/admin-ajax.php`,
+        method: "POST",
+        headers: {
+          "content-type":
+            "application/x-www-form-urlencoded; charset=UTF-8",
+          referer: `${this.baseUrl}/`,
+          "x-requested-with": "XMLHttpRequest",
+        },
+        body: `action=manga_get_chapters&manga=${encodeURIComponent(postId)}`,
+      });
+    } catch {
+      return undefined;
+    }
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
