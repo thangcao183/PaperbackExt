@@ -38,6 +38,8 @@ jobs:
             sed -i '/<meta name="robots" content="noindex" \/>/d' "$f"
             # Add Google Search Console verification + allow indexing
             sed -i 's#<head>#<head>\n    <meta name="robots" content="index, follow" />\n    <meta name="google-site-verification" content="GehRSH4VThL1APWOewuQMUaZ7RlTT-wDpZviQvRqjKA" />#' "$f"
+            # Add a link to the GitHub repository in the page header
+            sed -i 's#</header>#  <a href="https://github.com/Nicartjay/PaperbackExt" target="_blank" rel="noopener" class="inline-block leading-7 mt-4 mx-1 py-2 px-4 text-white bg-zinc-700 border-b border-zinc-900 rounded-full transition-colors duration-100 hover:bg-zinc-600 hover:cursor-pointer">View on GitHub</a>\n      </header>#' "$f"
           done
 
       - name: Deploy to GitHub Pages
