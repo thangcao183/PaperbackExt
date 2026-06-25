@@ -125,8 +125,9 @@ adult/NSFW content (232 Mature, 190 Everyone).
 
 The **Status** column reflects manual testing. **✅ Tested** means the source
 has been verified working on a device; **Not yet tested** means it is a plain
-keiyoushi conversion that hasn't been checked yet (it may or may not work). If
-a source is broken, please open an issue.
+keiyoushi conversion that hasn't been checked yet (it may or may not work);
+**⚠️ Can't test** means the source requires an account or credentials I don't
+have, so I'm unable to verify it. If a source is broken, please open an issue.
 
 | Source | Version | Content | Status |
 | ------ | ------- | ------- | ------ |
@@ -294,7 +295,7 @@ a source is broken, please open an issue.
 | LustToon | 1.4.1.1 | Mature | Not yet tested |
 | Madara Scans | 1.4.34.1 | Everyone | Not yet tested |
 | MadaraDex | 1.4.54.2 | Mature | Not yet tested |
-| Madokami | 1.4.13.3 | Everyone | Not yet tested |
+| Madokami | 1.4.13.3 | Everyone | ⚠️ Can't test (needs account) |
 | Magus Manga | 1.4.69.1 | Everyone | Not yet tested |
 | Mahouirexnohentaikarte | 1.4.51.2 | Mature | Not yet tested |
 | Manga 18x | 1.4.52.2 | Mature | Not yet tested |
@@ -467,7 +468,7 @@ a source is broken, please open an issue.
 | Reset Scans | 1.4.65.2 | Everyone | Not yet tested |
 | Rest Scans | 1.4.32.1 | Mature | Not yet tested |
 | Revival Scans | 1.4.1.1 | Mature | Not yet tested |
-| Rinko Comics | 1.4.2.1 | Everyone | Not yet tested |
+| Rinko Comics | 1.4.2.1 | Everyone | ✅ Tested |
 | RitharScans | 1.4.23.1 | Everyone | Not yet tested |
 | Rizz Comic | 1.4.45.1 | Everyone | Not yet tested |
 | Rizz Comic (unoriginal) | 1.4.32.1 | Everyone | Not yet tested |
@@ -521,7 +522,7 @@ a source is broken, please open an issue.
 | vgperson | 1.4.7.1 | Everyone | Not yet tested |
 | Violet Scans | 1.4.35.1 | Everyone | Not yet tested |
 | VIZ | 1.4.25.4 | Everyone | Not yet tested |
-| Vortex Scans | 1.4.61.1 | Everyone | Not yet tested |
+| Vortex Scans | 1.4.61.1 | Everyone | ✅ Tested |
 | Voyce.Me | 1.4.6.1 | Everyone | Not yet tested |
 | VyvyManga | 1.4.40.1 | Mature | ✅ Tested |
 | VyvyManga.org | 1.4.51.2 | Mature | Not yet tested |
