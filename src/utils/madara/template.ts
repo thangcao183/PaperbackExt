@@ -544,9 +544,28 @@ export class MadaraExtension implements MadaraImplementation {
         if (trimmed) altTitles.push(trimmed);
       });
 
-    const image = this.imageFromElement(
+    let image = this.imageFromElement(
       $(this.mangaDetailsThumbnailSelector ?? "div.summary_image img").first(),
     );
+
+    // Some Madara skins render the cover with markup the default selector
+    // misses (or lazy-load it client-side), leaving the thumbnail empty.
+    // Paperback rejects an empty `thumbnailUrl` ("Invalid URL"), so fall back
+    // to common alternative cover locations and finally the og:image meta tag.
+    if (!image) {
+      image = this.imageFromElement(
+        $(
+          "div.tab-summary img, div.summary_image a img, .profile-manga img, .site-content .summary_image img",
+        ).first(),
+      );
+    }
+    if (!image) {
+      const ogImage =
+        $('meta[property="og:image"]').attr("content") ||
+        $('meta[name="twitter:image"]').attr("content") ||
+        "";
+      image = this.absoluteUrl(ogImage.trim());
+    }
 
     const description = $(
       this.mangaDetailsDescriptionSelector ??
@@ -976,6 +995,14 @@ export class MadaraExtension implements MadaraImplementation {
         : `${this.baseUrl}/${src}`;
     }
     return src;
+  }
+
+  protected absoluteUrl(src: string): string {
+    const s = (src || "").trim();
+    if (!s) return "";
+    if (s.startsWith("http")) return s;
+    if (s.startsWith("//")) return `https:${s}`;
+    return s.startsWith("/") ? `${this.baseUrl}${s}` : `${this.baseUrl}/${s}`;
   }
 
   protected parseStatus(status: string): string {

@@ -241,7 +241,7 @@ a source is broken, please open an issue.
 | HentaiHere | 1.4.7.1 | Mature | Not yet tested |
 | HentaiKisu | 1.4.1.1 | Mature | Not yet tested |
 | HentaiKun | 1.4.1.1 | Mature | Not yet tested |
-| HentaiNexus | 1.4.17.2 | Mature | Not yet tested |
+| HentaiNexus | 1.4.17.2 | Mature | ✅ Tested |
 | HentaiRead | 1.4.61.2 | Mature | Not yet tested |
 | HentaiRead.io | 1.4.1.1 | Mature | Not yet tested |
 | HentaiSco | 1.4.51.2 | Mature | Not yet tested |
@@ -506,7 +506,7 @@ a source is broken, please open an issue.
 | TimelessToons | 1.4.20.1 | Everyone | Not yet tested |
 | TodayManga | 1.4.3.1 | Mature | Not yet tested |
 | Toon18 | 1.4.51.2 | Mature | Not yet tested |
-| ToonGod | 1.4.56.3 | Mature | Not yet tested |
+| ToonGod | 1.4.56.4 | Mature | Not yet tested |
 | Toonily | 1.4.65.2 | Mature | Not yet tested |
 | Toonily.me | 1.4.24.1 | Mature | Not yet tested |
 | TooniTube | 1.4.24.1 | Mature | Not yet tested |
