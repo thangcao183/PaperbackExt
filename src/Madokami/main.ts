@@ -13,6 +13,7 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
+  Form,
   MangaProviding,
   Metadata,
   PagedResults,
@@ -22,6 +23,7 @@ import {
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
+  SettingsFormProviding,
   SourceManga,
   TagSection,
 } from "@paperback/types";
@@ -29,11 +31,13 @@ import * as cheerio from "cheerio";
 import { CheerioAPI, Cheerio } from "cheerio";
 import type { AnyNode } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
+import { getBasicAuthHeader, MadokamiSettingsForm } from "./settings";
 
 const BASE_URL = "https://manga.madokami.al";
 
 class MadokamiInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
+    const authHeader = getBasicAuthHeader();
     request.headers = {
       ...request.headers,
       referer: `${BASE_URL}/`,
@@ -42,6 +46,7 @@ class MadokamiInterceptor extends PaperbackInterceptor {
       accept:
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.5",
+      ...(authHeader ? { authorization: authHeader } : {}),
     };
     return request;
   }
@@ -60,6 +65,12 @@ class MadokamiInterceptor extends PaperbackInterceptor {
         },
       });
     }
+    if (response.status === 401) {
+      throw new Error(
+        "You are currently logged out. Go to the source settings to enter " +
+          "your Madokami username and password.",
+      );
+    }
     return data;
   }
 }
@@ -69,6 +80,7 @@ type MadokamiImplementation = Extension &
   MangaProviding &
   ChapterProviding &
   CloudflareBypassRequestProviding &
+  SettingsFormProviding &
   DiscoverSectionProviding;
 
 export class MadokamiExtension implements MadokamiImplementation {
@@ -86,6 +98,10 @@ export class MadokamiExtension implements MadokamiImplementation {
     this.requestManager.registerInterceptor();
     this.cookieStorageInterceptor.registerInterceptor();
     this.globalRateLimiter.registerInterceptor();
+  }
+
+  async getSettingsForm(): Promise<Form> {
+    return new MadokamiSettingsForm();
   }
 
   // ----------------------------------------------------------------

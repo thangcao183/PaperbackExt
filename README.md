@@ -294,7 +294,7 @@ a source is broken, please open an issue.
 | LustToon | 1.4.1.1 | Mature | Not yet tested |
 | Madara Scans | 1.4.34.1 | Everyone | Not yet tested |
 | MadaraDex | 1.4.54.2 | Mature | Not yet tested |
-| Madokami | 1.4.13.1 | Everyone | Not yet tested |
+| Madokami | 1.4.13.2 | Everyone | Not yet tested |
 | Magus Manga | 1.4.69.1 | Everyone | Not yet tested |
 | Mahouirexnohentaikarte | 1.4.51.2 | Mature | Not yet tested |
 | Manga 18x | 1.4.52.2 | Mature | Not yet tested |
