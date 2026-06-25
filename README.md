@@ -48,6 +48,21 @@ Comics) are fully self-contained.
 
 ## Installation
 
+### One-tap (recommended)
+
+On the device that has Paperback (v0.9 or newer) installed, open the
+installation page and tap **Add Repository to Paperback**, then confirm the
+prompt:
+
+**https://nicartjay.github.io/PaperbackExt/0.9/stable/**
+
+The page lists every source — you can also tap individual sources and use the
+**Install** button to add just the ones you want.
+
+### Manual
+
+If the one-tap link doesn't work, add the repository by hand:
+
 1. Open Paperback (v0.9 or newer).
 2. Go to **Settings → Extensions → Add Repository**.
 3. Paste this URL:
