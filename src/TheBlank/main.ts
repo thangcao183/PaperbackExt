@@ -238,6 +238,15 @@ class TheBlankInterceptor extends PaperbackInterceptor {
         );
         if (session) {
           extraHeaders["x-client-pubkey"] = session.clientPubkeyB64;
+          console.log(
+            `[TheBlank] req page pubkey sent=${session.clientPubkeyB64} ` +
+              `serie=${serieSlug} chapter=${chapterSlug}`,
+          );
+        } else {
+          console.log(
+            `[TheBlank] req page NO SESSION serie=${serieSlug} chapter=${chapterSlug} ` +
+              `known=[${[...chapterSessions.keys()].join(" | ")}]`,
+          );
         }
       }
     }
