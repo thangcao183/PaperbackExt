@@ -4,7 +4,7 @@ export default {
   name: "Madokami",
   description:
     "Madokami - HTML scraper source (manga.madokami.al). Converted from keiyoushi.",
-  version: "1.4.13.2",
+  version: "1.4.13.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

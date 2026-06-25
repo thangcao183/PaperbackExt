@@ -187,6 +187,9 @@ export class MadokamiExtension implements MadokamiImplementation {
   ): { mangaId: string; imageUrl: string; title: string } | undefined {
     const href = el.attr("href") || "";
     if (!href) return undefined;
+    // Mirrors upstream mangaFromElement: archive files (.zip/.cbz/...) are
+    // individual downloads, not series, so they are skipped.
+    if (this.isArchiveUrl(href)) return undefined;
     const mangaId = this.parsePath(href);
     if (!mangaId) return undefined;
     const title = this.titleFromPath(mangaId);
@@ -312,10 +315,13 @@ export class MadokamiExtension implements MadokamiImplementation {
     if (Array.isArray(files)) {
       for (const file of files) {
         if (typeof file !== "string") continue;
+        // Mirrors upstream pageListParse: OkHttp's addEncodedQueryParameter
+        // adds URLEncoder.encode(value) verbatim (single-encoded). The query
+        // value the server expects is therefore a single percent-encoding.
         const pageUrl =
           `${BASE_URL}/reader/image` +
-          `?path=${encodeURIComponent(encodeURIComponent(path))}` +
-          `&file=${encodeURIComponent(encodeURIComponent(file))}`;
+          `?path=${encodeURIComponent(path)}` +
+          `&file=${encodeURIComponent(file)}`;
         pages.push(pageUrl);
       }
     }
@@ -411,6 +417,25 @@ export class MadokamiExtension implements MadokamiImplementation {
     } catch {
       return id;
     }
+  }
+
+  // Mirrors upstream isArchiveUrl / ARCHIVE_EXTENSIONS: archive files are
+  // individual downloads rather than browsable series and must be skipped.
+  private isArchiveUrl(url: string): boolean {
+    const path = this.safeDecode(url)
+      .replace(/[?#].*$/, "")
+      .toLowerCase();
+    const exts = [
+      ".zip",
+      ".cbz",
+      ".rar",
+      ".cbr",
+      ".7z",
+      ".cb7",
+      ".tar",
+      ".cbt",
+    ];
+    return exts.some((ext) => path.endsWith(ext));
   }
 
   private parseChapterNumber(name: string): number {

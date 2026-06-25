@@ -294,7 +294,7 @@ a source is broken, please open an issue.
 | LustToon | 1.4.1.1 | Mature | Not yet tested |
 | Madara Scans | 1.4.34.1 | Everyone | Not yet tested |
 | MadaraDex | 1.4.54.2 | Mature | Not yet tested |
-| Madokami | 1.4.13.2 | Everyone | Not yet tested |
+| Madokami | 1.4.13.3 | Everyone | Not yet tested |
 | Magus Manga | 1.4.69.1 | Everyone | Not yet tested |
 | Mahouirexnohentaikarte | 1.4.51.2 | Mature | Not yet tested |
 | Manga 18x | 1.4.52.2 | Mature | Not yet tested |
@@ -523,7 +523,7 @@ a source is broken, please open an issue.
 | VIZ | 1.4.25.4 | Everyone | Not yet tested |
 | Vortex Scans | 1.4.61.1 | Everyone | Not yet tested |
 | Voyce.Me | 1.4.6.1 | Everyone | Not yet tested |
-| VyvyManga | 1.4.40.1 | Mature | Not yet tested |
+| VyvyManga | 1.4.40.1 | Mature | ✅ Tested |
 | VyvyManga.org | 1.4.51.2 | Mature | Not yet tested |
 | War For Rayuba | 1.4.3.1 | Everyone | Not yet tested |
 | Webcomics | 1.4.10.1 | Everyone | Not yet tested |
