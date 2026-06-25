@@ -975,7 +975,7 @@ const ABYTES = 17; // 1 tag + 16 poly1305 mac
 const TAG_FINAL = 0x03;
 const TAG_REKEY = 0x02;
 const STREAM_HEADER_LENGTH = 24;
-const PREFIX_LENGTH = 128;
+const PREFIX_LENGTH = 192;
 const CHUNK_SIZE = 65536 + ABYTES;
 
 const PAD0 = new Uint8Array(16);
