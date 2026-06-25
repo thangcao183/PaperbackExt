@@ -15,5 +15,5 @@ export default {
     SourceIntents.SETTINGS_FORM_PROVIDING,
   ],
   badges: [],
-  developers: [{ name: "Converted from keiyoushi" }],
+  developers: [{ name: "nicartjay" }, { name: "keiyoushi" }],
 } satisfies ExtensionInfo;

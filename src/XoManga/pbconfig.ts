@@ -14,5 +14,5 @@ export default {
     SourceIntents.CLOUDFLARE_BYPASS_PROVIDING,
   ],
   badges: [{ label: "Mature", textColor: "#FFFFFF", backgroundColor: "#C62828" }],
-  developers: [{ name: "Converted from keiyoushi" }],
+  developers: [{ name: "nicartjay" }, { name: "keiyoushi" }],
 } satisfies ExtensionInfo;

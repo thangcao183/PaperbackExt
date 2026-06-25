@@ -18,8 +18,7 @@ export default {
     { label: "Monochrome", textColor: "#FFFFFF", backgroundColor: "#424242" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

@@ -15,8 +15,7 @@ export default {
   ],
   badges: [],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

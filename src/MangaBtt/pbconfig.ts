@@ -25,5 +25,5 @@ export default {
       backgroundColor: "#C62828",
     },
   ],
-  developers: [{ name: "Converted from keiyoushi" }],
+  developers: [{ name: "nicartjay" }, { name: "keiyoushi" }],
 } satisfies ExtensionInfo;

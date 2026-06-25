@@ -22,8 +22,7 @@ export default {
     },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

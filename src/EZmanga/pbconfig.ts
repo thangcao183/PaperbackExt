@@ -18,8 +18,7 @@ export default {
     { label: "EZManhwa", textColor: "#FFFFFF", backgroundColor: "#00838F" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

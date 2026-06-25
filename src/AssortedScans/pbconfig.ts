@@ -18,8 +18,7 @@ export default {
     { label: "MangAdventure", textColor: "#FFFFFF", backgroundColor: "#EF6C00" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

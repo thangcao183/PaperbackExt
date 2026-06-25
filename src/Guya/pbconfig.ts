@@ -18,8 +18,7 @@ export default {
     { label: "Guya", textColor: "#FFFFFF", backgroundColor: "#5D4037" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

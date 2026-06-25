@@ -18,8 +18,7 @@ export default {
     { label: "MangaThemesia", textColor: "#FFFFFF", backgroundColor: "#1565C0" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

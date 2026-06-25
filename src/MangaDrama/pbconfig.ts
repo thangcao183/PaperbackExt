@@ -19,8 +19,7 @@ export default {
     { label: "Madara", textColor: "#FFFFFF", backgroundColor: "#2E7D32" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

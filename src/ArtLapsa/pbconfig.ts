@@ -18,8 +18,7 @@ export default {
     { label: "Keyoapp", textColor: "#FFFFFF", backgroundColor: "#6A1B9A" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

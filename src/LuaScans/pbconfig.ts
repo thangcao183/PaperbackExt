@@ -18,8 +18,7 @@ export default {
     { label: "HeanCms", textColor: "#FFFFFF", backgroundColor: "#0277BD" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

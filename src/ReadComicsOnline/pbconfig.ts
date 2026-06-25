@@ -18,8 +18,7 @@ export default {
     { label: "MMRCMS", textColor: "#FFFFFF", backgroundColor: "#455A64" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

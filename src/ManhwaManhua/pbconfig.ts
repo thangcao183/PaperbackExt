@@ -19,8 +19,7 @@ export default {
     { label: "Mature", textColor: "#FFFFFF", backgroundColor: "#C62828" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

@@ -18,8 +18,7 @@ export default {
     { label: "MangaHub", textColor: "#FFFFFF", backgroundColor: "#00695C" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

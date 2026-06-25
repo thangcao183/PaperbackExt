@@ -18,8 +18,7 @@ export default {
     { label: "Liliana", textColor: "#FFFFFF", backgroundColor: "#00897B" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

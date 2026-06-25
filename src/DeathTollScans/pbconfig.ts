@@ -18,8 +18,7 @@ export default {
     { label: "FoolSlide", textColor: "#FFFFFF", backgroundColor: "#5C6BC0" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;

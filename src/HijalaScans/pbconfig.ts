@@ -18,8 +18,7 @@ export default {
     { label: "Iken", textColor: "#FFFFFF", backgroundColor: "#AD1457" },
   ],
   developers: [
-    {
-      name: "Converted from keiyoushi",
-    },
+    { name: "nicartjay" },
+    { name: "keiyoushi" },
   ],
 } satisfies ExtensionInfo;
