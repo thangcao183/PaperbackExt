@@ -535,7 +535,7 @@ have, so I'm unable to verify it. If a source is broken, please open an issue.
 | TodayManga | 1.4.3.1 | Mature | Not yet tested |
 | Toon18 | 1.4.51.2 | Mature | Not yet tested |
 | ToonGod | 1.4.56.9 | Mature | ✅ Tested |
-| Toonily | 1.4.65.2 | Mature | Not yet tested |
+| Toonily | 1.4.65.2 | Mature | ✅ Tested |
 | Toonily.me | 1.4.24.1 | Mature | Not yet tested |
 | TooniTube | 1.4.24.1 | Mature | Not yet tested |
 | Toonizy | 1.4.51.2 | Mature | Not yet tested |
