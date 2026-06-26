@@ -4,7 +4,7 @@ export default {
   name: "Dynasty",
   description:
     "Dynasty - JSON-API manga source (dynasty-scans.com). Converted from keiyoushi.",
-  version: "1.4.30.4",
+  version: "1.4.30.5",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

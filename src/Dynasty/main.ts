@@ -406,8 +406,8 @@ export class DynastyExtension implements DynastyImplementation {
     const url = `${BASE_URL}/search?${params.join("&")}`;
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
-    const results: SearchResultItem[] = [];
     const seen = new Set<string>();
+    const entries: { mangaId: string; directory: string; permalink: string; title: string }[] = [];
 
     // NOTE: the upstream Jsoup selector uses `[href~=/(series|...)/]` where
     // `~=` is Jsoup's REGEX-match operator. In cheerio `~=` means a
@@ -442,20 +442,48 @@ export class DynastyExtension implements DynastyImplementation {
       if (seen.has(mangaId)) return;
       seen.add(mangaId);
 
-      results.push({
-        mangaId,
-        imageUrl: buildCoverFetchUrl(directory, permalink),
-        title,
+      entries.push({ mangaId, directory, permalink, title });
+    });
+
+    // The search results HTML carries no cover thumbnails, so resolve each
+    // entry's real cover by fetching its `.json` (series -> cover, chapter ->
+    // first page). Run in parallel; the rate limiter serialises the requests.
+    const results: SearchResultItem[] = await Promise.all(
+      entries.map(async (entry) => ({
+        mangaId: entry.mangaId,
+        imageUrl: await this.resolveSearchCover(entry.directory, entry.permalink),
+        title: entry.title,
         subtitle: undefined,
         metadata: undefined,
-      });
-    });
+      })),
+    );
 
     const hasNextPage = $(".pagination [rel=next]").length > 0;
     return {
       items: results,
       metadata: hasNextPage ? { page: page + 1 } : undefined,
     };
+  }
+
+  // Resolves the real cover image URL for a search result by fetching its
+  // JSON endpoint. Falls back to the sentinel cover-fetch URL (handled by the
+  // request interceptor) if the JSON has no usable cover, so imageUrl is never
+  // empty (an empty URL crashes Paperback with "Invalid URL").
+  private async resolveSearchCover(
+    directory: string,
+    permalink: string,
+  ): Promise<string> {
+    try {
+      const url = `${BASE_URL}/${directory}/${encodeURIComponent(permalink)}.json`;
+      const data = await this.fetchJson<MangaResponseJson & ChapterResponseJson>(
+        url,
+      );
+      const file = data.cover ?? data.pages?.[0]?.url;
+      if (file) return this.buildCoverUrl(file);
+    } catch {
+      // ignore and fall through to sentinel
+    }
+    return buildCoverFetchUrl(directory, permalink);
   }
 
   private deepLinkItem(rawUrl: string): SearchResultItem | undefined {
