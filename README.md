@@ -559,7 +559,7 @@ have, so I'm unable to verify it. If a source is broken, please open an issue.
 | WebNovel | 1.4.13.1 | Everyone | Not yet tested |
 | WebtoonScan | 1.4.51.2 | Mature | Not yet tested |
 | WebtoonXYZ | 1.4.55.2 | Mature | Not yet tested |
-| Weeb Central | 1.4.22.2 | Mature | Not yet tested |
+| Weeb Central | 1.4.22.2 | Mature | ✅ Tested |
 | Whale Manga | 1.4.51.2 | Mature | Not yet tested |
 | WitchScans | 1.4.32.1 | Everyone | Not yet tested |
 | WoopRead | 1.4.52.2 | Everyone | Not yet tested |
