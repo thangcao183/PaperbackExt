@@ -178,7 +178,7 @@ have, so I'm unable to verify it. If a source is broken, please open an issue.
 | AsiaToon | 1.4.1.1 | Mature | Not yet tested |
 | Asmodeus Scans | 1.4.22.1 | Everyone | Not yet tested |
 | Assorted Scans | 1.4.17.1 | Everyone | Not yet tested |
-| Asura Scans | 1.4.62.1 | Everyone | Not yet tested |
+| Asura Scans | 1.4.62.1 | Everyone | ✅ Tested |
 | Athrea Scans | 1.4.33.1 | Mature | Not yet tested |
 | Atsumaru | 1.4.19.1 | Mature | Not yet tested |
 | aurora | 1.4.4.1 | Everyone | Not yet tested |
