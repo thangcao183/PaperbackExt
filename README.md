@@ -534,7 +534,7 @@ have, so I'm unable to verify it. If a source is broken, please open an issue.
 | TimelessToons | 1.4.20.1 | Everyone | Not yet tested |
 | TodayManga | 1.4.3.1 | Mature | Not yet tested |
 | Toon18 | 1.4.51.2 | Mature | Not yet tested |
-| ToonGod | 1.4.56.8 | Mature | Not yet tested |
+| ToonGod | 1.4.56.9 | Mature | Not yet tested |
 | Toonily | 1.4.65.2 | Mature | Not yet tested |
 | Toonily.me | 1.4.24.1 | Mature | Not yet tested |
 | TooniTube | 1.4.24.1 | Mature | Not yet tested |

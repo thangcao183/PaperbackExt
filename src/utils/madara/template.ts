@@ -541,10 +541,7 @@ export class MadaraExtension implements MadaraImplementation {
   // ----------------------------------------------------------------
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
-    const url = new URLBuilder(this.baseUrl)
-      .addPath(this.mangaSubString)
-      .addPath(mangaId)
-      .build();
+    const url = this.buildMangaUrl(mangaId);
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
     const title = $(this.mangaDetailsTitleSelector).first().text().trim();
@@ -715,10 +712,7 @@ export class MadaraExtension implements MadaraImplementation {
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const mangaId = sourceManga.mangaId;
-    const mangaUrl = new URLBuilder(this.baseUrl)
-      .addPath(this.mangaSubString)
-      .addPath(mangaId)
-      .build();
+    const mangaUrl = this.buildMangaUrl(mangaId);
 
     let $ = await this.fetchCheerio({ url: mangaUrl, method: "GET" });
     let chapterElements = $(this.chapterListSelector);
@@ -1016,9 +1010,35 @@ export class MadaraExtension implements MadaraImplementation {
       new RegExp(`/${this.mangaSubString}/([^/]+)`),
     );
     if (match) return this.toSafeId(match[1]);
+    // Marker not found: the manga href doesn't sit under `/<mangaSubString>/`.
+    // Some Madara sites list/browse manga under one path segment but serve the
+    // canonical details page under another (e.g. ToonGod browses at
+    // `/webtoons/<slug>` yet the real manga path is `/webtoon/<slug>/`).
+    // Reconstructing from `mangaSubString` can 404, so preserve the full
+    // site-relative path (marked by a leading slash) and let getMangaDetails /
+    // getChapters request it verbatim — mirroring upstream keiyoushi, which
+    // round-trips the site-provided `abs:href` via setUrlWithoutDomain.
+    const cleaned = href.replace(/[?#].*$/, "").replace(/\/+$/, "");
+    const hostMatch = cleaned.match(/^https?:\/\/[^/]+(\/.*)$/);
+    if (hostMatch) return this.toSafeId(hostMatch[1]);
+    if (cleaned.startsWith("/")) return this.toSafeId(cleaned);
     // fallback: generic /<seg>/<slug>
-    const generic = href.replace(/[?#].*$/, "").replace(/\/$/, "").split("/");
-    return this.toSafeId(generic.pop() ?? "");
+    return this.toSafeId(cleaned.split("/").pop() ?? "");
+  }
+
+  // Build the canonical manga page URL for a stored mangaId. A mangaId that
+  // begins with "/" is a full site-relative path (captured by parseMangaId
+  // when the href did not sit under `/<mangaSubString>/`) and is requested
+  // verbatim; otherwise it is a slug under `/<mangaSubString>/`.
+  protected buildMangaUrl(mangaId: string): string {
+    const decoded = this.safeDecode(mangaId);
+    if (decoded.startsWith("/")) {
+      return `${this.baseUrl.replace(/\/+$/, "")}${decoded}`;
+    }
+    return new URLBuilder(this.baseUrl)
+      .addPath(this.mangaSubString)
+      .addPath(mangaId)
+      .build();
   }
 
   protected parseChapterId(href: string, mangaId: string): string {
