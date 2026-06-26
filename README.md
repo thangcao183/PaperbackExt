@@ -745,9 +745,10 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   **K Manga**, **VIZ**, **Kodansha**, **Mangamo**, **WebNovel**, **J-Novel**,
   **BookWalker**, **Tapas**, **Coolmic**) return no bytes to decrypt, and
   **Madokami** needs HTTP Basic credentials. **The Blank**'s libsodium
-  secretstream image layer can't be reproduced in the runtime and remains a
-  documented limitation. Browsing, search, details and chapter lists work for all
-  of these.
+  secretstream image layer (X25519 key-exchange + HMAC-signed URLs +
+  XChaCha20-Poly1305 secretstream) is now fully reproduced in the runtime, so its
+  images decrypt and render correctly. Browsing, search, details and chapter
+  lists work for all of these.
 - These extensions are **not affiliated** with the source websites. They only
   scrape publicly available pages.
 
