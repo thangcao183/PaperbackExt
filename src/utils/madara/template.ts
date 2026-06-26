@@ -846,17 +846,23 @@ export class MadaraExtension implements MadaraImplementation {
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const builder = new URLBuilder(this.baseUrl)
-      .addPath(this.mangaSubString)
-      .addPath(chapter.sourceManga.mangaId)
-      .addPath(chapter.chapterId);
-    // Default suffix `?style=list`; a source may override or disable it.
-    if (this.chapterUrlSuffix === "?style=list") {
-      builder.addQuery("style", "list");
-    }
-    let url = builder.build();
-    if (this.chapterUrlSuffix && this.chapterUrlSuffix !== "?style=list") {
-      url += this.chapterUrlSuffix;
+    // Build the chapter URL with a TRAILING SLASH before the query string.
+    // Madara runs on WordPress pretty-permalinks, whose canonical chapter URL
+    // is `.../<chapter>/`. Requesting `.../<chapter>?style=list` (no trailing
+    // slash) 404s on many hosts (the canonical redirect is dropped once a
+    // query string is present), surfacing as "Content not found". Upstream
+    // keiyoushi avoids this by round-tripping the site-provided `abs:href`,
+    // which already carries the trailing slash. Mirror that here.
+    const chapterId = chapter.chapterId;
+    const base = `${this.baseUrl.replace(/\/+$/, "")}/${this.mangaSubString}/${this.safeDecode(chapter.sourceManga.mangaId)}/${this.safeDecode(chapterId)}`;
+    const path = base.replace(/\/+$/, "") + "/";
+    let url: string;
+    if (!this.chapterUrlSuffix) {
+      url = path;
+    } else if (this.chapterUrlSuffix === "?style=list") {
+      url = `${path}?style=list`;
+    } else {
+      url = path + this.chapterUrlSuffix;
     }
 
     const $ = await this.fetchCheerio({ url, method: "GET" });
