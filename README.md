@@ -374,7 +374,7 @@ have, so I'm unable to verify it. If a source is broken, please open an issue.
 | MangaOnline.fun | 1.4.35.4 | Mature | Not yet tested |
 | MangaOwl.io (unoriginal) | 1.4.52.2 | Mature | Not yet tested |
 | MangaPanda.onl | 1.4.35.4 | Everyone | Not yet tested |
-| MangaPill | 1.4.9.1 | Mature | Not yet tested |
+| MangaPill | 1.4.9.1 | Mature | ✅ Tested |
 | MangaRead.org | 1.4.53.2 | Mature | Not yet tested |
 | MangaReader.in | 1.4.6.1 | Mature | Not yet tested |
 | MangaReader.site | 1.4.35.4 | Everyone | Not yet tested |
