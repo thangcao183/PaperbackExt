@@ -387,10 +387,21 @@ export class WeebCentralExtension implements WeebCentralImplementation {
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
     const pages: string[] = [];
-    $("section[x-data~=scroll] > img").each((_, element) => {
+    // NOTE: cheerio's `[attr~=val]` is a whitespace-separated WORD match,
+    // unlike Jsoup's regex match used upstream. The section's x-data only
+    // contains tokens like `scrollDown()`, never a bare `scroll`, so `~=`
+    // matched nothing and returned an empty page list (reader crash). Use a
+    // substring match instead.
+    $("section[x-data*=scroll] > img").each((_, element) => {
       const src = $(element).attr("src") || "";
       if (src) pages.push(this.absoluteUrl(src));
     });
+
+    if (pages.length === 0) {
+      throw new Error(
+        "No pages found for this chapter; the reader layout may have changed.",
+      );
+    }
 
     return {
       id: chapter.chapterId,
