@@ -805,11 +805,15 @@ export class MadaraExtension implements MadaraImplementation {
     mangaUrl: string,
   ): Promise<CheerioAPI | undefined> {
     try {
+      // Upstream keiyoushi POSTs this endpoint with NO body and NO
+      // `content-type` header (just the standard headers + X-Requested-With).
+      // Sending `content-type: application/x-www-form-urlencoded` on a bodyless
+      // POST makes some Madara hosts (e.g. ToonGod) reject the request with a
+      // 403, so omit it to mirror upstream.
       return await this.fetchCheerio({
         url: `${mangaUrl}/ajax/chapters`,
         method: "POST",
         headers: {
-          "content-type": "application/x-www-form-urlencoded",
           referer: `${mangaUrl}/`,
           "x-requested-with": "XMLHttpRequest",
         },
@@ -854,7 +858,17 @@ export class MadaraExtension implements MadaraImplementation {
     // keiyoushi avoids this by round-tripping the site-provided `abs:href`,
     // which already carries the trailing slash. Mirror that here.
     const chapterId = chapter.chapterId;
-    const base = `${this.baseUrl.replace(/\/+$/, "")}/${this.mangaSubString}/${this.safeDecode(chapter.sourceManga.mangaId)}/${this.safeDecode(chapterId)}`;
+    const decodedId = this.safeDecode(chapterId);
+    let base: string;
+    if (decodedId.startsWith("/")) {
+      // chapterId is a full site-relative path (e.g. `/webtoon/<slug>/
+      // chapter-N`) captured by parseChapterId when the chapter href did not
+      // sit under `/<mangaSubString>/<mangaId>/`. Request it verbatim rather
+      // than reconstructing (which would use the wrong path segment and 404).
+      base = `${this.baseUrl.replace(/\/+$/, "")}${decodedId}`;
+    } else {
+      base = `${this.baseUrl.replace(/\/+$/, "")}/${this.mangaSubString}/${this.safeDecode(chapter.sourceManga.mangaId)}/${decodedId}`;
+    }
     const path = base.replace(/\/+$/, "") + "/";
     let url: string;
     if (!this.chapterUrlSuffix) {
@@ -1016,6 +1030,21 @@ export class MadaraExtension implements MadaraImplementation {
     const idx = cleaned.indexOf(marker);
     if (idx !== -1) {
       return this.toSafeId(cleaned.slice(idx + marker.length));
+    }
+    // Marker not found: the chapter href doesn't sit under
+    // `/<mangaSubString>/<mangaId>/`. Some Madara sites list manga under one
+    // path segment (e.g. ToonGod browses at `/webtoons/<slug>`) but serve
+    // chapters under another (e.g. `/webtoon/<slug>/chapter-N/`).
+    // Reconstructing the chapter URL from `mangaSubString` would 404, so
+    // preserve the full site-relative chapter path (marked by a leading
+    // slash) and let `getChapterDetails` request it verbatim — mirroring
+    // upstream keiyoushi, which round-trips the site-provided `abs:href`.
+    const hostMatch = cleaned.match(/^https?:\/\/[^/]+(\/.*)$/);
+    if (hostMatch) {
+      return this.toSafeId(hostMatch[1]);
+    }
+    if (cleaned.startsWith("/")) {
+      return this.toSafeId(cleaned);
     }
     return this.toSafeId(cleaned.split("/").pop() ?? "");
   }
