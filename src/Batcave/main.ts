@@ -450,11 +450,13 @@ export class BatCaveExtension implements BatCaveImplementation {
 
   private parsePath(href: string): string {
     const decoded = this.safeDecode(href);
-    const cleaned = decoded.replace(/#.*$/, "").replace(/\/+$/, "");
+    const cleaned = decoded.replace(/#.*$/, "");
     const slug = cleaned.startsWith("http")
       ? cleaned.replace(/^https?:\/\/[^/]+\//, "")
       : cleaned.replace(/^\/+/, "");
-    return this.toSafeId(slug);
+    // Ensure trailing slash (DLE-based sites return 404 without it)
+    const withSlash = slug.endsWith("/") ? slug : slug + "/";
+    return this.toSafeId(withSlash);
   }
 
   private toSafeId(slug: string): string {
@@ -520,7 +522,7 @@ export class BatCaveExtension implements BatCaveImplementation {
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
     const [response, data] = await Application.scheduleRequest(request);
     if (response.status === 404) {
-      throw new Error("Content not found");
+      throw new Error(`Content not found: ${request.url}`);
     }
     const htmlStr = Application.arrayBufferToUTF8String(data);
     const dom = htmlparser2.parseDocument(htmlStr);
