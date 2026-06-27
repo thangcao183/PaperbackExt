@@ -276,7 +276,7 @@ export class GunnerkriggCourtExtension
   // ----------------------------------------------------------------
 
   async cloudflareBypassCompleted(
-    _request: globalThis.Request,
+    _request: Request,
     cookies: Cookie[],
     _localStorage: Record<string, string>,
   ): Promise<void> {
