@@ -454,9 +454,12 @@ export class BatCaveExtension implements BatCaveImplementation {
     const slug = cleaned.startsWith("http")
       ? cleaned.replace(/^https?:\/\/[^/]+\//, "")
       : cleaned.replace(/^\/+/, "");
-    // Ensure trailing slash (DLE-based sites return 404 without it)
-    const withSlash = slug.endsWith("/") ? slug : slug + "/";
-    return this.toSafeId(withSlash);
+    // DLE news URLs end in `.html` and must NOT have a trailing slash.
+    // Other (category/section) paths need a trailing slash to avoid a 404.
+    const hasExtension = /\.[a-z0-9]+$/i.test(slug);
+    const normalized =
+      hasExtension || slug.endsWith("/") ? slug : slug + "/";
+    return this.toSafeId(normalized);
   }
 
   private toSafeId(slug: string): string {
