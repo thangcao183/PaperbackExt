@@ -6,4 +6,5 @@ export const KaliScan = new MadThemeExtension({
   baseUrl: "https://kaliscan.com",
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  useLegacyApi: true,
 });

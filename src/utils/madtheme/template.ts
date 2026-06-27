@@ -46,6 +46,14 @@ export interface MadThemeConfig {
   baseUrl: string;
   contentRating?: ContentRating;
   langCode?: string;
+  /**
+   * Some MadTheme sites (e.g. KaliScan) don't expose chapters through the
+   * modern `/api/manga/{id}/chapters` endpoint - that path returns the page
+   * shell with no chapter list. They instead serve the chapter list from the
+   * legacy `/service/backend/chaplist/?manga_id={id}&manga_name={title}`
+   * endpoint. Set this to true for those sources.
+   */
+  useLegacyApi?: boolean;
 }
 
 interface MadThemeSearchMetadata {
@@ -109,6 +117,7 @@ export class MadThemeExtension implements MadThemeImplementation {
   readonly defaultBaseUrl: string;
   readonly contentRating: ContentRating;
   readonly langCode: string;
+  readonly useLegacyApi: boolean;
 
   static readonly MAX_SEARCH_PAGES = 5;
 
@@ -131,6 +140,7 @@ export class MadThemeExtension implements MadThemeImplementation {
     this.defaultBaseUrl = config.baseUrl.replace(/\/+$/, "");
     this.contentRating = config.contentRating ?? ContentRating.EVERYONE;
     this.langCode = config.langCode ?? "🇬🇧";
+    this.useLegacyApi = config.useLegacyApi ?? false;
     this.requestManager = new MadThemeInterceptor("main", () => this.baseUrl);
   }
 
@@ -373,7 +383,20 @@ export class MadThemeExtension implements MadThemeImplementation {
     const numericIdMatch = decoded.match(/(\d+)-/) || mangaUrl.match(MANGA_ID_REGEX);
 
     let $: CheerioAPI;
-    if (numericIdMatch) {
+    if (this.useLegacyApi && numericIdMatch) {
+      // Legacy sites (e.g. KaliScan) serve chapters from a backend endpoint;
+      // the modern /api/manga/{id}/chapters path returns only the page shell.
+      // Note: manga_id alone is sufficient; manga_name is omitted because the
+      // URLBuilder does not URL-encode values and a raw space breaks the query.
+      const numericId = numericIdMatch[1];
+      const apiUrl = new URLBuilder(this.baseUrl)
+        .addPath("service")
+        .addPath("backend")
+        .addPath("chaplist")
+        .addQuery("manga_id", numericId)
+        .build();
+      $ = await this.fetchCheerio({ url: apiUrl, method: "GET" });
+    } else if (numericIdMatch) {
       const numericId = numericIdMatch[1];
       const apiUrl = new URLBuilder(this.baseUrl)
         .addPath("api")
