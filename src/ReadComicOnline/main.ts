@@ -172,9 +172,11 @@ export class ReadComicOnlineExtension
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
     const items: DiscoverSectionItem[] = [];
-    $(".list-comic > .item > a:first-child").each((_i, el) => {
+    const seen = new Set<string>();
+    this.eachListAnchor($).each((_i, el) => {
       const item = this.parseListItem($, $(el));
-      if (item) {
+      if (item && !seen.has(item.mangaId)) {
+        seen.add(item.mangaId);
         items.push({
           type:
             section.id === "latest"
@@ -235,9 +237,11 @@ export class ReadComicOnlineExtension
 
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const items: SearchResultItem[] = [];
-    $(".list-comic > .item > a:first-child").each((_i, el) => {
+    const seenSearch = new Set<string>();
+    this.eachListAnchor($).each((_i, el) => {
       const item = this.parseListItem($, $(el));
-      if (item) {
+      if (item && !seenSearch.has(item.mangaId)) {
+        seenSearch.add(item.mangaId);
         items.push({
           mangaId: item.mangaId,
           imageUrl: item.imageUrl,
@@ -434,14 +438,34 @@ export class ReadComicOnlineExtension
   // Helpers
   // ----------------------------------------------------------------
 
+  /**
+   * Cover anchors for both the desktop (`.list-comic > .item`) and the
+   * mobile (`.item-list .col.cover`) ComicList layouts. Mirrors like
+   * rcostation.xyz serve the mobile template, whose markup differs entirely.
+   */
+  private eachListAnchor($: CheerioAPI): Cheerio<AnyNode> {
+    const desktop = $(".list-comic > .item > a:first-child");
+    if (desktop.length > 0) return desktop;
+    return $(".item-list .col.cover > a");
+  }
+
   private parseListItem(
     _$: CheerioAPI,
     a: Cheerio<AnyNode>,
   ): { mangaId: string; title: string; imageUrl: string } | undefined {
     const href = a.attr("href") || "";
-    const title = a.text().trim();
-    if (!href || !title) return undefined;
-    const imageUrl = this.absoluteUrl(a.find("img").first().attr("src") || "");
+    if (!href) return undefined;
+    const img = a.find("img").first();
+    // The desktop layout's anchor wraps the title text; the mobile layout's
+    // cover anchor wraps only an <img>, so fall back to the image title/alt.
+    const title =
+      a.text().trim() ||
+      (img.attr("title") || "").trim() ||
+      (img.attr("alt") || "").trim();
+    if (!title) return undefined;
+    const imageUrl = this.absoluteUrl(
+      img.attr("src") || img.attr("data-src") || "",
+    );
     return { mangaId: this.parsePath(href), title, imageUrl };
   }
 

@@ -4,7 +4,7 @@ export default {
   name: "ReadComicOnline",
   description:
     "ReadComicOnline - custom source (readcomiconline.li). Converted from keiyoushi.",
-  version: "1.4.43.2",
+  version: "1.4.43.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
