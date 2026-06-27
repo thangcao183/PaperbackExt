@@ -417,7 +417,9 @@ export class ReadComicOnlineExtension
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     const quality = getQuality();
     const server = getServer();
-    const url = `${this.chapterUrl(chapter.chapterId)}&s=${server}&quality=${quality}&readType=1`;
+    const chUrl = this.chapterUrl(chapter.chapterId);
+    const separator = chUrl.includes("?") ? "&" : "?";
+    const url = `${chUrl}${separator}s=${server}&quality=${quality}&readType=1`;
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
     const combinedScripts = $("script")
@@ -426,7 +428,13 @@ export class ReadComicOnlineExtension
       .join("\n");
     const useServer2 = server === "s2";
 
-    const pages = await this.decryptPages(combinedScripts, useServer2);
+    let pages: string[] = [];
+    try {
+      pages = await this.decryptPages(combinedScripts, useServer2);
+    } catch {
+      // Decrypt failed — fall through to return empty pages (reader shows
+      // an error rather than crashing the app).
+    }
 
     return {
       id: chapter.chapterId,
@@ -461,10 +469,14 @@ export class ReadComicOnlineExtension
     useServer2: boolean,
   ): Promise<string[]> {
     const config = await this.getRemoteConfig();
+    // Wrap the eval in a try-catch so an uncaught exception inside the
+    // decrypt script doesn't crash the webview (and the app).
     const inject =
-      `let _encryptedString = ${JSON.stringify(combinedScripts)};` +
+      `try {\n` +
+      `let _encryptedString = ${JSON.stringify(combinedScripts)};\n` +
       `let _useServer2 = ${useServer2};\n` +
-      config.imageDecryptEval;
+      config.imageDecryptEval +
+      `\n} catch(e) { window.webkit.messageHandlers.Paperback.postMessage(JSON.stringify([])); }`;
 
     const result = await Application.executeInWebView({
       source: {
