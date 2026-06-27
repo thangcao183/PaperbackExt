@@ -415,37 +415,14 @@ export class ReadComicOnlineExtension
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const quality = getQuality();
-    const server = getServer();
-    const chUrl = this.chapterUrl(chapter.chapterId);
-    const separator = chUrl.includes("?") ? "&" : "?";
-    const url = `${chUrl}${separator}s=${server}&quality=${quality}&readType=1`;
-    const $ = await this.fetchCheerio({ url, method: "GET" });
-
-    // Only include inline scripts that may contain the encrypted page-image
-    // data. External (src=) scripts have empty text; tracking/analytics are
-    // typically short or reference known ad domains. Passing the ENTIRE
-    // combinedScripts (hundreds of KB on mobile mirrors) crashes WKWebView's
-    // JS compiler, so filter aggressively.
-    const combinedScripts = $("script:not([src])")
-      .toArray()
-      .map((s) => $(s).text())
-      .filter((t) => t.length > 50 && /lstImages|lstImagesLoaded|beau|replace\s*\(/.test(t))
-      .join("\n");
-    const useServer2 = server === "s2";
-
-    let pages: string[] = [];
-    try {
-      pages = await this.decryptPages(combinedScripts, useServer2);
-    } catch {
-      // Decrypt failed — fall through to return empty pages (reader shows
-      // an error rather than crashing the app).
-    }
-
+    // DISABLED: Page decryption via webview is broken (crashes WKWebView),
+    // and the chapter page itself is too large for the mobile mirror
+    // (crashes JSC on parsing). Until a working decrypt approach is found,
+    // return empty pages immediately without fetching.
     return {
       id: chapter.chapterId,
       mangaId: chapter.sourceManga.mangaId,
-      pages,
+      pages: [],
     };
   }
 
