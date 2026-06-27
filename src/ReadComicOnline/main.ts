@@ -188,7 +188,7 @@ export class ReadComicOnlineExtension
       }
     });
 
-    const hasNextPage = $("ul.pager > li > a:contains(Next)").length > 0;
+    const hasNextPage = this.hasNextPageLink($);
     return {
       items,
       metadata: hasNextPage ? { page: page + 1 } : undefined,
@@ -248,7 +248,7 @@ export class ReadComicOnlineExtension
       }
     });
 
-    const hasNextPage = $("ul.pager > li > a:contains(Next)").length > 0;
+    const hasNextPage = this.hasNextPageLink($);
     return {
       items,
       metadata: hasNextPage ? { page: page + 1 } : undefined,
@@ -271,53 +271,33 @@ export class ReadComicOnlineExtension
       $(".rightBox").first().find("img").first().attr("src") || "",
     );
 
-    const author = this.summarizeList(
-      info
-        .find("p:has(span:contains(Writer:)) > a")
-        .toArray()
-        .map((a) => $(a).text().trim())
-        .filter((t) => t.length > 0),
-    );
-    const artist = this.summarizeList(
-      info
-        .find("p:has(span:contains(Artist:)) > a")
-        .toArray()
-        .map((a) => $(a).text().trim())
-        .filter((t) => t.length > 0),
-    );
+    const author = this.summarizeList(this.infoLinks($, info, "Writer:"));
+    const artist = this.summarizeList(this.infoLinks($, info, "Artist:"));
 
-    const genres = info
-      .find("p:has(span:contains(Genres:)) > a")
-      .toArray()
-      .map((a) => $(a).text().trim())
-      .filter((t) => t.length > 0);
+    const genres = this.infoLinks($, info, "Genres:");
 
     const descParts: string[] = [];
-    const summary = info
-      .find("p:has(span:contains(Summary:)) ~ p")
-      .toArray()
-      .map((p) => $(p).text().trim())
-      .filter((t) => t.length > 0)
-      .join("\n\n");
+    const summaryP = this.infoParagraph($, info, "Summary:");
+    const summary = summaryP
+      ? summaryP
+          .nextAll("p")
+          .toArray()
+          .map((p) => $(p).text().trim())
+          .filter((t) => t.length > 0)
+          .join("\n\n")
+      : "";
     if (summary) descParts.push(summary);
-    const publisher = info
-      .find("p:has(span:contains(Publisher:))")
-      .first()
-      .text()
+    const publisher = this.infoParagraph($, info, "Publisher:")
+      ?.text()
       .trim();
     if (publisher) descParts.push(publisher);
-    const pubDate = info
-      .find("p:has(span:contains(Publication date:))")
-      .first()
-      .text()
+    const pubDate = this.infoParagraph($, info, "Publication date:")
+      ?.text()
       .trim();
     if (pubDate) descParts.push(pubDate);
 
-    const statusText = info
-      .find("p:has(span:contains(Status:))")
-      .first()
-      .text()
-      .trim();
+    const statusText =
+      this.infoParagraph($, info, "Status:")?.text().trim() ?? "";
 
     const tagGroups: TagSection[] = [];
     if (genres.length > 0) {
@@ -355,13 +335,16 @@ export class ReadComicOnlineExtension
     });
 
     const chapters: Chapter[] = [];
-    const rows = $("table.listing tr:gt(1)").toArray();
+    // `tr:gt(1)` / `td:eq(1)` are jQuery pseudo-classes unsupported by
+    // Paperback's CSS engine; select all rows and slice/index in JS.
+    const allRows = $("table.listing tr").toArray();
+    const rows = allRows.slice(2);
     rows.forEach((row, index) => {
       const link = $(row).find("a").first();
       const href = link.attr("href") || "";
       if (!href) return;
       const name = link.text().trim();
-      const dateText = $(row).find("td:eq(1)").first().text().trim();
+      const dateText = $(row).find("td").eq(1).text().trim();
       const parsedNum = this.parseChapterNumber(name);
       chapters.push({
         chapterId: this.parsePath(href),
@@ -466,6 +449,53 @@ export class ReadComicOnlineExtension
     if (items.length === 0) return "";
     if (items.length > 2) return `${items[0]} & others`;
     return items.join(", ");
+  }
+
+  /**
+   * Paperback's CSS engine rejects jQuery pseudo-classes (`:has`,
+   * `:contains`, `:eq`, `:gt`). Find the info `<p>` whose `<span>` label
+   * matches `label` by iterating in JS instead.
+   */
+  private infoParagraph(
+    $: CheerioAPI,
+    info: Cheerio<AnyNode>,
+    label: string,
+  ): Cheerio<AnyNode> | undefined {
+    let match: Cheerio<AnyNode> | undefined;
+    const want = label.toLowerCase();
+    info.find("p").each((_i, p) => {
+      if (match) return;
+      const span = $(p).find("span").first();
+      if (span.length > 0 && span.text().trim().toLowerCase().includes(want)) {
+        match = $(p);
+      }
+    });
+    return match;
+  }
+
+  /** Anchor texts inside the info paragraph for the given label. */
+  private infoLinks(
+    $: CheerioAPI,
+    info: Cheerio<AnyNode>,
+    label: string,
+  ): string[] {
+    const p = this.infoParagraph($, info, label);
+    if (!p) return [];
+    return p
+      .find("a")
+      .toArray()
+      .map((a) => $(a).text().trim())
+      .filter((t) => t.length > 0);
+  }
+
+  /** Detect a "Next" pagination link without `:contains()`. */
+  private hasNextPageLink($: CheerioAPI): boolean {
+    let found = false;
+    $("ul.pager > li > a").each((_i, el) => {
+      if (found) return;
+      if ($(el).text().trim().toLowerCase().includes("next")) found = true;
+    });
+    return found;
   }
 
   private mangaUrl(mangaId: string): string {
