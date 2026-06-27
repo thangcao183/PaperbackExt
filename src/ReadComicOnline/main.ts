@@ -415,13 +415,47 @@ export class ReadComicOnlineExtension
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    // Page decryption requires a webview eval that crashes Paperback's
-    // WKWebView/JSC. Throw a user-visible error instead of returning empty
-    // pages (which may crash the reader when it tries to render 0 pages).
-    throw new Error(
-      "ReadComicOnline page reading is not supported on this mirror. " +
-      "The page images are encrypted and cannot be decrypted in Paperback's runtime.",
-    );
+    const quality = getQuality();
+    const server = getServer();
+    const chUrl = this.chapterUrl(chapter.chapterId);
+    const separator = chUrl.includes("?") ? "&" : "?";
+    const url = `${chUrl}${separator}s=${server}&quality=${quality}&readType=1`;
+
+    // Fetch the chapter page WITHOUT stripping scripts (we need them for
+    // decryption). Use a dedicated fetch that preserves scripts.
+    const [response, data] = await Application.scheduleRequest({
+      url,
+      method: "GET",
+    });
+    if (response.status === 404) {
+      throw new Error("Chapter not found");
+    }
+    const htmlStr = Application.arrayBufferToUTF8String(data);
+
+    // Extract only inline scripts (skip external src= scripts which are
+    // the bulky ad/tracking bundles that crash the parser). Use regex to
+    // avoid parsing the full DOM.
+    const scriptTexts: string[] = [];
+    const scriptRegex = /<script(?![^>]*\bsrc\b)[^>]*>([\s\S]*?)<\/script>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = scriptRegex.exec(htmlStr)) !== null) {
+      const text = match[1].trim();
+      if (text.length > 50) scriptTexts.push(text);
+    }
+    const combinedScripts = scriptTexts.join("\n");
+
+    const useServer2 = server === "s2";
+    const pages = await this.decryptPages(combinedScripts, useServer2);
+
+    if (pages.length === 0) {
+      throw new Error("No pages found. The page images could not be decrypted.");
+    }
+
+    return {
+      id: chapter.chapterId,
+      mangaId: chapter.sourceManga.mangaId,
+      pages,
+    };
   }
 
   getMangaShareUrl(mangaId: string): string {
@@ -446,16 +480,28 @@ export class ReadComicOnlineExtension
   }
 
   private async decryptPages(
-    _combinedScripts: string,
-    _useServer2: boolean,
+    combinedScripts: string,
+    useServer2: boolean,
   ): Promise<string[]> {
-    // DISABLED: The webview decrypt consistently crashes Paperback's
-    // WKWebView process (native-level crash, not catchable in JS), killing
-    // the entire app. Until a non-webview decryption approach is implemented,
-    // return empty pages so at least the app doesn't crash.
-    // The upstream keiyoushi Tachiyomi version uses Android's WebView which
-    // doesn't have this constraint.
-    return [];
+    const config = await this.getRemoteConfig();
+    // The decrypt script is pure JS (no DOM/browser APIs needed) — it only
+    // uses String, RegExp, Array, JSON, and a self-defined atob(). Run it
+    // directly in Paperback's JSC engine via Function() instead of crashing
+    // WKWebView with executeInWebView.
+    const wrappedScript =
+      `(function() {\n` +
+      `var _encryptedString = ${JSON.stringify(combinedScripts)};\n` +
+      `var _useServer2 = ${useServer2};\n` +
+      config.imageDecryptEval +
+      `\n})()`;
+
+    try {
+      const result = eval(wrappedScript) as string;
+      const parsed = JSON.parse(result) as string[];
+      return parsed.filter((u) => typeof u === "string" && u.length > 0);
+    } catch {
+      return [];
+    }
   }
 
   // ----------------------------------------------------------------
