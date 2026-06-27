@@ -639,7 +639,13 @@ export class ReadComicOnlineExtension
     if (response.status === 404) {
       throw new Error("Content not found");
     }
-    const htmlStr = Application.arrayBufferToUTF8String(data);
+    let htmlStr = Application.arrayBufferToUTF8String(data);
+    // The mobile mirror's pages are enormous (hundreds of KB of ad/tracking
+    // scripts and inline styles). Parsing these with htmlparser2 crashes
+    // Paperback's JSC engine. Strip <script> and <style> blocks before
+    // parsing since we never need their content for details/chapters/lists.
+    htmlStr = htmlStr.replace(/<script[\s\S]*?<\/script>/gi, "");
+    htmlStr = htmlStr.replace(/<style[\s\S]*?<\/style>/gi, "");
     const dom = htmlparser2.parseDocument(htmlStr);
     return cheerio.load(dom);
   }
