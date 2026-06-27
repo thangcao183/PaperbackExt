@@ -491,23 +491,27 @@ export class ReadComicOnlineExtension
     const hasBaeu = /baeu\(/.test(combinedScripts);
     const hasCurrImage = /currImage/.test(combinedScripts);
     console.log(`[RCO] patterns: Array=${hasArray} push=${hasPush} baeu=${hasBaeu} currImage=${hasCurrImage}`);
-    // The decrypt script is pure JS (no DOM/browser APIs needed) — it only
-    // uses String, RegExp, Array, JSON, and a self-defined atob(). Run it
-    // directly in Paperback's JSC engine via Function() instead of crashing
-    // WKWebView with executeInWebView.
-    const wrappedScript =
-      `(function() {\n` +
+    // The decrypt script ends with `JSON.stringify(getCleanedLinks());` as a
+    // bare expression. In an IIFE, we need to `return` it. Append `return`
+    // before the last expression by wrapping with a return statement.
+    const scriptBody =
       `var _encryptedString = ${JSON.stringify(combinedScripts)};\n` +
       `var _useServer2 = ${useServer2};\n` +
-      config.imageDecryptEval +
-      `\n})()`;
+      config.imageDecryptEval;
+    // The script's last statement is `JSON.stringify(...)` — wrap in a
+    // function that returns the eval of the whole thing.
+    const wrappedScript = `(function() { ${scriptBody.replace(
+      /JSON\.stringify\(getCleanedLinks\(\)\);?\s*$/,
+      "return JSON.stringify(getCleanedLinks());",
+    )} })()`;
 
     try {
       const result = eval(wrappedScript) as string;
+      console.log(`[RCO] eval result type: ${typeof result}, len: ${result?.length ?? 0}`);
       const parsed = JSON.parse(result) as string[];
       const filtered = parsed.filter((u) => typeof u === "string" && u.length > 0);
       console.log(`[RCO] decrypt result: ${filtered.length} pages`);
-      if (filtered.length > 0) console.log(`[RCO] first page: ${filtered[0].substring(0, 80)}`);
+      if (filtered.length > 0) console.log(`[RCO] first page: ${filtered[0].substring(0, 100)}`);
       return filtered;
     } catch (e) {
       console.log(`[RCO] decrypt error: ${e instanceof Error ? e.message : String(e)}`);
