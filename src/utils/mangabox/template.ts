@@ -71,14 +71,19 @@ class MangaBoxInterceptor extends PaperbackInterceptor {
 
   override async interceptRequest(request: Request): Promise<Request> {
     const baseUrl = this.getBaseUrl();
+    // Set defaults FIRST, then let any per-request headers win by spreading
+    // them LAST. The chapters JSON API 403s unless it receives
+    // `accept: application/json` + `x-requested-with`, which getChapters sets;
+    // spreading request.headers first (then overriding accept) would clobber
+    // those and break the chapter list.
     request.headers = {
-      ...request.headers,
       referer: `${baseUrl}/`,
       origin: baseUrl,
       "user-agent": await Application.getDefaultUserAgent(),
       accept:
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.5",
+      ...request.headers,
     };
     return request;
   }
@@ -363,6 +368,14 @@ export class MangaBoxExtension implements MangaBoxImplementation {
         json = await this.fetchJson<MangaBoxApiResponse>({
           url,
           method: "GET",
+          headers: {
+            accept: "application/json, text/plain, */*",
+            "x-requested-with": "XMLHttpRequest",
+            referer: new URLBuilder(this.baseUrl)
+              .addPath("manga")
+              .addPath(slug)
+              .build(),
+          },
         });
       } catch {
         break;
