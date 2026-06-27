@@ -31,6 +31,11 @@ const CDN_HOST = "cv.infinityscans.org";
 const PAGE_CDN_HOST = "ch.infinityscans.org";
 const SLUG_HASH = "cf675243bcc3";
 
+// The API only returns data when a valid session cookie is present. The
+// cookie is established by the site's client JS POSTing to /api/validate.
+// Mirrors upstream WebviewInterceptor.SESSION_COOKIE.
+const SESSION_COOKIE = "__Secure-infinityscans.data";
+
 // Sort values mirrored from the upstream SortType enum.
 const SORT_LATEST = "1";
 const SORT_POPULARITY = "2";
@@ -105,7 +110,46 @@ class InfinityScansInterceptor extends PaperbackInterceptor {
         },
       });
     }
+
+    // The API only returns real data when a valid session cookie is present.
+    // When the session is missing/invalid, the server responds with a
+    // Set-Cookie that clears `__Secure-infinityscans.data` (empty value /
+    // expired). Mirrors upstream WebviewInterceptor.hasSessionCookie(): treat
+    // that as "session invalid" and open a WebView at the homepage so the
+    // site's JS POSTs /api/validate and establishes the real session cookie.
+    if (this.responseClearsSession(response)) {
+      throw new CloudflareError({
+        url: `${BASE_URL}/`,
+        method: "GET",
+        headers: {
+          "user-agent": await Application.getDefaultUserAgent(),
+        },
+      });
+    }
     return data;
+  }
+
+  // Returns true when the response carries a Set-Cookie that clears the
+  // session cookie (empty value or already-expired), signalling no valid
+  // session is established.
+  private responseClearsSession(response: Response): boolean {
+    const sessionCookie = (response.cookies ?? []).find(
+      (c) => c.name === SESSION_COOKIE,
+    );
+    if (!sessionCookie) return false;
+
+    // An empty value means the server is clearing the cookie.
+    const value = (sessionCookie.value ?? "").trim();
+    if (value === "" || value.toLowerCase() === "deleted") return true;
+
+    // A past expiry date also indicates the cookie is being cleared.
+    if (
+      sessionCookie.expires &&
+      sessionCookie.expires.getTime() <= Date.now()
+    ) {
+      return true;
+    }
+    return false;
   }
 }
 
