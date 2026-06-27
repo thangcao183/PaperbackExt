@@ -471,36 +471,16 @@ export class ReadComicOnlineExtension
   }
 
   private async decryptPages(
-    combinedScripts: string,
-    useServer2: boolean,
+    _combinedScripts: string,
+    _useServer2: boolean,
   ): Promise<string[]> {
-    const config = await this.getRemoteConfig();
-    // Wrap the eval in a try-catch so an uncaught exception inside the
-    // decrypt script doesn't crash the webview (and the app).
-    const inject =
-      `try {\n` +
-      `let _encryptedString = ${JSON.stringify(combinedScripts)};\n` +
-      `let _useServer2 = ${useServer2};\n` +
-      config.imageDecryptEval +
-      `\n} catch(e) { window.webkit.messageHandlers.Paperback.postMessage(JSON.stringify([])); }`;
-
-    const result = await Application.executeInWebView({
-      source: {
-        html: "<html><head></head><body></body></html>",
-        baseUrl: this.baseUrl,
-        loadCSS: false,
-        loadImages: false,
-      },
-      inject,
-      storage: { cookies: [] },
-    });
-
-    try {
-      const parsed = JSON.parse(String(result.result)) as string[];
-      return parsed.filter((u) => typeof u === "string" && u.length > 0);
-    } catch {
-      return [];
-    }
+    // DISABLED: The webview decrypt consistently crashes Paperback's
+    // WKWebView process (native-level crash, not catchable in JS), killing
+    // the entire app. Until a non-webview decryption approach is implemented,
+    // return empty pages so at least the app doesn't crash.
+    // The upstream keiyoushi Tachiyomi version uses Android's WebView which
+    // doesn't have this constraint.
+    return [];
   }
 
   // ----------------------------------------------------------------
