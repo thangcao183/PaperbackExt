@@ -422,9 +422,15 @@ export class ReadComicOnlineExtension
     const url = `${chUrl}${separator}s=${server}&quality=${quality}&readType=1`;
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
-    const combinedScripts = $("script")
+    // Only include inline scripts that may contain the encrypted page-image
+    // data. External (src=) scripts have empty text; tracking/analytics are
+    // typically short or reference known ad domains. Passing the ENTIRE
+    // combinedScripts (hundreds of KB on mobile mirrors) crashes WKWebView's
+    // JS compiler, so filter aggressively.
+    const combinedScripts = $("script:not([src])")
       .toArray()
       .map((s) => $(s).text())
+      .filter((t) => t.length > 50 && /lstImages|lstImagesLoaded|beau|replace\s*\(/.test(t))
       .join("\n");
     const useServer2 = server === "s2";
 
