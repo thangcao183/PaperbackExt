@@ -767,6 +767,32 @@ and should be reviewed; reset its internal revision to `.1` when you do.
 - These extensions are **not affiliated** with the source websites. They only
   scrape publicly available pages.
 
+## Upstream Sync Tracker
+
+<!-- Machine-readable keiyoushi sync state. Format:
+     LAST_REVIEWED_COMMIT=<full sha>
+     LAST_REVIEWED_DATE=<ISO 8601>
+     LAST_APPLIED_COMMIT=<full sha of newest commit that resulted in a code change>
+     LAST_APPLIED_PR=<PR number>
+     REVIEW_SCOPE=all English sources in our repo (~423 sources)
+-->
+
+```
+LAST_REVIEWED_COMMIT=5e814a05963689af38ea58961c9614cd47b1e089
+LAST_REVIEWED_DATE=2026-06-26
+LAST_APPLIED_COMMIT=1cdc173a7acf54d8fb8234d3f5d31c9de800154e
+LAST_APPLIED_PR=#16971
+BASELINE_PORT_DATE=2026-06-20
+```
+
+**How to read:** All keiyoushi commits up to and including `LAST_REVIEWED_COMMIT`
+have been evaluated against our sources. `LAST_APPLIED_COMMIT` is the newest
+upstream commit that produced an actual code change here (MangaBlaze theme rework,
+PR #16971). Others in the reviewed range were no-ops (already implemented, auto-
+fetched at runtime, or for sources we don't carry). To check for new upstream
+changes, compare `LAST_REVIEWED_COMMIT` against
+`https://github.com/keiyoushi/extensions-source/commits/main`.
+
 ## Credits
 
 - [Paperback](https://github.com/Paperback-iOS/app) for the app and extension SDK.
