@@ -349,6 +349,7 @@ export class MangaBoxExtension implements MangaBoxImplementation {
     const chapters: Chapter[] = [];
     const seen = new Set<string>();
 
+    // Try the JSON API first (fast, paginated).
     let offset = 0;
     const limit = 1000;
     let hasMore = true;
@@ -407,7 +408,95 @@ export class MangaBoxExtension implements MangaBoxImplementation {
       offset += limit;
     }
 
+    // Fallback: if the API returned nothing (403/blocked), load the manga
+    // page in a webview and scrape the chapter list after JS renders it.
+    if (chapters.length === 0) {
+      const webChapters = await this.getChaptersViaWebView(slug, sourceManga);
+      return webChapters;
+    }
+
     return chapters;
+  }
+
+  /**
+   * When the chapters JSON API is blocked (403 from Cloudflare outside the
+   * browser context), fetch it from within a webview where the CF clearance
+   * cookie and challenge state are available.
+   */
+  private async getChaptersViaWebView(
+    slug: string,
+    sourceManga: SourceManga,
+  ): Promise<Chapter[]> {
+    const apiUrl = new URLBuilder(this.baseUrl)
+      .addPath("api")
+      .addPath("manga")
+      .addPath(slug)
+      .addPath("chapters")
+      .addQuery("limit", 2000)
+      .addQuery("offset", 0)
+      .build();
+
+    const inject = `
+      fetch(${JSON.stringify(apiUrl)}, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+      .then(function(r) { return r.text(); })
+      .then(function(t) {
+        window.webkit.messageHandlers.Paperback.postMessage(t);
+      })
+      .catch(function(e) {
+        window.webkit.messageHandlers.Paperback.postMessage(JSON.stringify({error: e.message}));
+      });
+    `;
+
+    try {
+      const result = await Application.executeInWebView({
+        source: {
+          html: "<html><head></head><body></body></html>",
+          baseUrl: this.baseUrl,
+          loadCSS: false,
+          loadImages: false,
+        },
+        inject,
+        storage: { cookies: [] },
+      });
+
+      const json = JSON.parse(String(result.result)) as MangaBoxApiResponse;
+      const list = json.data?.chapters ?? [];
+      const chapters: Chapter[] = [];
+      const seen = new Set<string>();
+
+      for (const c of list) {
+        const chapterSlug = c.chapter_slug ?? "";
+        if (!chapterSlug) continue;
+        const chapterId = this.toSafeId(`manga/${slug}/${chapterSlug}`);
+        if (seen.has(chapterId)) continue;
+        seen.add(chapterId);
+
+        const name = c.chapter_name ?? `Chapter ${c.chapter_num ?? 0}`;
+        chapters.push({
+          chapterId,
+          sourceManga,
+          title: name,
+          volume: 0,
+          chapNum: c.chapter_num ?? 0,
+          publishDate: this.parseDate(c.updated_at),
+          langCode: this.langCode,
+        });
+      }
+      return chapters;
+    } catch {
+      return [];
+    }
+  }
+
+  private parseChapterNum(title: string): number {
+    const m = title.match(/(?:chapter|ch)[.\s-]*(\d+(?:\.\d+)?)/i);
+    return m ? parseFloat(m[1]) : -1;
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
