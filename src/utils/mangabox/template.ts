@@ -466,7 +466,7 @@ export class MangaBoxExtension implements MangaBoxImplementation {
           loadImages: false,
         },
         inject,
-        storage: { cookies: [] },
+        storage: { cookies: [...this.cookieStorageInterceptor.cookies] },
       });
 
       console.log(`[MangaBox] webview result type: ${typeof result.result}, len: ${String(result.result).length}`);
