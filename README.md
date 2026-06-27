@@ -156,11 +156,12 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (36)
+### ✅ Tested (37)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
 | Asura Scans | 1.4.62.1 | Everyone |
+| BatCave | 1.4.6.6 | Everyone |
 | ComicK Fanmade | 1.4.2.1 | Mature |
 | Coffee Manga | 1.4.56.2 | Mature |
 | Comix | 1.4.31.27 | Mature |
@@ -205,7 +206,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (385)
+### 🧪 Not yet tested (384)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -234,7 +235,6 @@ These need an account or credentials I don’t have.
 | aurora | 1.4.4.1 | Everyone |
 | Bakkin | 1.4.7.1 | Everyone |
 | Bakkin Self-hosted | 1.4.7.1 | Everyone |
-| BatCave | 1.4.6.1 | Everyone |
 | Battle In 5 Seconds After Meeting | 1.4.51.2 | Everyone |
 | Bbato | 1.4.1.1 | Mature |
 | BeeHentai | 1.4.24.1 | Mature |
