@@ -44,7 +44,7 @@ import {
 } from "./settings";
 
 const CONFIG_URL =
-  "https://raw.githubusercontent.com/keiyoushi/extensions-source/refs/heads/main/src/en/readcomiconline/config.json";
+  "https://raw.githubusercontent.com/keiyoushi/rco-script/refs/heads/main/decrypt.json";
 
 interface ReadComicOnlineMetadata {
   page?: number;
