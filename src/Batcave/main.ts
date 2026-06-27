@@ -83,6 +83,20 @@ class BatCaveInterceptor extends PaperbackInterceptor {
         },
       });
     }
+    // DLE anti-bot guard: protected requests are redirected to a `/_c` path.
+    // Matches keiyoushi's interceptor which throws to prompt a WebView bypass.
+    const finalPath = (response.url || request.url)
+      .replace(/^https?:\/\/[^/]+/, "")
+      .replace(/^\/+/, "");
+    if (finalPath.split("/")[0] === "_c") {
+      throw new CloudflareError({
+        url: request.url,
+        method: request.method ?? "GET",
+        headers: {
+          "user-agent": await Application.getDefaultUserAgent(),
+        },
+      });
+    }
     return data;
   }
 }
