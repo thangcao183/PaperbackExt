@@ -34,6 +34,12 @@ import { MangaDemonSearchForm, MangaDemonSearchMeta } from "./forms";
 
 const BASE_URL = "https://demonicscans.org";
 
+// Paperback requires a non-empty thumbnailUrl/imageUrl; some manga have no
+// cover, so fall back to a self-contained placeholder that can never 404.
+const PLACEHOLDER_COVER =
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iNDUwIiB2aWV3Qm94PSIwIDAgMzAwIDQ1MCI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMyMzI4MmYiLz48dGV4dCB4PSIxNTAiIHk9IjIyNSIgZmlsbD0iIzhhOTBhMCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPk5vIENvdmVyPC90ZXh0Pjwvc3ZnPg==";
+
+
 interface MangaDemonMetadata {
   page?: number;
 }
@@ -163,9 +169,9 @@ export class MangaDemonExtension implements MangaDemonImplementation {
       const href = link.attr("href") || "";
       const title = link.text().trim();
       if (!href || !title) return;
-      const imageUrl = this.absoluteUrl(
-        el.find("div.thumb img").first().attr("src") || "",
-      );
+      const imageUrl =
+        this.absoluteUrl(el.find("div.thumb img").first().attr("src") || "") ||
+        PLACEHOLDER_COVER;
       items.push({
         type: "simpleCarouselItem",
         mangaId: this.parsePath(href),
@@ -207,9 +213,9 @@ export class MangaDemonExtension implements MangaDemonImplementation {
         const href = el.attr("href") || "";
         const title = el.find("div.seach-right > div").first().text().trim();
         if (!href || !title) return;
-        const imageUrl = this.absoluteUrl(
-          el.find("img").first().attr("src") || "",
-        );
+        const imageUrl =
+          this.absoluteUrl(el.find("img").first().attr("src") || "") ||
+          PLACEHOLDER_COVER;
         results.push({
           mangaId: this.parsePath(href),
           imageUrl,
@@ -276,9 +282,13 @@ export class MangaDemonExtension implements MangaDemonImplementation {
     const title =
       container.find("h1.big-fat-titles").first().text().trim() ||
       this.safeDecode(mangaId);
-    const thumbnailUrl = this.absoluteUrl(
-      container.find("div#manga-page img").first().attr("src") || "",
-    );
+    const coverImg = container.find("div#manga-page img").first();
+    const rawCover =
+      coverImg.attr("src") ||
+      coverImg.attr("data-src") ||
+      coverImg.attr("data-lazy-src") ||
+      "";
+    const thumbnailUrl = this.absoluteUrl(rawCover) || PLACEHOLDER_COVER;
     const synopsis = container
       .find("div#manga-info-rightColumn > div > div.white-font")
       .first()
@@ -403,7 +413,9 @@ export class MangaDemonExtension implements MangaDemonImplementation {
     const href = link.attr("href") || "";
     const title = el.find("h1").first().text().trim();
     if (!href || !title) return undefined;
-    const imageUrl = this.absoluteUrl(el.find("img").first().attr("src") || "");
+    const imageUrl =
+      this.absoluteUrl(el.find("img").first().attr("src") || "") ||
+      PLACEHOLDER_COVER;
     return { mangaId: this.parsePath(href), title, imageUrl };
   }
 

@@ -4,7 +4,7 @@ export default {
   name: "Manga Demon",
   description:
     "Manga Demon - custom source (demonicscans.org). Converted from keiyoushi.",
-  version: "1.4.19.2",
+  version: "1.4.19.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
