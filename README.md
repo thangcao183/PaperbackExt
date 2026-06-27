@@ -156,7 +156,7 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (31)
+### ✅ Tested (32)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -180,6 +180,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | Mangafreak | 1.4.13.1 | Mature |
 | MangaPill | 1.4.9.1 | Mature |
 | ManhuaFast | 1.4.55.2 | Mature |
+| Manhwa18 | 1.4.13.1 | Mature |
 | Omega Scans | 1.4.50.1 | Mature |
 | ReadComicOnline | 1.4.43.13 | Everyone |
 | Rinko Comics | 1.4.2.1 | Everyone |
@@ -200,7 +201,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (390)
+### 🧪 Not yet tested (389)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -424,7 +425,6 @@ These need an account or credentials I don’t have.
 | Manhwa Reads | 1.4.51.2 | Mature |
 | Manhwa Toon | 1.4.52.2 | Mature |
 | Manhwa XXL | 1.4.6.1 | Mature |
-| Manhwa18 | 1.4.13.1 | Mature |
 | Manhwa18.org | 1.4.53.2 | Mature |
 | Manhwa68 | 1.4.54.2 | Mature |
 | ManhwaBuddy | 1.4.3.1 | Mature |
