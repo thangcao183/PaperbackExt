@@ -411,7 +411,9 @@ export class MangaBoxExtension implements MangaBoxImplementation {
     // Fallback: if the API returned nothing (403/blocked), load the manga
     // page in a webview and scrape the chapter list after JS renders it.
     if (chapters.length === 0) {
+      console.log(`[MangaBox] API returned 0 chapters for ${slug}, trying webview fallback`);
       const webChapters = await this.getChaptersViaWebView(slug, sourceManga);
+      console.log(`[MangaBox] webview fallback returned ${webChapters.length} chapters`);
       return webChapters;
     }
 
@@ -465,8 +467,17 @@ export class MangaBoxExtension implements MangaBoxImplementation {
         storage: { cookies: [] },
       });
 
-      const json = JSON.parse(String(result.result)) as MangaBoxApiResponse;
+      console.log(`[MangaBox] webview result type: ${typeof result.result}, len: ${String(result.result).length}`);
+      const resultStr = String(result.result);
+      // Check for error response
+      if (resultStr.includes('"error"')) {
+        console.log(`[MangaBox] webview fetch error: ${resultStr.substring(0, 200)}`);
+        return [];
+      }
+
+      const json = JSON.parse(resultStr) as MangaBoxApiResponse;
       const list = json.data?.chapters ?? [];
+      console.log(`[MangaBox] webview parsed ${list.length} chapters from JSON`);
       const chapters: Chapter[] = [];
       const seen = new Set<string>();
 
