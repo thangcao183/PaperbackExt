@@ -156,7 +156,7 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (25)
+### ✅ Tested (26)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -170,6 +170,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | Lily Manga | 1.4.58.4 | Mature |
 | Mangadotnet | 1.4.11.1 | Mature |
 | Mangago | 1.4.34.5 | Mature |
+| Manga Demon | 1.4.19.1 | Everyone |
 | MangaHere.onl | 1.4.35.4 | Mature |
 | MangaHub | 1.4.45.4 | Mature |
 | MangaKatana | 1.4.12.2 | Mature |
@@ -194,7 +195,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (396)
+### 🧪 Not yet tested (395)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -358,7 +359,6 @@ These need an account or credentials I don’t have.
 | Mahouirexnohentaikarte | 1.4.51.2 | Mature |
 | Manga 18x | 1.4.52.2 | Mature |
 | Manga Dass | 1.4.52.2 | Mature |
-| Manga Demon | 1.4.19.1 | Everyone |
 | Manga District | 1.4.67.2 | Mature |
 | Manga Drama | 1.4.51.2 | Mature |
 | Manga Hentai | 1.4.55.2 | Mature |
