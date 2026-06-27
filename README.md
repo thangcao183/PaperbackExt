@@ -156,7 +156,7 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (28)
+### ✅ Tested (29)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -164,6 +164,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | ComicK Fanmade | 1.4.2.1 | Mature |
 | Comix | 1.4.31.27 | Mature |
 | Dynasty | 1.4.30.5 | Mature |
+| Flame Comics | 1.4.49.3 | Everyone |
 | Gourmet Scans | 1.4.51.7 | Mature |
 | HentaiNexus | 1.4.17.2 | Mature |
 | LikeManga | 1.4.8.1 | Everyone |
@@ -174,7 +175,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | MangaHere.onl | 1.4.35.4 | Mature |
 | MangaHub | 1.4.45.4 | Mature |
 | MangaKatana | 1.4.12.2 | Mature |
-| Mangakakalot | 1.4.21.12 | Mature |
+| Mangakakalot | 1.4.21.13 | Mature |
 | MangaPill | 1.4.9.1 | Mature |
 | ManhuaFast | 1.4.55.2 | Mature |
 | Omega Scans | 1.4.50.1 | Mature |
@@ -197,7 +198,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (393)
+### 🧪 Not yet tested (392)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -281,7 +282,6 @@ These need an account or credentials I don’t have.
 | Fable Scans | 1.4.32.1 | Mature |
 | Fairy Scans | 1.4.33.1 | Mature |
 | Firescans | 1.4.55.2 | Everyone |
-| Flame Comics | 1.4.49.3 | Everyone |
 | FlameScans.lol | 1.4.52.2 | Everyone |
 | Frieren Online | 1.4.51.2 | Everyone |
 | GakaMangas | 1.4.51.2 | Everyone |
