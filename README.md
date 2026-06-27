@@ -156,12 +156,13 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (34)
+### ✅ Tested (35)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
 | Asura Scans | 1.4.62.1 | Everyone |
 | ComicK Fanmade | 1.4.2.1 | Mature |
+| Coffee Manga | 1.4.56.2 | Mature |
 | Comix | 1.4.31.27 | Mature |
 | Dynasty | 1.4.30.5 | Mature |
 | Flame Comics | 1.4.49.3 | Everyone |
@@ -203,7 +204,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (387)
+### 🧪 Not yet tested (386)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -245,7 +246,6 @@ These need an account or credentials I don’t have.
 | Clown Corps | 1.4.3.1 | Everyone |
 | CManhua | 1.4.1.1 | Mature |
 | Cocomic | 1.4.53.2 | Mature |
-| Coffee Manga | 1.4.56.2 | Mature |
 | Collected Curios | 1.4.2.1 | Everyone |
 | Comic Asura | 1.4.34.1 | Mature |
 | Comic CX | 1.4.1.1 | Mature |
