@@ -71,19 +71,21 @@ class MangaBoxInterceptor extends PaperbackInterceptor {
 
   override async interceptRequest(request: Request): Promise<Request> {
     const baseUrl = this.getBaseUrl();
-    // Set defaults FIRST, then let any per-request headers win by spreading
-    // them LAST. The chapters JSON API 403s unless it receives
-    // `accept: application/json` + `x-requested-with`, which getChapters sets;
-    // spreading request.headers first (then overriding accept) would clobber
-    // those and break the chapter list.
+    const incoming = request.headers ?? {};
+    // CF-critical headers (user-agent/referer/origin/accept-language) must be
+    // forced LAST so they always match the Cloudflare clearance cookie -
+    // letting a caller's user-agent win breaks the bypass. But the chapters
+    // JSON API needs `accept: application/json` + `x-requested-with`, so seed
+    // a default `accept` first and let the caller's accept/x-requested-with
+    // override it before the CF headers are pinned.
     request.headers = {
+      accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      ...incoming,
       referer: `${baseUrl}/`,
       origin: baseUrl,
       "user-agent": await Application.getDefaultUserAgent(),
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.5",
-      ...request.headers,
     };
     return request;
   }
