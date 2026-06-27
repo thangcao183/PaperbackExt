@@ -156,7 +156,7 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (32)
+### ✅ Tested (33)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -167,6 +167,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | Flame Comics | 1.4.49.3 | Everyone |
 | Gourmet Scans | 1.4.51.7 | Mature |
 | HentaiNexus | 1.4.17.2 | Mature |
+| Hiperdex | 1.4.80.2 | Mature |
 | LikeManga | 1.4.8.1 | Everyone |
 | Lily Manga | 1.4.58.4 | Mature |
 | Mangadotnet | 1.4.11.2 | Mature |
@@ -201,7 +202,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (389)
+### 🧪 Not yet tested (388)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -319,7 +320,6 @@ These need an account or credentials I don’t have.
 | Hentara | 1.4.3.1 | Mature |
 | HeyToon | 1.4.1.1 | Mature |
 | Hijala Scans | 1.4.23.1 | Everyone |
-| Hiperdex | 1.4.80.2 | Mature |
 | Hive Scans | 1.4.65.1 | Everyone |
 | Hiveworks Comics | 1.4.12.1 | Everyone |
 | HM2D | 1.4.53.2 | Mature |
