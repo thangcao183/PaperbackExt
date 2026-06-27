@@ -156,7 +156,7 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (35)
+### ✅ Tested (36)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -185,6 +185,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | ManhuaFast | 1.4.55.2 | Mature |
 | Manhwa18 | 1.4.13.1 | Mature |
 | Omega Scans | 1.4.50.1 | Mature |
+| Read Comics Online | 1.4.14.1 | Everyone |
 | ReadComicOnline | 1.4.43.13 | Everyone |
 | Rinko Comics | 1.4.2.1 | Everyone |
 | TCB Scans | 1.4.12.1 | Everyone |
@@ -204,7 +205,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (386)
+### 🧪 Not yet tested (385)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -500,7 +501,6 @@ These need an account or credentials I don’t have.
 | Read Black Clover Manga Online | 1.4.8.1 | Everyone |
 | Read Boku no Hero Academia My Hero Academia Manga | 1.4.10.1 | Everyone |
 | Read Chainsaw Man Manga Online | 1.4.9.1 | Mature |
-| Read Comics Online | 1.4.14.1 | Everyone |
 | Read Fairy Tail & Edens Zero Manga Online | 1.4.9.1 | Everyone |
 | Read Jujutsu Kaisen Manga Online | 1.4.9.1 | Everyone |
 | Read Kingdom Manga Online | 1.4.8.1 | Everyone |
