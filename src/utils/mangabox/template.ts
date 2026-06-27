@@ -349,41 +349,35 @@ export class MangaBoxExtension implements MangaBoxImplementation {
     const chapters: Chapter[] = [];
     const seen = new Set<string>();
 
-    // Try the JSON API first (fast, paginated).
-    let offset = 0;
-    const limit = 1000;
-    let hasMore = true;
-    let guard = 0;
+    // Fetch all chapters in one request (limit=-1 returns all, matching
+    // upstream keiyoushi behavior).
+    const url = new URLBuilder(this.baseUrl)
+      .addPath("api")
+      .addPath("manga")
+      .addPath(slug)
+      .addPath("chapters")
+      .addQuery("limit", -1)
+      .build();
 
-    while (hasMore && guard < 50) {
-      guard++;
-      const url = new URLBuilder(this.baseUrl)
-        .addPath("api")
-        .addPath("manga")
-        .addPath(slug)
-        .addPath("chapters")
-        .addQuery("limit", limit)
-        .addQuery("offset", offset)
-        .build();
+    let json: MangaBoxApiResponse | undefined;
+    try {
+      json = await this.fetchJson<MangaBoxApiResponse>({
+        url,
+        method: "GET",
+        headers: {
+          accept: "application/json, text/plain, */*",
+          "x-requested-with": "XMLHttpRequest",
+          referer: new URLBuilder(this.baseUrl)
+            .addPath("manga")
+            .addPath(slug)
+            .build(),
+        },
+      });
+    } catch {
+      // API blocked — fall through to webview fallback
+    }
 
-      let json: MangaBoxApiResponse;
-      try {
-        json = await this.fetchJson<MangaBoxApiResponse>({
-          url,
-          method: "GET",
-          headers: {
-            accept: "application/json, text/plain, */*",
-            "x-requested-with": "XMLHttpRequest",
-            referer: new URLBuilder(this.baseUrl)
-              .addPath("manga")
-              .addPath(slug)
-              .build(),
-          },
-        });
-      } catch {
-        break;
-      }
-
+    if (json) {
       const list = json.data?.chapters ?? [];
       for (const c of list) {
         const chapterSlug = c.chapter_slug ?? "";
@@ -403,9 +397,6 @@ export class MangaBoxExtension implements MangaBoxImplementation {
           langCode: this.langCode,
         });
       }
-
-      hasMore = json.data?.pagination?.hasMore === true && list.length > 0;
-      offset += limit;
     }
 
     // Fallback: if the API returned nothing (403/blocked), load the manga
@@ -434,7 +425,7 @@ export class MangaBoxExtension implements MangaBoxImplementation {
       .addPath("manga")
       .addPath(slug)
       .addPath("chapters")
-      .addQuery("limit", 2000)
+      .addQuery("limit", -1)
       .addQuery("offset", 0)
       .build();
 
