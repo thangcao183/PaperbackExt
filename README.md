@@ -370,7 +370,7 @@ These need an account or credentials I don’t have.
 | Manga18Free | 1.4.52.2 | Mature |
 | Manga18fx | 1.4.56.2 | Mature |
 | Mangabat | 1.4.20.1 | Mature |
-| MangaBlaze | 1.4.51.2 | Everyone |
+| MangaBlaze | 1.4.51.3 | Everyone |
 | MangaBolt | 1.4.1.1 | Everyone |
 | MangaBTT | 1.4.5.1 | Mature |
 | Mangack | 1.4.2.1 | Everyone |

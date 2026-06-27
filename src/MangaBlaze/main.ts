@@ -1,75 +1,134 @@
-import { Chapter, ContentRating, SourceManga } from "@paperback/types";
+import {
+  ContentRating,
+  DiscoverSection,
+  DiscoverSectionItem,
+  Metadata,
+  PagedResults,
+  SearchQuery,
+  SearchResultItem,
+  SortingOption,
+} from "@paperback/types";
 import { MadaraExtension } from "../utils/madara/template";
-import { URLBuilder } from "../utils/url-builder/base";
 
+interface MangaBlazeMetadata {
+  page?: number;
+  collectedIds?: string[];
+  searchCollectedIds?: string[];
+}
+
+// MangaBlaze runs the bespoke "UTOON-ZAX" theme rather than a stock Madara
+// layout (keiyoushi PR #16971). Browse, search and detail markup all differ
+// from the framework defaults, so discover + search are overridden here while
+// detail selectors and the chapter list (standard `wp-manga-chapter` markup
+// served by `ajax/chapters`) are handled by the base class via config.
 class MangaBlazeExtension extends MadaraExtension {
-  // Upstream `chapterFromElement`: the list element itself is the anchor
-  // (`a.nxv3-card`), the chapter URL is the element's own href (no
-  // `?style=list` suffix), and the title comes from a nested
-  // `.zax-chapter-title` span rather than the anchor's own text.
-  // Upstream defines no chapter date, so dates default to the epoch.
-  override async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
-    const mangaId = sourceManga.mangaId;
-    const mangaUrl = new URLBuilder(this.baseUrl)
-      .addPath(this.mangaSubString)
-      .addPath(mangaId)
-      .build();
-
-    let $ = await this.fetchCheerio({ url: mangaUrl, method: "GET" });
-    let chapterElements = $(this.chapterListSelector);
-
-    if (chapterElements.length === 0) {
-      try {
-        const ajax = await this.fetchCheerio({
-          url: `${mangaUrl}/ajax/chapters`,
-          method: "POST",
-          headers: {
-            "content-type": "application/x-www-form-urlencoded",
-            referer: `${mangaUrl}/`,
-            "x-requested-with": "XMLHttpRequest",
-          },
-        });
-        if (ajax(this.chapterListSelector).length > 0) {
-          $ = ajax;
-          chapterElements = ajax(this.chapterListSelector);
-        }
-      } catch {
-        // ignore, fall through with whatever we have
-      }
+  override async getDiscoverSectionItems(
+    section: DiscoverSection,
+    metadata: Metadata | undefined,
+  ): Promise<PagedResults<DiscoverSectionItem>> {
+    if (
+      section.id !== "popular_section" &&
+      section.id !== "latest_section"
+    ) {
+      return { items: [] };
     }
 
-    const chapters: Chapter[] = [];
-    chapterElements.each((_, element) => {
+    const meta = metadata as MangaBlazeMetadata | undefined;
+    const page = meta?.page ?? 1;
+    const collectedIds = meta?.collectedIds ?? [];
+
+    const orderby = section.id === "popular_section" ? "popular" : "new";
+    const itemType =
+      section.id === "popular_section"
+        ? ("featuredCarouselItem" as const)
+        : ("simpleCarouselItem" as const);
+
+    const url =
+      `${this.baseUrl}/${this.mangaSubString}/` +
+      (page > 1 ? `page/${page}/` : "") +
+      `?orderby=${orderby}`;
+    const $ = await this.fetchCheerio({ url, method: "GET" });
+
+    const items: DiscoverSectionItem[] = [];
+    $("a.acard").each((_, element) => {
       const el = $(element);
-      // The element is itself the `<a>` (a.nxv3-card).
       const href = el.attr("href") || "";
-      if (!href) return;
+      const title =
+        el.find(".ac-t").first().text().trim() ||
+        el.find(".ac-img img").first().attr("alt") ||
+        "";
+      const image = this.imageFromElement(el.find(".ac-img img").first());
+      const mangaId = this.parseMangaId(href);
 
-      const chapterTitle = el.find(".zax-chapter-title").first().text().trim();
-      const chapterId = this.parseChapterId(href, mangaId);
-      if (!chapterId) return;
-
-      let chapNum = 0;
-      const numMatch = chapterTitle.match(/chapter[.\s-]*(\d+(?:\.\d+)?)/i);
-      if (numMatch) {
-        chapNum = parseFloat(numMatch[1]);
-      } else {
-        const slugMatch = chapterId.match(/chapter-(\d+(?:[.-]\d+)?)/i);
-        if (slugMatch) chapNum = parseFloat(slugMatch[1].replace("-", "."));
+      if (title && mangaId && image && !collectedIds.includes(mangaId)) {
+        collectedIds.push(mangaId);
+        items.push({
+          type: itemType,
+          mangaId,
+          imageUrl: image,
+          title,
+          metadata: undefined,
+        });
       }
-
-      chapters.push({
-        chapterId,
-        sourceManga,
-        title: chapterTitle,
-        volume: 0,
-        chapNum,
-        publishDate: new Date(0),
-        langCode: this.langCode,
-      });
     });
 
-    return chapters;
+    const hasNextPage = $(".pager span.on + a").length > 0;
+
+    return {
+      items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
+    };
+  }
+
+  override async getSearchResults(
+    query: SearchQuery<Metadata>,
+    metadata: Metadata | undefined,
+    _sortingOption?: SortingOption | undefined,
+  ): Promise<PagedResults<SearchResultItem>> {
+    const meta = metadata as MangaBlazeMetadata | undefined;
+    const page = meta?.page ?? 1;
+    const collectedIds = meta?.searchCollectedIds ?? [];
+    const titleQuery = (query.title || "").trim();
+
+    const url =
+      `${this.baseUrl}/` +
+      (page > 1 ? `page/${page}/` : "") +
+      `?s=${encodeURIComponent(titleQuery)}&post_type=wp-manga`;
+    const $ = await this.fetchCheerio({ url, method: "GET" });
+
+    const results: SearchResultItem[] = [];
+    $("a.acard").each((_, element) => {
+      const el = $(element);
+      const href = el.attr("href") || "";
+      const title =
+        el.find(".ac-t").first().text().trim() ||
+        el.find(".ac-img img").first().attr("alt") ||
+        "";
+      const image = this.imageFromElement(el.find(".ac-img img").first());
+      const mangaId = this.parseMangaId(href);
+
+      if (title && mangaId && image && !collectedIds.includes(mangaId)) {
+        collectedIds.push(mangaId);
+        results.push({
+          mangaId,
+          imageUrl: image,
+          title,
+          subtitle: undefined,
+          metadata: undefined,
+        });
+      }
+    });
+
+    const hasNextPage = $(".pager span.on + a").length > 0;
+    const reachedPageLimit = page >= MadaraExtension.MAX_SEARCH_PAGES;
+
+    return {
+      items: results,
+      metadata:
+        hasNextPage && !reachedPageLimit
+          ? { page: page + 1, searchCollectedIds: collectedIds }
+          : undefined,
+    };
   }
 }
 
@@ -79,14 +138,13 @@ export const MangaBlaze = new MangaBlazeExtension({
   useNewChapterEndpoint: true,
   contentRating: ContentRating.EVERYONE,
   langCode: "🇬🇧",
-  mangaDetailsDescriptionSelector: ".nbu-summary__body",
-  mangaDetailsThumbnailSelector: "img.nbu-hero__img",
-  mangaDetailsTitleSelector: "h1.nbu-hero__title, h1#nbu-hero-title",
-  popularMangaUrlSelector: "h3.x72-title a",
-  searchMangaUrlSelector: "h2.z8x-card__title a",
-  // Upstream `chapterListSelector()` override.
-  chapterListSelector: "a.nxv3-card:not(.zax-chapter-premium)",
-  // Upstream `chapterFromElement` uses the element href verbatim with no
-  // `?style=list` suffix, so chapter pages are opened without it.
-  chapterUrlSuffix: "",
+  // UTOON-ZAX detail-page selectors.
+  mangaDetailsTitleSelector: "h1.htitle",
+  mangaDetailsThumbnailSelector: ".poster img",
+  mangaDetailsDescriptionSelector: ".syn",
+  mangaDetailsStatusSelector: ".hinfo .hi.ok",
+  // The detail page embeds no chapters; they are loaded from `ajax/chapters`
+  // as standard Madara `wp-manga-chapter` markup. Premium chapters carry the
+  // `premium-block` class and are excluded.
+  chapterListSelector: "li.wp-manga-chapter:not(.premium-block)",
 });
