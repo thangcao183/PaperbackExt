@@ -439,20 +439,21 @@ export class MangaBoxExtension implements MangaBoxImplementation {
       .build();
 
     const inject = `
-      fetch(${JSON.stringify(apiUrl)}, {
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
+      (async function() {
+        try {
+          const r = await fetch(${JSON.stringify(apiUrl)}, {
+            credentials: 'include',
+            headers: {
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          });
+          const t = await r.text();
+          return t;
+        } catch(e) {
+          return JSON.stringify({error: e.message});
         }
-      })
-      .then(function(r) { return r.text(); })
-      .then(function(t) {
-        window.webkit.messageHandlers.Paperback.postMessage(t);
-      })
-      .catch(function(e) {
-        window.webkit.messageHandlers.Paperback.postMessage(JSON.stringify({error: e.message}));
-      });
+      })()
     `;
 
     try {
