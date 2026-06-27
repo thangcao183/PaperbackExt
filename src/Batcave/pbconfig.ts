@@ -4,7 +4,7 @@ export default {
   name: "BatCave",
   description:
     "BatCave - custom source (batcave.biz). Converted from keiyoushi.",
-  version: "1.4.6.3",
+  version: "1.4.6.4",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

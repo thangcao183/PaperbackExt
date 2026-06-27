@@ -451,15 +451,13 @@ export class BatCaveExtension implements BatCaveImplementation {
   private parsePath(href: string): string {
     const decoded = this.safeDecode(href);
     const cleaned = decoded.replace(/#.*$/, "");
+    // Match keiyoushi's setUrlWithoutDomain(absUrl("href")): store the path
+    // verbatim with no trailing-slash manipulation. BatCave hrefs are DLE
+    // article URLs ending in `.html`.
     const slug = cleaned.startsWith("http")
       ? cleaned.replace(/^https?:\/\/[^/]+\//, "")
       : cleaned.replace(/^\/+/, "");
-    // DLE news URLs end in `.html` and must NOT have a trailing slash.
-    // Other (category/section) paths need a trailing slash to avoid a 404.
-    const hasExtension = /\.[a-z0-9]+$/i.test(slug);
-    const normalized =
-      hasExtension || slug.endsWith("/") ? slug : slug + "/";
-    return this.toSafeId(normalized);
+    return this.toSafeId(slug);
   }
 
   private toSafeId(slug: string): string {
