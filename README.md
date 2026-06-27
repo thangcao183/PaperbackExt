@@ -156,7 +156,7 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (26)
+### ✅ Tested (27)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -177,6 +177,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | MangaPill | 1.4.9.1 | Mature |
 | ManhuaFast | 1.4.55.2 | Mature |
 | Omega Scans | 1.4.50.1 | Mature |
+| ReadComicOnline | 1.4.43.4 | Everyone |
 | Rinko Comics | 1.4.2.1 | Everyone |
 | TCB Scans | 1.4.12.1 | Everyone |
 | The Blank | 1.4.56.12 | Mature |
@@ -195,7 +196,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (395)
+### 🧪 Not yet tested (394)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -511,7 +512,6 @@ These need an account or credentials I don’t have.
 | Read Tokyo Ghoul Re & Tokyo Ghoul Manga Online | 1.4.11.1 | Everyone |
 | Read Vagabond Manga | 1.4.1.1 | Everyone |
 | ReadAllComics | 1.4.8.1 | Everyone |
-| ReadComicOnline | 1.4.43.4 | Everyone |
 | Real Life Comics | 1.4.3.1 | Everyone |
 | ReiManga | 1.4.1.1 | Mature |
 | Renascans | 1.4.23.1 | Everyone |
