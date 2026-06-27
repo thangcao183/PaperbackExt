@@ -420,7 +420,7 @@ export class MangaDemonExtension implements MangaDemonImplementation {
   }
 
   private mangaUrl(mangaId: string): string {
-    const slug = this.safeDecode(mangaId);
+    const slug = mangaId;
     if (slug.startsWith("http")) return slug;
     return `${BASE_URL}/${slug.replace(/^\/+/, "")}`;
   }
@@ -437,19 +437,21 @@ export class MangaDemonExtension implements MangaDemonImplementation {
   }
 
   private chapterUrl(chapterId: string): string {
-    const slug = this.safeDecode(chapterId);
+    const slug = chapterId;
     if (slug.startsWith("http")) return slug;
     return `${BASE_URL}/${slug.replace(/^\/+/, "")}`;
   }
 
   private parsePath(href: string): string {
-    // Source emits URL-encoded hrefs; decode first then re-normalise.
-    const decoded = this.safeDecode(href);
-    const cleaned = decoded.replace(/#.*$/, "").replace(/\/+$/, "");
+    // The site emits hrefs whose slugs are already percent-encoded (often
+    // multiply, e.g. `12%25252Dcenti`). The page only resolves with that
+    // EXACT literal, so preserve it verbatim - decoding/re-encoding here
+    // corrupts such slugs and yields a 404 (empty details + chapters).
+    const cleaned = href.replace(/#.*$/, "").replace(/\/+$/, "");
     const slug = cleaned.startsWith("http")
       ? cleaned.replace(/^https?:\/\/[^/]+\//, "")
       : cleaned.replace(/^\/+/, "");
-    return this.toSafeId(slug);
+    return slug;
   }
 
   private toSafeId(slug: string): string {
