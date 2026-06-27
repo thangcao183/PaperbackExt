@@ -438,28 +438,16 @@ export class MangaBoxExtension implements MangaBoxImplementation {
       .addQuery("offset", 0)
       .build();
 
-    const inject = `
-      (async function() {
-        try {
-          const r = await fetch(${JSON.stringify(apiUrl)}, {
-            credentials: 'include',
-            headers: {
-              'Accept': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest'
-            }
-          });
-          const t = await r.text();
-          return t;
-        } catch(e) {
-          return JSON.stringify({error: e.message});
-        }
-      })()
-    `;
+    // executeInWebView's inject must be a synchronous expression (Promises
+    // are NOT awaited). Load the API URL as the webview page source — the
+    // browser context has full CF state so it won't 403. Then the inject
+    // simply reads the page's text content (the JSON response body).
+    const inject = `document.body.innerText || document.body.textContent || ""`;
 
     try {
       const result = await Application.executeInWebView({
         source: {
-          html: "<html><head></head><body></body></html>",
+          html: `<html><head><meta http-equiv="refresh" content="0;url=${apiUrl}"></head><body></body></html>`,
           baseUrl: this.baseUrl,
           loadCSS: false,
           loadImages: false,
@@ -470,9 +458,8 @@ export class MangaBoxExtension implements MangaBoxImplementation {
 
       console.log(`[MangaBox] webview result type: ${typeof result.result}, len: ${String(result.result).length}`);
       const resultStr = String(result.result);
-      // Check for error response
-      if (resultStr.includes('"error"')) {
-        console.log(`[MangaBox] webview fetch error: ${resultStr.substring(0, 200)}`);
+      if (!resultStr || resultStr === "undefined" || resultStr.length < 10) {
+        console.log(`[MangaBox] webview returned empty/undefined`);
         return [];
       }
 
