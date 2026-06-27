@@ -330,7 +330,7 @@ export class MadThemeExtension implements MadThemeImplementation {
 
     const genres: string[] = [];
     $(".detail .meta > p > strong:contains(Genres) ~ a").each((_, el) => {
-      const g = $(el).text().trim();
+      const g = $(el).text().trim().replace(/[,;]+$/, "").trim();
       if (g) genres.push(g);
     });
 
@@ -340,7 +340,7 @@ export class MadThemeExtension implements MadThemeImplementation {
         id: "genres",
         title: "Genres",
         tags: genres.map((g) => ({
-          id: g.toLowerCase().replace(/\s+/g, "-"),
+          id: this.slugifyTag(g),
           title: g,
         })),
       });
@@ -502,6 +502,17 @@ export class MadThemeExtension implements MadThemeImplementation {
     } catch {
       return id;
     }
+  }
+
+  private slugifyTag(text: string): string {
+    // Paperback tag IDs must be alphanumeric or contain only
+    // ._-@()[]%?#+=/&: — strip anything else (e.g. trailing commas).
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9._\-@()[\]%?#+=/&:]/g, "")
+      .replace(/^-+|-+$/g, "");
   }
 
   private imageFromElement(img: Cheerio<Element>): string {
