@@ -156,7 +156,7 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (24)
+### ✅ Tested (25)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -177,6 +177,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | ManhuaFast | 1.4.55.2 | Mature |
 | Omega Scans | 1.4.50.1 | Mature |
 | Rinko Comics | 1.4.2.1 | Everyone |
+| TCB Scans | 1.4.12.1 | Everyone |
 | The Blank | 1.4.56.12 | Mature |
 | ToonGod | 1.4.56.9 | Mature |
 | Toonily | 1.4.65.2 | Mature |
@@ -193,7 +194,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (397)
+### 🧪 Not yet tested (396)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -545,7 +546,7 @@ These need an account or credentials I don’t have.
 | SUPER MEGA | 1.4.4.1 | Everyone |
 | Swords Comic | 1.4.5.1 | Everyone |
 | Tapas | 1.4.24.1 | Mature |
-| TCB Scans | 1.4.12.1 | Everyone |
+| Taroweb | 1.4.51.2 | Mature |
 | TCB Scans (Unoriginal) | 1.4.32.1 | Everyone |
 | Team Shadowi | 1.4.1.1 | Mature |
 | Temple Scan | 1.4.49.1 | Mature |
