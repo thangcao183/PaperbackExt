@@ -257,10 +257,7 @@ export class MangaBoxExtension implements MangaBoxImplementation {
       });
     });
 
-    const hasNextPage =
-      $(
-        "div.group_page a:not([href]) + a:not(:contains(Last)), div.group-page a:not([href]) + a:not(:contains(Last)), a.page_select + a:not(.page_last), a.page-select + a:not(.page-last)",
-      ).length > 0;
+    const hasNextPage = this.hasNextPageLink($);
     const reachedLimit = page >= MangaBoxExtension.MAX_SEARCH_PAGES;
 
     return {
@@ -286,28 +283,16 @@ export class MangaBoxExtension implements MangaBoxImplementation {
       $("div.manga-info-pic img, span.info-image img").first(),
     );
 
-    const author = info
-      .find("li:contains(author) a, td:containsOwn(author) + td a")
-      .map((_, el) => $(el).text().trim())
-      .get()
-      .filter((s) => s.length > 0)
-      .join(", ");
+    // The info block lists facts as either `<li>Label : value</li>` (old
+    // layout) or `<td>Label</td><td>value</td>` (table layout). jQuery
+    // pseudo-classes (`:contains`, `:containsOwn`, `:has`) are NOT supported
+    // by Paperback's CSS engine ("Unknown pseudo-class :containsown"), so
+    // match the label text in JS instead.
+    const author = this.infoRowLinks($, info, "author").join(", ");
 
-    const statusText = info
-      .find("li:contains(status), td:containsOwn(status) + td")
-      .first()
-      .text()
-      .trim();
+    const statusText = this.infoRowText($, info, "status");
 
-    const genres: string[] = [];
-    info
-      .find(
-        "div.manga-info-top li:contains(genres) a, td:containsOwn(genres) + td a",
-      )
-      .each((_, el) => {
-        const g = $(el).text().trim();
-        if (g) genres.push(g);
-      });
+    const genres = this.infoRowLinks($, info, "genres");
 
     const description = $(
       "div#noidungm, div#panel-story-info-description, div#contentBox",
@@ -316,11 +301,7 @@ export class MangaBoxExtension implements MangaBoxImplementation {
       .text()
       .trim();
 
-    const altName = $(
-      ".story-alternative, tr:has(.info-alternative) h2",
-    )
-      .first()
-      .text()
+    const altName = this.findAltName($)
       .replace(/alternative\s*:?/i, "")
       .trim();
 
@@ -472,6 +453,112 @@ export class MangaBoxExtension implements MangaBoxImplementation {
   // ----------------------------------------------------------------
   // Helpers
   // ----------------------------------------------------------------
+
+  /**
+   * Find an info row by its label (e.g. "author", "status", "genres") and
+   * return the text of each anchor inside it. Handles both the `<li>Label :
+   * <a>value</a></li>` layout and the `<td>Label</td><td><a>value</a></td>`
+   * table layout, matching the label in JS (Paperback's CSS engine rejects
+   * `:contains`/`:containsOwn`).
+   */
+  private infoRowLinks(
+    $: CheerioAPI,
+    info: Cheerio<Element>,
+    label: string,
+  ): string[] {
+    const out: string[] = [];
+    const want = label.toLowerCase();
+    info.find("li").each((_, el) => {
+      const row = $(el);
+      if (row.text().toLowerCase().includes(want)) {
+        row.find("a").each((__, a) => {
+          const t = $(a).text().trim();
+          if (t) out.push(t);
+        });
+      }
+    });
+    if (out.length === 0) {
+      info.find("td").each((_, el) => {
+        const cell = $(el);
+        if (cell.text().trim().toLowerCase().startsWith(want)) {
+          const next = cell.next("td");
+          const anchors = next.find("a");
+          if (anchors.length > 0) {
+            anchors.each((__, a) => {
+              const t = $(a).text().trim();
+              if (t) out.push(t);
+            });
+          } else {
+            const t = next.text().trim();
+            if (t) out.push(t);
+          }
+        }
+      });
+    }
+    return out.filter((s) => s.length > 0);
+  }
+
+  /** Like infoRowLinks but returns the row's plain text value (no anchors). */
+  private infoRowText(
+    $: CheerioAPI,
+    info: Cheerio<Element>,
+    label: string,
+  ): string {
+    const want = label.toLowerCase();
+    let value = "";
+    info.find("li").each((_, el) => {
+      if (value) return;
+      const row = $(el);
+      const text = row.text().trim();
+      if (text.toLowerCase().includes(want)) {
+        value = text.replace(new RegExp(`^[^:]*${want}[^:]*:?\\s*`, "i"), "").trim() || text;
+      }
+    });
+    if (!value) {
+      info.find("td").each((_, el) => {
+        if (value) return;
+        const cell = $(el);
+        if (cell.text().trim().toLowerCase().startsWith(want)) {
+          value = cell.next("td").text().trim();
+        }
+      });
+    }
+    return value;
+  }
+
+  /** Find the alternative-title text without using `:has()`. */
+  private findAltName($: CheerioAPI): string {
+    const direct = $(".story-alternative").first().text().trim();
+    if (direct) return direct;
+    let alt = "";
+    $("tr").each((_, el) => {
+      if (alt) return;
+      const row = $(el);
+      if (row.find(".info-alternative").length > 0) {
+        alt = row.find("h2").first().text().trim();
+      }
+    });
+    return alt;
+  }
+
+  /** Detect a "next page" pagination link without `:contains()`. */
+  private hasNextPageLink($: CheerioAPI): boolean {
+    let found = false;
+    $(
+      "div.group_page a, div.group-page a, a.page_select + a, a.page-select + a",
+    ).each((_, el) => {
+      if (found) return;
+      const a = $(el);
+      const text = a.text().trim().toLowerCase();
+      const cls = (a.attr("class") || "").toLowerCase();
+      // A usable "next" link points to another page and is not the
+      // first/last/selected control.
+      if (cls.includes("page_last") || cls.includes("page-last")) return;
+      if (text === "last" || text.includes("last")) return;
+      if (a.attr("href")) found = true;
+    });
+    return found;
+  }
 
   private eachListItem(
     $: CheerioAPI,
