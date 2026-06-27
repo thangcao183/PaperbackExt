@@ -124,6 +124,9 @@ export class MangaBoxExtension implements MangaBoxImplementation {
   readonly contentRating: ContentRating;
   readonly langCode: string;
 
+  /** CDN URLs extracted from the last chapter page load (primary + backup). */
+  _chapterCdns: string[] = [];
+
   static readonly MAX_SEARCH_PAGES = 5;
 
   get baseUrl(): string {
@@ -514,31 +517,60 @@ export class MangaBoxExtension implements MangaBoxImplementation {
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const pages: string[] = [];
 
-    // Preferred: cdns=[...] and chapterImages=[...] in a script tag.
+    // Preferred: cdns=[...], backupImage=[...], and chapterImages=[...] in
+    // a script tag. Mirrors keiyoushi's pageListParse which combines cdns +
+    // backupImage into a linked CDN set for fallback.
+    let allCdns: string[] = [];
+    let chapterImages: string[] = [];
+
     $("script").each((_, el) => {
+      if (chapterImages.length > 0) return; // already found
       const html = $(el).html() || "";
       if (!html.includes("cdns")) return;
-      const cdnsMatch = html.match(/cdns\s*=\s*(\[[^\]]*\])/);
-      const imagesMatch = html.match(/chapterImages\s*=\s*(\[[^\]]*\])/);
+      const cdnsMatch = html.match(/cdns\s*=\s*\[([^\]]*)\]/);
+      const backupMatch = html.match(/backupImage\s*=\s*\[([^\]]*)\]/);
+      const imagesMatch = html.match(/chapterImages\s*=\s*\[([^\]]*)\]/);
       if (!cdnsMatch || !imagesMatch) return;
-      let cdns: string[] = [];
-      let images: string[] = [];
       try {
-        cdns = JSON.parse(cdnsMatch[1]);
-        images = JSON.parse(imagesMatch[1]);
+        const cdns: string[] = JSON.parse(`[${cdnsMatch[1]}]`);
+        chapterImages = JSON.parse(`[${imagesMatch[1]}]`);
+        let backups: string[] = [];
+        if (backupMatch) {
+          backups = JSON.parse(`[${backupMatch[1]}]`);
+        }
+        // Combine all CDNs (primary + backup) — deduplicated, primary first.
+        for (const c of [...cdns, ...backups]) {
+          if (typeof c === "string" && c && !allCdns.includes(c)) {
+            allCdns.push(c);
+          }
+        }
       } catch {
-        return;
+        chapterImages = [];
+        allCdns = [];
       }
-      const cdn = cdns[0] || "";
-      for (const img of images) {
-        if (typeof img !== "string") continue;
+    });
+
+    if (chapterImages.length > 0 && allCdns.length > 0) {
+      // Determine the working CDN. Keiyoushi retries failed image requests
+      // against alternate CDNs via an OkHttp interceptor; Paperback can't
+      // retry from interceptors, so we probe CDNs upfront using the first
+      // image and pick the one that responds successfully.
+      const cdn = await this.pickWorkingCdn(allCdns, chapterImages[0]);
+      for (const img of chapterImages) {
+        if (typeof img !== "string" || !img) continue;
         if (img.startsWith("http")) {
           pages.push(img);
         } else if (cdn) {
-          pages.push(`${cdn}/${img}`);
+          // Proper URL construction matching keiyoushi's encodedPath():
+          // Extract the CDN origin (scheme + host + port) and replace
+          // its entire path with the image path.
+          const cdnOrigin = this.extractOrigin(cdn);
+          const path = img.startsWith("/") ? img : `/${img}`;
+          pages.push(`${cdnOrigin}${path}`);
         }
       }
-    });
+      this._chapterCdns = allCdns;
+    }
 
     // Fallback: plain image elements.
     if (pages.length === 0) {
@@ -761,6 +793,51 @@ export class MangaBoxExtension implements MangaBoxImplementation {
     } catch {
       return id;
     }
+  }
+
+  /**
+   * Extract origin (scheme + host + port) from a URL string.
+   * e.g. "https://cm.mangakakalot.gg/assets/img" → "https://cm.mangakakalot.gg"
+   * Matches keiyoushi's behavior of using encodedPath() which replaces the
+   * entire path of the CDN URL.
+   */
+  private extractOrigin(url: string): string {
+    const match = url.match(/^(https?:\/\/[^/]+)/i);
+    return match ? match[1] : url.replace(/\/+$/, "");
+  }
+
+  /**
+   * Probe CDNs with the first image to find one that responds successfully.
+   * Falls back to the first CDN if all probes fail (best-effort).
+   * Mirrors keiyoushi's MangaBoxLinkedCdnSet fallback behavior but done
+   * upfront since Paperback interceptors cannot retry requests.
+   */
+  private async pickWorkingCdn(
+    cdns: string[],
+    firstImage?: string,
+  ): Promise<string> {
+    if (cdns.length === 0) return "";
+    if (cdns.length === 1 || !firstImage || firstImage.startsWith("http")) {
+      return cdns[0];
+    }
+    const path = firstImage.startsWith("/") ? firstImage : `/${firstImage}`;
+    for (const cdn of cdns) {
+      const origin = this.extractOrigin(cdn);
+      const testUrl = `${origin}${path}`;
+      try {
+        const [response] = await Application.scheduleRequest({
+          url: testUrl,
+          method: "HEAD",
+        });
+        if (response.status >= 200 && response.status < 400) {
+          return cdn;
+        }
+      } catch {
+        // CDN unreachable, try next
+      }
+    }
+    // All probes failed — use first CDN as best effort
+    return cdns[0];
   }
 
   private imageFromElement(img: Cheerio<Element>): string {
