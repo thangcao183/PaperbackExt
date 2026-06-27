@@ -269,10 +269,26 @@ export class ReadComicOnlineExtension
       method: "GET",
     });
 
-    const info = $("div.barContent").first();
-    const title = info.find("a.bigChar").first().text().trim();
+    // The site serves two distinct layouts depending on the user-agent. The
+    // desktop layout (which keiyoushi targets) uses `div.barContent` with
+    // `a.bigChar` + `.rightBox img`. iOS user-agents (which Paperback uses)
+    // receive a mobile layout whose details live in `.col.info` / `.col.cover`
+    // with the title in the page heading. Detect and support both.
+    const desktopInfo = $("div.barContent").first();
+    const isDesktop = desktopInfo.length > 0;
+    const info = isDesktop ? desktopInfo : $(".col.info").first();
+
+    const title = isDesktop
+      ? info.find("a.bigChar").first().text().trim()
+      : $(".content .heading h3").first().text().trim();
+
     const thumbnailUrl = this.absoluteUrl(
-      $(".rightBox").first().find("img").first().attr("src") || "",
+      (isDesktop
+        ? $(".rightBox").first().find("img").first().attr("src")
+        : $(".col.cover").first().find("img").first().attr("src")) ||
+        $('link[rel="image_src"]').first().attr("href") ||
+        $('meta[property="og:image"]').first().attr("content") ||
+        "",
     );
 
     const author = this.summarizeList(this.infoLinks($, info, "Writer:"));
@@ -282,7 +298,7 @@ export class ReadComicOnlineExtension
 
     const descParts: string[] = [];
     const summaryP = this.infoParagraph($, info, "Summary:");
-    const summary = summaryP
+    let summary = summaryP
       ? summaryP
           .nextAll("p")
           .toArray()
@@ -290,6 +306,17 @@ export class ReadComicOnlineExtension
           .filter((t) => t.length > 0)
           .join("\n\n")
       : "";
+    // Mobile layout has no "Summary:" label; the synopsis is a bare paragraph
+    // in the `.section.group` block that follows the `.col.info` block.
+    if (!summary && !isDesktop) {
+      summary = $(".col.info")
+        .first()
+        .closest(".section.group")
+        .nextAll(".section.group")
+        .first()
+        .text()
+        .trim();
+    }
     if (summary) descParts.push(summary);
     const publisher = this.infoParagraph($, info, "Publisher:")
       ?.text()
@@ -339,27 +366,51 @@ export class ReadComicOnlineExtension
     });
 
     const chapters: Chapter[] = [];
-    // `tr:gt(1)` / `td:eq(1)` are jQuery pseudo-classes unsupported by
-    // Paperback's CSS engine; select all rows and slice/index in JS.
-    const allRows = $("table.listing tr").toArray();
-    const rows = allRows.slice(2);
-    rows.forEach((row, index) => {
-      const link = $(row).find("a").first();
-      const href = link.attr("href") || "";
-      if (!href) return;
-      const name = link.text().trim();
-      const dateText = $(row).find("td").eq(1).text().trim();
-      const parsedNum = this.parseChapterNumber(name);
-      chapters.push({
-        chapterId: this.parsePath(href),
-        sourceManga,
-        title: name,
-        volume: 0,
-        chapNum: parsedNum >= 0 ? parsedNum : rows.length - index,
-        publishDate: this.parseDate(dateText),
-        langCode: "🇬🇧",
+    // Desktop layout lists chapters in `table.listing`; the mobile layout
+    // (served to iOS user-agents) uses `ul.list > li` with `.col-1 a` (link)
+    // and `.col-2 span` (date). Support both.
+    const tableRows = $("table.listing tr").toArray();
+    if (tableRows.length > 0) {
+      // `tr:gt(1)` / `td:eq(1)` are jQuery pseudo-classes unsupported by
+      // Paperback's CSS engine; select all rows and slice/index in JS.
+      const rows = tableRows.slice(2);
+      rows.forEach((row, index) => {
+        const link = $(row).find("a").first();
+        const href = link.attr("href") || "";
+        if (!href) return;
+        const name = link.text().trim();
+        const dateText = $(row).find("td").eq(1).text().trim();
+        const parsedNum = this.parseChapterNumber(name);
+        chapters.push({
+          chapterId: this.parsePath(href),
+          sourceManga,
+          title: name,
+          volume: 0,
+          chapNum: parsedNum >= 0 ? parsedNum : rows.length - index,
+          publishDate: this.parseDate(dateText),
+          langCode: "🇬🇧",
+        });
       });
-    });
+    } else {
+      const rows = $("ul.list > li").toArray();
+      rows.forEach((row, index) => {
+        const link = $(row).find(".col-1 a").first();
+        const href = link.attr("href") || "";
+        if (!href) return;
+        const name = link.text().trim();
+        const dateText = $(row).find(".col-2").first().text().trim();
+        const parsedNum = this.parseChapterNumber(name);
+        chapters.push({
+          chapterId: this.parsePath(href),
+          sourceManga,
+          title: name,
+          volume: 0,
+          chapNum: parsedNum >= 0 ? parsedNum : rows.length - index,
+          publishDate: this.parseDate(dateText),
+          langCode: "🇬🇧",
+        });
+      });
+    }
     return chapters;
   }
 

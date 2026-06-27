@@ -511,7 +511,7 @@ These need an account or credentials I don’t have.
 | Read Tokyo Ghoul Re & Tokyo Ghoul Manga Online | 1.4.11.1 | Everyone |
 | Read Vagabond Manga | 1.4.1.1 | Everyone |
 | ReadAllComics | 1.4.8.1 | Everyone |
-| ReadComicOnline | 1.4.43.1 | Everyone |
+| ReadComicOnline | 1.4.43.4 | Everyone |
 | Real Life Comics | 1.4.3.1 | Everyone |
 | ReiManga | 1.4.1.1 | Mature |
 | Renascans | 1.4.23.1 | Everyone |
