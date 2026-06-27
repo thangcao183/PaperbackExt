@@ -390,7 +390,7 @@ These need an account or credentials I don’t have.
 | MangaKa | 1.4.51.2 | Everyone |
 | Mangakakalot | 1.4.21.1 | Mature |
 | Mangakakalot.fun | 1.4.35.4 | Mature |
-| MangaKatana | 1.4.12.1 | Mature |
+| MangaKatana | 1.4.12.2 | Mature |
 | MangaManiacs | 1.4.51.2 | Mature |
 | Mangamo | 1.4.7.1 | Everyone |
 | Manganato | 1.4.18.1 | Mature |

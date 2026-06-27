@@ -180,7 +180,16 @@ export class MangaKatanaExtension implements MangaKatanaImplementation {
     )?.searchMeta;
 
     const url = this.buildSearchUrl(titleQuery, searchMeta, page);
-    const $ = await this.fetchCheerio({ url, method: "GET" });
+
+    // MangaKatana returns HTTP 404 for searches that match nothing
+    // (e.g. single-character queries while the user is still typing).
+    // Treat that as an empty result set rather than surfacing an error.
+    let $: CheerioAPI;
+    try {
+      $ = await this.fetchCheerio({ url, method: "GET" });
+    } catch {
+      return { items: [], metadata: undefined };
+    }
 
     // A text search may redirect straight to a single manga detail page.
     if ($("div#book_list").length === 0 && $("h1.heading").length > 0) {
