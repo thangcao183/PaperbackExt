@@ -482,8 +482,15 @@ export class MangaBoxExtension implements MangaBoxImplementation {
     ).each((_, element) => {
       const unit = $(element);
       const link = unit.find("h3 a").first();
-      const href =
-        (link.attr("href") || unit.find("a").first().attr("href")) ?? "";
+      const anchor = link.length > 0 ? link : unit.find("a").first();
+      const href = (anchor.attr("href") || "").trim();
+      // Skip injected advertisements: they sit in the same list-item wrappers
+      // but link off-site (e.g. bit.ly) and open in a new tab
+      // (target="_blank"/rel="sponsored"). Real entries link to an on-site
+      // manga path on the source's own host.
+      if (this.isExternalOrAdLink(href, anchor.attr("target"), anchor.attr("rel"))) {
+        return;
+      }
       const title = (link.text() || unit.find("a").first().attr("title") || "")
         .trim();
       const mangaId = this.parseMangaId(href);
@@ -491,6 +498,33 @@ export class MangaBoxExtension implements MangaBoxImplementation {
       cb(mangaId, title, image);
     });
   }
+
+  /**
+   * True when a list-item link is an injected ad rather than a manga entry:
+   * an off-site host, a `target="_blank"` pop-out, or a sponsored `rel`.
+   */
+  private isExternalOrAdLink(
+    href: string,
+    target: string | undefined,
+    rel: string | undefined,
+  ): boolean {
+    if (!href) return true;
+    if (target && target.toLowerCase() === "_blank") return true;
+    if (rel && /sponsored|nofollow/i.test(rel)) return true;
+    if (/^https?:\/\//i.test(href)) {
+      const hostMatch = href.match(/^https?:\/\/([^/]+)/i);
+      const linkHost = (hostMatch?.[1] ?? "").toLowerCase();
+      const baseHost = this.baseUrl
+        .replace(/^https?:\/\//i, "")
+        .replace(/\/.*$/, "")
+        .toLowerCase();
+      // Compare registrable host loosely (ignore leading "www.").
+      const strip = (h: string) => h.replace(/^www\./, "");
+      if (linkHost && strip(linkHost) !== strip(baseHost)) return true;
+    }
+    return false;
+  }
+
 
   private normalizeSearchQuery(query: string): string {
     return query
