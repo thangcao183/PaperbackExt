@@ -4,7 +4,7 @@ export default {
   name: "VIZ",
   description:
     "VIZ - official manga reader source (viz.com). Converted from keiyoushi.",
-  version: "1.4.25.5",
+  version: "1.4.25.6",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

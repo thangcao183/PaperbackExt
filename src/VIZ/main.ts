@@ -31,10 +31,13 @@ import * as htmlparser2 from "htmlparser2";
 import { descrambleViz } from "../utils/descramble/canvas";
 
 const BASE_URL = "https://www.viz.com";
-// VizFactory exposes two services ("shonenjump" and "vizmanga"); this standalone
-// ports the broader "vizmanga" catalog.
-const SERVICE_PATH = "vizmanga";
-const FREE_CHAPTERS_URL = `${BASE_URL}/read/${SERVICE_PATH}/section/free-chapters`;
+// VizFactory exposes two services ("shonenjump" and "vizmanga"). The "vizmanga"
+// free-chapters section now redirects to the geo-gated landing page (returns no
+// chapters), so this standalone ports the working "shonenjump" catalog.
+const SERVICE_PATH = "shonenjump";
+// VIZ moved the section listing from /read/ to /manga-books/. Manga detail and
+// chapter pages still live at /<service>/chapters/... (no manga-books prefix).
+const FREE_CHAPTERS_URL = `${BASE_URL}/manga-books/${SERVICE_PATH}/section/free-chapters`;
 
 // Endpoint that returns the (short-lived) signed URL of the scrambled page image.
 const IMAGE_URL_ENDPOINT = "get_manga_url";
@@ -215,7 +218,17 @@ export class VIZExtension implements VIZImplementation {
   private async fetchSeriesList(): Promise<
     { mangaId: string; title: string; imageUrl: string }[]
   > {
-    const $ = await this.fetchCheerio({ url: FREE_CHAPTERS_URL, method: "GET" });
+    const [response, data] = await Application.scheduleRequest({
+      url: FREE_CHAPTERS_URL,
+      method: "GET",
+    });
+    // VIZ redirects the free-chapters section to the landing page when the
+    // service/region isn't supported. Mirrors keiyoushi's COUNTRY_NOT_SUPPORTED.
+    if (!response.url.includes("section/free-chapters")) {
+      throw new Error("Your country is not supported by the service.");
+    }
+    const htmlStr = Application.arrayBufferToUTF8String(data);
+    const $ = cheerio.load(htmlparser2.parseDocument(htmlStr));
 
     const out: { mangaId: string; title: string; imageUrl: string }[] = [];
     const seen = new Set<string>();
