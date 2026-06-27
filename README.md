@@ -156,7 +156,7 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (29)
+### ✅ Tested (30)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -176,6 +176,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | MangaHub | 1.4.45.4 | Mature |
 | MangaKatana | 1.4.12.2 | Mature |
 | Mangakakalot | 1.4.21.13 | Mature |
+| Mangafreak | 1.4.13.1 | Mature |
 | MangaPill | 1.4.9.1 | Mature |
 | ManhuaFast | 1.4.55.2 | Mature |
 | Omega Scans | 1.4.50.1 | Mature |
@@ -198,7 +199,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (392)
+### 🧪 Not yet tested (391)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -383,7 +384,6 @@ These need an account or credentials I don’t have.
 | Mangaforfree.com | 1.4.53.2 | Mature |
 | MangaFox | 1.4.9.1 | Mature |
 | MangaFox.fun | 1.4.35.4 | Mature |
-| Mangafreak | 1.4.13.1 | Mature |
 | Mangafree | 1.4.51.2 | Mature |
 | MangaGeko | 1.4.32.1 | Mature |
 | MangaGG | 1.4.54.2 | Mature |
