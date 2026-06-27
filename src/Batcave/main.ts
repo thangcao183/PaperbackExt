@@ -83,12 +83,20 @@ class BatCaveInterceptor extends PaperbackInterceptor {
         },
       });
     }
-    // DLE anti-bot guard: protected requests are redirected to a `/_c` path.
-    // Matches keiyoushi's interceptor which throws to prompt a WebView bypass.
+    // DLE anti-bot guard (two variants):
+    //  1. Older behaviour: the protected request is redirected to a `/_c` path.
+    //  2. Current behaviour: the site serves an HTTP 404 whose body is a
+    //     proof-of-work challenge page (a spinner + inline JS that computes a
+    //     SHA-256 PoW, POSTs it to `/_v`, then redirects to the real page).
+    //     There is NO `cf-mitigated` header and the URL is not rewritten, so it
+    //     must be detected by inspecting the response body.
     const finalPath = (response.url || request.url)
       .replace(/^https?:\/\/[^/]+/, "")
       .replace(/^\/+/, "");
-    if (finalPath.split("/")[0] === "_c") {
+    const isChallenge =
+      finalPath.split("/")[0] === "_c" ||
+      this.isDleChallengeBody(response, data);
+    if (isChallenge) {
       throw new CloudflareError({
         url: request.url,
         method: request.method ?? "GET",
@@ -98,6 +106,24 @@ class BatCaveInterceptor extends PaperbackInterceptor {
       });
     }
     return data;
+  }
+
+  /**
+   * Detect the DLE proof-of-work interstitial. It is a tiny HTML document
+   * (~11 KB) that always POSTs the solved challenge to `/_v` and carries a
+   * `token` PoW variable. We only inspect small HTML responses to avoid
+   * scanning full manga/reader pages.
+   */
+  private isDleChallengeBody(response: Response, data: ArrayBuffer): boolean {
+    const contentType = response.headers?.["content-type"] ?? "";
+    if (contentType && !contentType.includes("text/html")) return false;
+    // The interstitial is tiny; real pages are far larger.
+    if (data.byteLength > 64 * 1024) return false;
+    const body = Application.arrayBufferToUTF8String(data);
+    return (
+      body.includes('"POST", "/_v"') ||
+      (body.includes("pow_nonce") && body.includes("pow_hash"))
+    );
   }
 }
 
