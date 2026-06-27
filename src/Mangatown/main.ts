@@ -126,8 +126,9 @@ export class MangatownExtension implements MangatownImplementation {
 
     const items: DiscoverSectionItem[] = [];
     const seen = new Set<string>();
-    $("li:has(a.manga_cover)").each((_, element) => {
+    $("li").each((_, element) => {
       const el = $(element);
+      if (el.find("a.manga_cover").length === 0) return;
       const parsed = this.itemFromElement($, el);
       if (!parsed) return;
       if (seen.has(parsed.mangaId)) return;
@@ -171,8 +172,9 @@ export class MangatownExtension implements MangatownImplementation {
 
     const results: SearchResultItem[] = [];
     const seen = new Set<string>();
-    $("li:has(a.manga_cover)").each((_, element) => {
+    $("li").each((_, element) => {
       const el = $(element);
+      if (el.find("a.manga_cover").length === 0) return;
       const parsed = this.itemFromElement($, el);
       if (!parsed) return;
       if (seen.has(parsed.mangaId)) return;
@@ -219,22 +221,28 @@ export class MangatownExtension implements MangatownImplementation {
     const info = $("div.article_content");
 
     const title = info.find("h1").first().text().trim() || this.safeDecode(mangaId);
-    const author = info.find("b:containsOwn(author) + a").first().text().trim();
-    const artist = info.find("b:containsOwn(artist) + a").first().text().trim();
+    const author = this.textAfterLabel($, info, "author");
+    const artist = this.textAfterLabel($, info, "artist");
 
-    const licensed =
-      info.find("div.chapter_content:contains(has been licensed)").length > 0;
-    const statusText = info
-      .find("li:has(b:containsOwn(status))")
-      .first()
-      .text();
+    let licensed = false;
+    info.find("div.chapter_content").each((_, el) => {
+      if ($(el).text().toLowerCase().includes("has been licensed")) {
+        licensed = true;
+      }
+    });
+    const statusText = this.liTextForLabel($, info, "status");
     const status = licensed ? "Cancelled" : this.parseStatus(statusText);
 
-    const genres = info
-      .find("li:has(b:containsOwn(genre)) a")
-      .map((_, el) => $(el).text().trim())
-      .get()
-      .filter((g) => g.length > 0);
+    const genres: string[] = [];
+    info.find("li").each((_, li) => {
+      const $li = $(li);
+      const label = $li.find("b").first().text().toLowerCase();
+      if (!label.includes("genre")) return;
+      $li.find("a").each((_i, a) => {
+        const g = $(a).text().trim();
+        if (g.length > 0) genres.push(g);
+      });
+    });
 
     const synopsis = $("span#show")
       .first()
@@ -324,9 +332,13 @@ export class MangatownExtension implements MangatownImplementation {
 
     const pageUrls: string[] = [];
     $(
-      "select#top_chapter_list ~ div.page_select option:not(:contains(featured))",
+      "select#top_chapter_list ~ div.page_select option",
     ).each((_, element) => {
-      const value = $(element).attr("value") || "";
+      const $el = $(element);
+      // Skip the "Featured" option (jsoup used :not(:contains(featured)),
+      // unsupported by Paperback's CSS engine).
+      if ($el.text().toLowerCase().includes("featured")) return;
+      const value = $el.attr("value") || "";
       if (!value) return;
       const pageUrl = value.startsWith("http")
         ? value
@@ -361,6 +373,39 @@ export class MangatownExtension implements MangatownImplementation {
   // ----------------------------------------------------------------
   // Helpers
   // ----------------------------------------------------------------
+
+  // Replaces jsoup `b:containsOwn(label) + a` (Paperback's CSS engine
+  // does not support the :containsOwn pseudo-class). Finds the <b> whose
+  // own text contains `label`, then returns the text of the following <a>.
+  private textAfterLabel(
+    $: CheerioAPI,
+    info: Cheerio<AnyNode>,
+    label: string,
+  ): string {
+    let result = "";
+    info.find("b").each((_, b) => {
+      if (result) return;
+      if (!$(b).text().toLowerCase().includes(label)) return;
+      result = $(b).next("a").first().text().trim();
+    });
+    return result;
+  }
+
+  // Replaces jsoup `li:has(b:containsOwn(label))`. Returns the full text
+  // of the first <li> whose <b> own-text contains `label`.
+  private liTextForLabel(
+    $: CheerioAPI,
+    info: Cheerio<AnyNode>,
+    label: string,
+  ): string {
+    let result = "";
+    info.find("li").each((_, li) => {
+      if (result) return;
+      const labelText = $(li).find("b").first().text().toLowerCase();
+      if (labelText.includes(label)) result = $(li).text();
+    });
+    return result;
+  }
 
   private mangaUrl(mangaId: string): string {
     const slug = this.safeDecode(mangaId);
