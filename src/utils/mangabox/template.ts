@@ -438,16 +438,29 @@ export class MangaBoxExtension implements MangaBoxImplementation {
       .addQuery("offset", 0)
       .build();
 
-    // executeInWebView's inject must be a synchronous expression (Promises
-    // are NOT awaited). Load the API URL as the webview page source — the
-    // browser context has full CF state so it won't 403. Then the inject
-    // simply reads the page's text content (the JSON response body).
-    const inject = `document.body.innerText || document.body.textContent || ""`;
+    // executeInWebView inject must be synchronous. Use a synchronous XHR
+    // (deprecated but functional in webviews) to fetch the API from within
+    // the browser context where Cloudflare passes.
+    const inject = `
+(function() {
+  try {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', ${JSON.stringify(apiUrl)}, false);
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.send(null);
+    if (xhr.status === 200) return xhr.responseText;
+    return JSON.stringify({error: 'status ' + xhr.status});
+  } catch(e) {
+    return JSON.stringify({error: e.message});
+  }
+})()
+    `.trim();
 
     try {
       const result = await Application.executeInWebView({
         source: {
-          html: `<html><head><meta http-equiv="refresh" content="0;url=${apiUrl}"></head><body></body></html>`,
+          html: "<html><head></head><body></body></html>",
           baseUrl: this.baseUrl,
           loadCSS: false,
           loadImages: false,
@@ -460,6 +473,10 @@ export class MangaBoxExtension implements MangaBoxImplementation {
       const resultStr = String(result.result);
       if (!resultStr || resultStr === "undefined" || resultStr.length < 10) {
         console.log(`[MangaBox] webview returned empty/undefined`);
+        return [];
+      }
+      if (resultStr.includes('"error"')) {
+        console.log(`[MangaBox] webview error: ${resultStr.substring(0, 200)}`);
         return [];
       }
 
