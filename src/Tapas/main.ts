@@ -362,6 +362,13 @@ export class TapasExtension implements TapasImplementation {
       if (src) pages.push(this.absoluteUrl(src));
     });
 
+    // Locked (paywalled/scheduled) chapters have no content images.
+    // Mirror upstream keiyoushi: throw a graceful error instead of
+    // returning an empty page list (which crashes the reader).
+    if (pages.length === 0) {
+      throw new Error("Chapter locked");
+    }
+
     return {
       id: chapter.chapterId,
       mangaId: chapter.sourceManga.mangaId,
