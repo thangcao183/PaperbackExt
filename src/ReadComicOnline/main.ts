@@ -484,6 +484,13 @@ export class ReadComicOnlineExtension
     useServer2: boolean,
   ): Promise<string[]> {
     const config = await this.getRemoteConfig();
+    console.log(`[RCO] decrypt: scriptLen=${combinedScripts.length} useServer2=${useServer2}`);
+    // Log what patterns the decrypt script expects to find
+    const hasArray = /new\s+Array\(\)/.test(combinedScripts);
+    const hasPush = /\.push\(/.test(combinedScripts);
+    const hasBaeu = /baeu\(/.test(combinedScripts);
+    const hasCurrImage = /currImage/.test(combinedScripts);
+    console.log(`[RCO] patterns: Array=${hasArray} push=${hasPush} baeu=${hasBaeu} currImage=${hasCurrImage}`);
     // The decrypt script is pure JS (no DOM/browser APIs needed) — it only
     // uses String, RegExp, Array, JSON, and a self-defined atob(). Run it
     // directly in Paperback's JSC engine via Function() instead of crashing
@@ -498,8 +505,12 @@ export class ReadComicOnlineExtension
     try {
       const result = eval(wrappedScript) as string;
       const parsed = JSON.parse(result) as string[];
-      return parsed.filter((u) => typeof u === "string" && u.length > 0);
-    } catch {
+      const filtered = parsed.filter((u) => typeof u === "string" && u.length > 0);
+      console.log(`[RCO] decrypt result: ${filtered.length} pages`);
+      if (filtered.length > 0) console.log(`[RCO] first page: ${filtered[0].substring(0, 80)}`);
+      return filtered;
+    } catch (e) {
+      console.log(`[RCO] decrypt error: ${e instanceof Error ? e.message : String(e)}`);
       return [];
     }
   }
