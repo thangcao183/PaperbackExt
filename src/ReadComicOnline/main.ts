@@ -415,15 +415,13 @@ export class ReadComicOnlineExtension
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    // DISABLED: Page decryption via webview is broken (crashes WKWebView),
-    // and the chapter page itself is too large for the mobile mirror
-    // (crashes JSC on parsing). Until a working decrypt approach is found,
-    // return empty pages immediately without fetching.
-    return {
-      id: chapter.chapterId,
-      mangaId: chapter.sourceManga.mangaId,
-      pages: [],
-    };
+    // Page decryption requires a webview eval that crashes Paperback's
+    // WKWebView/JSC. Throw a user-visible error instead of returning empty
+    // pages (which may crash the reader when it tries to render 0 pages).
+    throw new Error(
+      "ReadComicOnline page reading is not supported on this mirror. " +
+      "The page images are encrypted and cannot be decrypted in Paperback's runtime.",
+    );
   }
 
   getMangaShareUrl(mangaId: string): string {
