@@ -147,16 +147,17 @@ export class MangaDemonExtension implements MangaDemonImplementation {
         });
       });
       const hasNextPage =
-        $("div.pagination > ul > a > li:contains(Next)").length > 0;
+        this.hasNextPage($);
       return { items, metadata: hasNextPage ? { page: page + 1 } : undefined };
     }
 
     const url = `${BASE_URL}/lastupdates.php?list=${page}`;
     const $ = await this.fetchCheerio({ url, method: "GET" });
-    $(
-      "div#updates-container > div.updates-element:not(:has(.toffee-badge))",
-    ).each((_, element) => {
+    $("div#updates-container > div.updates-element").each((_, element) => {
       const el = $(element);
+      // Skip premium/locked entries (marked with a toffee badge). `:has()`
+      // is unsupported by Paperback's CSS engine, so check in JS.
+      if (el.find(".toffee-badge").length > 0) return;
       const info = el.find("div.updates-element-info").first();
       const link = info.find("a").first();
       const href = link.attr("href") || "";
@@ -174,7 +175,7 @@ export class MangaDemonExtension implements MangaDemonImplementation {
       });
     });
     const hasNextPage =
-      $("div.pagination > ul > a > li:contains(Next)").length > 0;
+      this.hasNextPage($);
     return { items, metadata: hasNextPage ? { page: page + 1 } : undefined };
   }
 
@@ -237,7 +238,7 @@ export class MangaDemonExtension implements MangaDemonImplementation {
       });
     });
     const hasNextPage =
-      $("div.pagination > ul > a > li:contains(Next)").length > 0;
+      this.hasNextPage($);
     return {
       items: results,
       metadata: hasNextPage ? { page: page + 1 } : undefined,
@@ -283,20 +284,26 @@ export class MangaDemonExtension implements MangaDemonImplementation {
       .first()
       .text()
       .trim();
-    const author = container
-      .find(
-        "div#manga-info-stats > div:has(> li:eq(0):contains(Author)) > li:eq(1)",
-      )
-      .first()
-      .text()
-      .trim();
-    const statusText = container
-      .find(
-        "div#manga-info-stats > div:has(> li:eq(0):contains(Status)) > li:eq(1)",
-      )
-      .first()
-      .text()
-      .trim();
+    // The stats block is a set of `div`s, each containing two `li`s:
+    // `<li>Label</li><li>Value</li>`. jQuery-style `:eq()`/`:contains()`
+    // pseudo-classes are NOT supported by Paperback's CSS engine (throws
+    // "Unknown pseudo-class :eq"), so match the label in JS and read the
+    // sibling value instead.
+    const statValue = (label: string): string => {
+      let value = "";
+      container.find("div#manga-info-stats > div").each((_, el) => {
+        if (value) return;
+        const lis = $(el).find("> li");
+        if (lis.length < 2) return;
+        const key = lis.eq(0).text().trim();
+        if (key.toLowerCase().includes(label.toLowerCase())) {
+          value = lis.eq(1).text().trim();
+        }
+      });
+      return value;
+    };
+    const author = statValue("Author");
+    const statusText = statValue("Status");
 
     const genres = container
       .find("div.genres-list > li")
@@ -404,6 +411,17 @@ export class MangaDemonExtension implements MangaDemonImplementation {
     const slug = this.safeDecode(mangaId);
     if (slug.startsWith("http")) return slug;
     return `${BASE_URL}/${slug.replace(/^\/+/, "")}`;
+  }
+
+  // Paperback's CSS engine rejects jQuery pseudo-classes like `:contains()`,
+  // so detect the "Next" pagination link by iterating in JS instead.
+  private hasNextPage($: CheerioAPI): boolean {
+    let found = false;
+    $("div.pagination > ul > a > li").each((_, el) => {
+      if (found) return;
+      if ($(el).text().trim().toLowerCase().includes("next")) found = true;
+    });
+    return found;
   }
 
   private chapterUrl(chapterId: string): string {
