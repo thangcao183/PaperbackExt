@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (58)
+### ✅ Tested (59)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -202,6 +202,7 @@ If a source is broken, please open an issue.
 | MangaPill | 1.4.9.1 | Mature |  |
 | Mangatown | 1.4.10.2 | Mature |  |
 | ManhuaFast | 1.4.55.2 | Mature |  |
+| ManhuaPlus (unoriginal) | 1.4.5.1 | Everyone |  |
 | Manhwa18 | 1.4.13.1 | Mature |  |
 | MurimScan | 1.4.49.3 | Mature | Paid (VIP) chapters can’t be opened — they require purchase/login on the site. |
 | Omega Scans | 1.4.50.1 | Mature |  |
@@ -230,7 +231,7 @@ site is currently down.
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 
-### 🧪 Not yet tested (363)
+### 🧪 Not yet tested (362)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -424,7 +425,6 @@ site is currently down.
 | ManhuaFast.net (unoriginal) | 1.4.51.2 | Everyone |
 | ManhuaHot | 1.4.51.2 | Everyone |
 | Manhuanext | 1.4.52.2 | Everyone |
-| ManhuaPlus (unoriginal) | 1.4.5.1 | Everyone |
 | Manhuascan.us | 1.4.32.1 | Mature |
 | ManhuaTop | 1.4.52.2 | Mature |
 | ManhuaUS | 1.4.56.2 | Everyone |
