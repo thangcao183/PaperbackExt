@@ -156,7 +156,7 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (41)
+### ✅ Tested (42)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -171,6 +171,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | HentaiNexus | 1.4.17.2 | Mature |
 | Hiperdex | 1.4.80.2 | Mature |
 | InfinityScans | 1.4.10.2 | Mature |
+| KaliScan | 1.4.25.6 | Mature |
 | LikeManga | 1.4.8.1 | Everyone |
 | Lily Manga | 1.4.58.4 | Mature |
 | Mangadotnet | 1.4.11.2 | Mature |
@@ -210,7 +211,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (381)
+### 🧪 Not yet tested (380)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -339,7 +340,6 @@ These need an account or credentials I don’t have.
 | Jinmangas | 1.4.51.2 | Mature |
 | K Manga | 1.4.5.5 | Everyone |
 | Kaizen Scan | 1.4.20.1 | Mature |
-| KaliScan | 1.4.25.1 | Mature |
 | Kappa Beast | 1.4.33.1 | Mature |
 | Kayn Scans | 1.4.26.1 | Everyone |
 | keenspot | 1.4.3.1 | Everyone |
