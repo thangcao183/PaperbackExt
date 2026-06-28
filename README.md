@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (52)
+### ✅ Tested (54)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -179,6 +179,7 @@ If a source is broken, please open an issue.
 | Hiperdex | 1.4.80.2 | Mature |  |
 | Hive Scans | 1.4.65.3 | Everyone |  |
 | InfinityScans | 1.4.10.2 | Mature |  |
+| Kaizen Scan | 1.4.20.4 | Mature |  |
 | KaliScan | 1.4.25.6 | Mature |  |
 | K Manga | 1.4.5.8 | Everyone | Only unlocked/free chapters tested; rented/purchased chapters require logging in (region-locked to Japan). |
 | LikeManga | 1.4.8.1 | Everyone |  |
@@ -201,6 +202,7 @@ If a source is broken, please open an issue.
 | Manhwa18 | 1.4.13.1 | Mature |  |
 | Omega Scans | 1.4.50.1 | Mature |  |
 | Read Comics Online | 1.4.14.1 | Everyone |  |
+| Read One Piece Manga Online | 1.4.8.3 | Everyone |  |
 | ReadComicOnline | 1.4.43.13 | Everyone |  |
 | Rinko Comics | 1.4.2.1 | Everyone |  |
 | TCB Scans | 1.4.12.1 | Everyone |  |
@@ -224,7 +226,7 @@ site is currently down.
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 
-### 🧪 Not yet tested (369)
+### 🧪 Not yet tested (367)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -343,7 +345,6 @@ site is currently down.
 | IsekaiScan.top (unoriginal) | 1.4.52.2 | Mature |
 | J-Novel | 1.4.4.1 | Everyone |
 | Jinmangas | 1.4.51.2 | Mature |
-| Kaizen Scan | 1.4.20.1 | Mature |
 | Kappa Beast | 1.4.33.1 | Mature |
 | Kayn Scans | 1.4.26.1 | Everyone |
 | keenspot | 1.4.3.1 | Everyone |
@@ -510,7 +511,6 @@ site is currently down.
 | Read Kingdom Manga Online | 1.4.8.1 | Everyone |
 | Read Nanatsu no Taizai 7 Deadly Sins Manga Online | 1.4.10.1 | Everyone |
 | Read Naruto Boruto Samurai 8 Manga Online | 1.4.9.1 | Everyone |
-| Read One Piece Manga Online | 1.4.8.1 | Everyone |
 | Read One-Punch Man Manga Online | 1.4.8.1 | Everyone |
 | Read Solo Leveling Manga Manhwa Online | 1.4.10.1 | Everyone |
 | Read Tokyo Ghoul Re & Tokyo Ghoul Manga Online | 1.4.11.1 | Everyone |
