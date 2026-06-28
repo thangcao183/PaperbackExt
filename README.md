@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (60)
+### ✅ Tested (64)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -171,6 +171,7 @@ If a source is broken, please open an issue.
 | Comic Asura | 1.4.34.2 | Mature |  |
 | Comix | 1.4.31.27 | Mature | Scanlation group shown in each chapter title, e.g. [Group]. |
 | DragonTea | 1.4.56.2 | Everyone |  |
+| Drake Scans | 1.4.48.1 | Everyone |  |
 | Dynasty | 1.4.30.5 | Mature |  |
 | EZmanga | 1.4.62.1 | Everyone |  |
 | Flame Comics | 1.4.49.3 | Everyone |  |
@@ -191,6 +192,7 @@ If a source is broken, please open an issue.
 | Mangadotnet | 1.4.11.2 | Mature |  |
 | Mangago | 1.4.34.6 | Mature |  |
 | Manga Demon | 1.4.19.4 | Everyone |  |
+| Manga18fx | 1.4.56.3 | Mature |  |
 | MangaGeko | 1.4.32.1 | Mature |  |
 | MangaFox | 1.4.9.1 | Mature |  |
 | MangaHere.onl | 1.4.35.4 | Mature |  |
@@ -206,6 +208,7 @@ If a source is broken, please open an issue.
 | ManhuaPlus (unoriginal) | 1.4.5.1 | Everyone |  |
 | Manhwa18 | 1.4.13.1 | Mature |  |
 | MurimScan | 1.4.49.3 | Mature | Paid (VIP) chapters can’t be opened — they require purchase/login on the site. |
+| NineHentai | 1.4.6.1 | Mature |  |
 | Omega Scans | 1.4.50.1 | Mature |  |
 | Read Comics Online | 1.4.14.1 | Everyone |  |
 | Read One Piece Manga Online | 1.4.8.3 | Everyone |  |
@@ -213,6 +216,7 @@ If a source is broken, please open an issue.
 | Rinko Comics | 1.4.2.1 | Everyone |  |
 | TCB Scans | 1.4.12.1 | Everyone |  |
 | Tapas | 1.4.24.2 | Mature | Locked/paywalled chapters can’t be opened — purchase required. |
+| Temple Scan | 1.4.49.1 | Mature |  |
 | The Blank | 1.4.56.12 | Mature |  |
 | ToonGod | 1.4.56.9 | Mature |  |
 | Toonily | 1.4.65.2 | Mature |  |
@@ -234,7 +238,7 @@ site is currently down.
 | Toonily.me | 1.4.24.4 | Mature | Server down — toonily.me HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 
-### 🧪 Not yet tested (358)
+### 🧪 Not yet tested (354)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -294,7 +298,6 @@ site is currently down.
 | Diva Scans | 1.4.23.1 | Mature |
 | Doujin.io - J18 | 1.4.3.1 | Mature |
 | Doujins | 1.4.6.1 | Mature |
-| Drake Scans | 1.4.48.1 | Everyone |
 | Eggporncomics | 1.4.3.1 | Mature |
 | El Goonish Shive | 1.4.2.1 | Everyone |
 | Elan School | 1.4.1.1 | Everyone |
@@ -388,7 +391,6 @@ site is currently down.
 | Manga-Bay | 1.4.1.1 | Mature |
 | Manga18.Club | 1.4.3.1 | Mature |
 | Manga18Free | 1.4.52.2 | Mature |
-| Manga18fx | 1.4.56.2 | Mature |
 | Mangabat | 1.4.20.12 | Mature |
 | MangaBlaze | 1.4.51.3 | Everyone |
 | MangaBolt | 1.4.1.1 | Everyone |
@@ -468,7 +470,6 @@ site is currently down.
 | NexComic | 1.4.32.1 | Mature |
 | Nika Toons | 1.4.32.1 | Everyone |
 | NineAnime | 1.4.6.1 | Mature |
-| NineHentai | 1.4.6.1 | Mature |
 | Ninekon | 1.4.1.1 | Mature |
 | NixManga | 1.4.2.1 | Mature |
 | NovelCrow | 1.4.52.2 | Mature |
@@ -553,7 +554,6 @@ site is currently down.
 | Taroweb | 1.4.51.2 | Mature |
 | TCB Scans (Unoriginal) | 1.4.32.1 | Everyone |
 | Team Shadowi | 1.4.1.1 | Mature |
-| Temple Scan | 1.4.49.1 | Mature |
 | The Duck Webcomics | 1.4.3.1 | Mature |
 | The Property of Hate | 1.4.5.1 | Everyone |
 | TimelessToons | 1.4.20.1 | Everyone |
