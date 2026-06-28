@@ -40,6 +40,15 @@ import {
   HotComicsSearchMeta,
 } from "./forms";
 
+const PLACEHOLDER_COVER =
+  "data:image/svg+xml;base64," +
+  "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAi" +
+  "IGhlaWdodD0iNDUwIiB2aWV3Qm94PSIwIDAgMzAwIDQ1MCI+PHJlY3Qgd2lkdGg9IjMw" +
+  "MCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMyMzI4MmYiLz48dGV4dCB4PSIxNTAiIHk9IjIy" +
+  "NSIgZmlsbD0iIzhhOTNhMyIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6" +
+  "ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRk" +
+  "bGUiPk5vIENvdmVyPC90ZXh0Pjwvc3ZnPg==";
+
 export interface HotComicsConfig {
   name: string;
   baseUrl: string;
@@ -286,7 +295,9 @@ export class HotComicsExtension implements HotComicsImplementation {
       const href = link.attr("href") || "";
       const mangaId = this.parseId(href);
       const title = link.find("div.main-text > h4.title").first().text().trim();
-      const image = this.imageFromElement(link.find("div.visual img").first());
+      const image =
+        this.imageFromElement(link.find("div.visual img").first()) ||
+        PLACEHOLDER_COVER;
       if (mangaId && title) {
         cb(mangaId, title, image);
       }
@@ -302,7 +313,26 @@ export class HotComicsExtension implements HotComicsImplementation {
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
     const title = $("h2.episode-title").first().text().trim();
-    const image = this.imageFromElement($("div.visual img").first());
+    // The detail page does not always expose the cover via `div.visual img`
+    // (in Tachiyomi the thumbnail carries over from the listing item, but
+    // Paperback re-fetches details with no carry-over). Probe several
+    // locations and fall back to a placeholder so we never emit an empty
+    // thumbnailUrl, which Paperback rejects with "Invalid URL".
+    let image = this.imageFromElement($("div.visual img").first());
+    if (!image) {
+      image =
+        $('meta[property="og:image"]').attr("content")?.trim() ||
+        $('meta[name="twitter:image"]').attr("content")?.trim() ||
+        this.imageFromElement($("div.title_thumb img, div.thumb img").first()) ||
+        "";
+      image = image.trim().replace(/#.*$/, "");
+      if (image && !image.startsWith("http")) {
+        image = image.startsWith("/")
+          ? `${this.baseUrl}${image}`
+          : `${this.baseUrl}/${image}`;
+      }
+    }
+    if (!image) image = PLACEHOLDER_COVER;
 
     const typeBox = $("p.type_box").first();
     let author = typeBox.find("span.writer").first().text().trim();
