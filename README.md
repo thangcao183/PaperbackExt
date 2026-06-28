@@ -153,70 +153,73 @@ adult/NSFW content (232 Mature, 190 Everyone).
 The lists below group sources by manual testing status. **Tested** sources
 have been verified working on a device. **Not yet tested** sources are plain
 keiyoushi conversions that haven’t been checked yet (they may or may not
-work). **Can’t test** sources require an account or credentials I don’t have,
-so I’m unable to verify them. If a source is broken, please open an issue.
+work). **Can’t test** sources can’t be verified right now — either they need
+an account or credentials I don’t have, or the site itself is currently down.
+If a source is broken, please open an issue.
 
 ### ✅ Tested (47)
 
-| Source | Version | Content |
-| ------ | ------- | ------- |
-| Asura Scans | 1.4.62.1 | Everyone |
-| BatCave | 1.4.6.6 | Everyone |
-| ComicK Fanmade | 1.4.2.1 | Mature |
-| Coffee Manga | 1.4.56.2 | Mature |
-| Comix | 1.4.31.27 | Mature |
-| DragonTea | 1.4.56.2 | Everyone |
-| Dynasty | 1.4.30.5 | Mature |
-| EZmanga | 1.4.62.1 | Everyone |
-| Flame Comics | 1.4.49.3 | Everyone |
-| Gourmet Scans | 1.4.51.7 | Mature |
-| HentaiNexus | 1.4.17.2 | Mature |
-| Hiperdex | 1.4.80.2 | Mature |
-| Hive Scans | 1.4.65.3 | Everyone |
-| InfinityScans | 1.4.10.2 | Mature |
-| KaliScan | 1.4.25.6 | Mature |
-| LikeManga | 1.4.8.1 | Everyone |
-| Lily Manga | 1.4.58.4 | Mature |
-| MadaraDex | 1.4.54.4 | Mature |
-| Magus Manga | 1.4.69.3 | Everyone |
-| Mangadotnet | 1.4.11.2 | Mature |
-| Mangago | 1.4.34.6 | Mature |
-| Manga Demon | 1.4.19.4 | Everyone |
-| MangaGeko | 1.4.32.1 | Mature |
-| MangaFox | 1.4.9.1 | Mature |
-| MangaHere.onl | 1.4.35.4 | Mature |
-| MangaHub | 1.4.45.4 | Mature |
-| MangaKatana | 1.4.12.2 | Mature |
-| Mangakakalot | 1.4.21.13 | Mature |
-| Mangafreak | 1.4.13.1 | Mature |
-| MangaPill | 1.4.9.1 | Mature |
-| Mangatown | 1.4.10.2 | Mature |
-| ManhuaFast | 1.4.55.2 | Mature |
-| Manhwa18 | 1.4.13.1 | Mature |
-| Omega Scans | 1.4.50.1 | Mature |
-| Read Comics Online | 1.4.14.1 | Everyone |
-| ReadComicOnline | 1.4.43.13 | Everyone |
-| Rinko Comics | 1.4.2.1 | Everyone |
-| TCB Scans | 1.4.12.1 | Everyone |
-| Tapas | 1.4.24.2 | Mature |
-| The Blank | 1.4.56.12 | Mature |
-| ToonGod | 1.4.56.9 | Mature |
-| Toonily | 1.4.65.2 | Mature |
-| Utoon | 1.4.55.4 | Everyone |
-| VIZ | 1.4.25.6 | Everyone |
-| Vortex Scans | 1.4.61.1 | Everyone |
-| VyvyManga | 1.4.40.1 | Mature |
-| Weeb Central | 1.4.22.2 | Mature |
+| Source | Version | Content | Note |
+| ------ | ------- | ------- | ---- |
+| Asura Scans | 1.4.62.1 | Everyone |  |
+| BatCave | 1.4.6.6 | Everyone |  |
+| ComicK Fanmade | 1.4.2.1 | Mature |  |
+| Coffee Manga | 1.4.56.2 | Mature |  |
+| Comix | 1.4.31.27 | Mature | Scanlation group shown in each chapter title, e.g. [Group]. |
+| DragonTea | 1.4.56.2 | Everyone |  |
+| Dynasty | 1.4.30.5 | Mature |  |
+| EZmanga | 1.4.62.1 | Everyone |  |
+| Flame Comics | 1.4.49.3 | Everyone |  |
+| Gourmet Scans | 1.4.51.7 | Mature |  |
+| HentaiNexus | 1.4.17.2 | Mature |  |
+| Hiperdex | 1.4.80.2 | Mature |  |
+| Hive Scans | 1.4.65.3 | Everyone |  |
+| InfinityScans | 1.4.10.2 | Mature |  |
+| KaliScan | 1.4.25.6 | Mature |  |
+| LikeManga | 1.4.8.1 | Everyone |  |
+| Lily Manga | 1.4.58.4 | Mature |  |
+| MadaraDex | 1.4.54.4 | Mature |  |
+| Magus Manga | 1.4.69.3 | Everyone |  |
+| Mangadotnet | 1.4.11.2 | Mature |  |
+| Mangago | 1.4.34.6 | Mature |  |
+| Manga Demon | 1.4.19.4 | Everyone |  |
+| MangaGeko | 1.4.32.1 | Mature |  |
+| MangaFox | 1.4.9.1 | Mature |  |
+| MangaHere.onl | 1.4.35.4 | Mature |  |
+| MangaHub | 1.4.45.4 | Mature |  |
+| MangaKatana | 1.4.12.2 | Mature |  |
+| Mangakakalot | 1.4.21.13 | Mature |  |
+| Mangafreak | 1.4.13.1 | Mature |  |
+| MangaPill | 1.4.9.1 | Mature |  |
+| Mangatown | 1.4.10.2 | Mature |  |
+| ManhuaFast | 1.4.55.2 | Mature |  |
+| Manhwa18 | 1.4.13.1 | Mature |  |
+| Omega Scans | 1.4.50.1 | Mature |  |
+| Read Comics Online | 1.4.14.1 | Everyone |  |
+| ReadComicOnline | 1.4.43.13 | Everyone |  |
+| Rinko Comics | 1.4.2.1 | Everyone |  |
+| TCB Scans | 1.4.12.1 | Everyone |  |
+| Tapas | 1.4.24.2 | Mature | Locked/paywalled chapters can’t be opened — purchase required. |
+| The Blank | 1.4.56.12 | Mature |  |
+| ToonGod | 1.4.56.9 | Mature |  |
+| Toonily | 1.4.65.2 | Mature |  |
+| Utoon | 1.4.55.4 | Everyone |  |
+| VIZ | 1.4.25.6 | Everyone | Free chapters only; full library is region-gated (US). |
+| Vortex Scans | 1.4.61.1 | Everyone |  |
+| VyvyManga | 1.4.40.1 | Mature |  |
+| Weeb Central | 1.4.22.2 | Mature |  |
 
-### ⚠️ Can’t test (1)
+### ⚠️ Can’t test (2)
 
-These need an account or credentials I don’t have.
+These can’t be verified right now — they need credentials I don’t have, or the
+site is currently down.
 
-| Source | Version | Content |
-| ------ | ------- | ------- |
-| Madokami | 1.4.13.3 | Everyone |
+| Source | Version | Content | Note |
+| ------ | ------- | ------- | ---- |
+| BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
+| Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 
-### 🧪 Not yet tested (375)
+### 🧪 Not yet tested (374)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -247,7 +250,6 @@ These need an account or credentials I don’t have.
 | Bakkin Self-hosted | 1.4.7.1 | Everyone |
 | Battle In 5 Seconds After Meeting | 1.4.51.2 | Everyone |
 | Bbato | 1.4.1.1 | Mature |
-| BeeHentai | 1.4.24.1 | Mature |
 | BookWalker | 1.4.7.1 | Mature |
 | Borat Scans | 1.4.51.2 | Everyone |
 | Broccoli Soup | 1.4.1.1 | Everyone |
