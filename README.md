@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (50)
+### ✅ Tested (51)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -173,6 +173,7 @@ If a source is broken, please open an issue.
 | EZmanga | 1.4.62.1 | Everyone |  |
 | Flame Comics | 1.4.49.3 | Everyone |  |
 | Gourmet Scans | 1.4.51.7 | Mature |  |
+| Guya | 1.4.25.1 | Everyone |  |
 | HentaiNexus | 1.4.17.2 | Mature |  |
 | Hiperdex | 1.4.80.2 | Mature |  |
 | Hive Scans | 1.4.65.3 | Everyone |  |
@@ -222,7 +223,7 @@ site is currently down.
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 
-### 🧪 Not yet tested (371)
+### 🧪 Not yet tested (370)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -315,7 +316,6 @@ site is currently down.
 | Grim Scans | 1.4.20.1 | Everyone |
 | Grrl Power Comic | 1.4.4.1 | Everyone |
 | Gunnerkrigg Court | 1.4.3.1 | Everyone |
-| Guya | 1.4.25.1 | Everyone |
 | Hachirumi | 1.4.7.1 | Mature |
 | Hades Scans | 1.4.33.1 | Everyone |
 | Hentai3z.CC | 1.4.3.1 | Mature |
