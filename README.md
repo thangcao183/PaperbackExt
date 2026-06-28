@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (56)
+### ✅ Tested (57)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -165,6 +165,7 @@ If a source is broken, please open an issue.
 | Asura Scans | 1.4.62.1 | Everyone |  |
 | Bakkin | 1.4.7.1 | Everyone |  |
 | BatCave | 1.4.6.6 | Everyone |  |
+| Bbato | 1.4.1.1 | Mature |  |
 | ComicK Fanmade | 1.4.2.1 | Mature |  |
 | Coffee Manga | 1.4.56.2 | Mature |  |
 | Comic Asura | 1.4.34.2 | Mature |  |
@@ -228,7 +229,7 @@ site is currently down.
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 
-### 🧪 Not yet tested (365)
+### 🧪 Not yet tested (364)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -256,7 +257,6 @@ site is currently down.
 | aurora | 1.4.4.1 | Everyone |
 | Bakkin Self-hosted | 1.4.7.1 | Everyone |
 | Battle In 5 Seconds After Meeting | 1.4.51.2 | Everyone |
-| Bbato | 1.4.1.1 | Mature |
 | BookWalker | 1.4.7.1 | Mature |
 | Borat Scans | 1.4.51.2 | Everyone |
 | Broccoli Soup | 1.4.1.1 | Everyone |
