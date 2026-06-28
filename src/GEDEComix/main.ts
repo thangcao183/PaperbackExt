@@ -40,10 +40,14 @@ class GEDEComixExtension extends MadaraExtension {
     metadata: Metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
-      case "popular_section":
-        return this.getMangaList(metadata, "views", "featuredCarouselItem");
-      case "latest_section":
+      case "new_series":
+        return this.getMangaList(metadata, "new-manga", "featuredCarouselItem");
+      case "recently_updated":
         return this.getMangaList(metadata, "latest", "simpleCarouselItem");
+      case "currently_trending":
+        return this.getMangaList(metadata, "trending", "simpleCarouselItem");
+      case "most_popular":
+        return this.getMangaList(metadata, "views", "simpleCarouselItem");
       default:
         return { items: [] };
     }
@@ -51,7 +55,7 @@ class GEDEComixExtension extends MadaraExtension {
 
   private async getMangaList(
     metadata: Metadata | undefined,
-    orderBy: "views" | "latest",
+    orderBy: "views" | "latest" | "trending" | "new-manga",
     itemType: "featuredCarouselItem" | "simpleCarouselItem",
   ): Promise<PagedResults<DiscoverSectionItem>> {
     const meta = metadata as GEDEComixMetadata | undefined;
@@ -68,7 +72,7 @@ class GEDEComixExtension extends MadaraExtension {
           "x-requested-with": "XMLHttpRequest",
           referer: `${this.baseUrl}/`,
         },
-        body: this.loadMoreBody(page, orderBy === "views"),
+        body: this.loadMoreBody(page, orderBy),
       });
     } else {
       const builder = new URLBuilder(this.baseUrl).addPath(this.mangaSubString);

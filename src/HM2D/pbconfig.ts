@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "HM2D",
   description: "HM2D - Madara source (doujindistrict.com). Converted from keiyoushi.",
-  version: "1.4.53.3",
+  version: "1.4.53.4",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

@@ -365,18 +365,30 @@ export class MadaraExtension implements MadaraImplementation {
   async getDiscoverSections(): Promise<DiscoverSection[]> {
     const sections: DiscoverSection[] = [
       {
-        id: "popular_section",
-        title: "Popular",
+        id: "new_series",
+        title: "New Series",
         type: DiscoverSectionType.featured,
       },
     ];
     if (this.supportsLatest) {
       sections.push({
-        id: "latest_section",
-        title: "Latest Updates",
+        id: "recently_updated",
+        title: "Recently Updated",
         type: DiscoverSectionType.simpleCarousel,
       });
     }
+    sections.push(
+      {
+        id: "currently_trending",
+        title: "Currently Trending",
+        type: DiscoverSectionType.simpleCarousel,
+      },
+      {
+        id: "most_popular",
+        title: "Most Popular",
+        type: DiscoverSectionType.simpleCarousel,
+      },
+    );
     return sections;
   }
 
@@ -395,10 +407,14 @@ export class MadaraExtension implements MadaraImplementation {
   ): Promise<PagedResults<DiscoverSectionItem>> {
     const meta = metadata as MadaraMetadata | undefined;
     switch (section.id) {
-      case "popular_section":
-        return this.getMangaListItems(meta, "views", "featuredCarouselItem");
-      case "latest_section":
+      case "new_series":
+        return this.getMangaListItems(meta, "new-manga", "featuredCarouselItem");
+      case "recently_updated":
         return this.getMangaListItems(meta, "latest", "simpleCarouselItem");
+      case "currently_trending":
+        return this.getMangaListItems(meta, "trending", "simpleCarouselItem");
+      case "most_popular":
+        return this.getMangaListItems(meta, "views", "simpleCarouselItem");
       default:
         return { items: [] };
     }
@@ -406,7 +422,7 @@ export class MadaraExtension implements MadaraImplementation {
 
   private async getMangaListItems(
     metadata: MadaraMetadata | undefined,
-    orderBy: "views" | "latest",
+    orderBy: "views" | "latest" | "trending" | "new-manga",
     itemType: "featuredCarouselItem" | "simpleCarouselItem",
   ): Promise<PagedResults<DiscoverSectionItem>> {
     const page = metadata?.page ?? 1;
@@ -424,7 +440,7 @@ export class MadaraExtension implements MadaraImplementation {
           "x-requested-with": "XMLHttpRequest",
           referer: `${this.baseUrl}/`,
         },
-        body: this.loadMoreBody(page, orderBy === "views"),
+        body: this.loadMoreBody(page, orderBy),
       });
     } else {
       const builder = new URLBuilder(this.baseUrl).addPath(this.mangaSubString);
@@ -469,12 +485,35 @@ export class MadaraExtension implements MadaraImplementation {
   }
 
   /** Build the `madara_load_more` admin-ajax form body (mirrors upstream). */
-  protected loadMoreBody(page: number, popular: boolean): string {
+  protected loadMoreBody(
+    page: number,
+    orderBy: "views" | "latest" | "trending" | "new-manga",
+  ): string {
+    // Map the m_orderby value to the madara_load_more `orderby`/`meta_key` vars.
+    let orderbyVar = "meta_value_num";
+    let metaKey: string | undefined;
+    switch (orderBy) {
+      case "views":
+        metaKey = "_wp_manga_views";
+        break;
+      case "trending":
+        metaKey = "_wp_manga_week_views_value";
+        break;
+      case "new-manga":
+        // Newest series order by post date, no meta key.
+        orderbyVar = "date";
+        break;
+      case "latest":
+      default:
+        metaKey = "_latest_update";
+        break;
+    }
+
     const params: [string, string][] = [
       ["action", "madara_load_more"],
       ["page", (page - 1).toString()],
       ["template", "madara-core/content/content-archive"],
-      ["vars[orderby]", "meta_value_num"],
+      ["vars[orderby]", orderbyVar],
       ["vars[paged]", "1"],
     ];
     if (this.filterNonMangaItems) {
@@ -484,7 +523,11 @@ export class MadaraExtension implements MadaraImplementation {
     params.push(
       ["vars[post_type]", "wp-manga"],
       ["vars[post_status]", "publish"],
-      ["vars[meta_key]", popular ? "_wp_manga_views" : "_latest_update"],
+    );
+    if (metaKey) {
+      params.push(["vars[meta_key]", metaKey]);
+    }
+    params.push(
       ["vars[order]", "desc"],
       ["vars[sidebar]", "right"],
       ["vars[manga_archives_item_layout]", "big_thumbnail"],

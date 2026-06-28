@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "MadaraDex",
   description: "MadaraDex - Madara source (madaradex.org). Converted from keiyoushi.",
-  version: "1.4.54.4",
+  version: "1.4.54.5",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
