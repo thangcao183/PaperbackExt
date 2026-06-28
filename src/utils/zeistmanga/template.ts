@@ -642,10 +642,21 @@ export class ZeistMangaExtension implements ZeistMangaImplementation {
         if (src) pages.push(src);
       });
 
+    const uniquePages = [...new Set(pages)];
+
+    // Returning an empty page list hard-crashes the Paperback reader. Paid /
+    // login-gated chapters render no images server-side, so throw a clear
+    // error instead.
+    if (uniquePages.length === 0) {
+      throw new Error(
+        "No pages found — this chapter may be paid or require logging in.",
+      );
+    }
+
     return {
       id: chapter.chapterId,
       mangaId: chapter.sourceManga.mangaId,
-      pages: [...new Set(pages)],
+      pages: uniquePages,
     };
   }
 

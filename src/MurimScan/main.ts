@@ -11,7 +11,7 @@ export const MurimScan = new ZeistMangaExtension({
   mangaDetailsSelectorInfo: "dl.flex",
   mangaDetailsSelectorInfoTitle: "dt",
   mangaDetailsSelectorInfoDescription: "dd",
-  pageListSelector: ".post-body, .check-box",
+  pageListSelector: ".chapter-raw-content, .post-body, .check-box",
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
 });
