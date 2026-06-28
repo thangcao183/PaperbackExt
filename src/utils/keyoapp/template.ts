@@ -31,7 +31,6 @@ import * as cheerio from "cheerio";
 import { CheerioAPI, Cheerio } from "cheerio";
 import type { AnyNode, Element } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
-import { URLBuilder } from "../url-builder/base";
 import {
   getBaseUrlOverride,
   getShowPaidChapters,
@@ -208,7 +207,7 @@ export class KeyoappExtension implements KeyoappImplementation {
   private async getLatestItems(
     itemType: "featuredCarouselItem" | "simpleCarouselItem",
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const url = new URLBuilder(this.baseUrl).addPath("latest").build();
+    const url = `${this.baseUrl}/latest/`;
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const items: DiscoverSectionItem[] = [];
     const seen = new Set<string>();
@@ -247,11 +246,9 @@ export class KeyoappExtension implements KeyoappImplementation {
     const titleQuery = (query.title || "").trim();
 
     // Keyoapp's /series/ page lists every series; search is performed
-    // client-side by filtering on the title attribute.
-    const url = new URLBuilder(this.baseUrl)
-      .addPath("series")
-      .addQuery("q", encodeURIComponent(titleQuery))
-      .build();
+    // client-side by filtering on the title attribute. The trailing slash
+    // is required to avoid a 301 redirect to an http:// URL (ATS -1022).
+    const url = `${this.baseUrl}/series/?q=${encodeURIComponent(titleQuery)}`;
 
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const results: SearchResultItem[] = [];
@@ -410,9 +407,10 @@ export class KeyoappExtension implements KeyoappImplementation {
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const url = new URLBuilder(this.baseUrl)
-      .addPath(chapter.chapterId)
-      .build();
+    // Keyoapp's canonical chapter URLs end in a trailing slash. Requesting
+    // without it triggers a 301 redirect whose Location uses http://, which
+    // iOS App Transport Security refuses to follow (NSURLError -1022).
+    const url = `${this.baseUrl}/${chapter.chapterId}/`;
 
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const pages: string[] = [];
@@ -442,10 +440,10 @@ export class KeyoappExtension implements KeyoappImplementation {
   }
 
   getMangaShareUrl(mangaId: string): string {
-    return new URLBuilder(this.baseUrl)
-      .addPath("series")
-      .addPath(mangaId)
-      .build();
+    // Keyoapp's canonical series URLs end in a trailing slash. Requesting
+    // without it triggers a 301 redirect whose Location uses http://, which
+    // iOS App Transport Security refuses to follow (NSURLError -1022).
+    return `${this.baseUrl}/series/${mangaId}/`;
   }
 
   // ----------------------------------------------------------------

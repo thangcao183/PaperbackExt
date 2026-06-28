@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Paradise Scans",
   description: "Paradise Scans - Keyoapp source (paradisescans.com). Converted from keiyoushi.",
-  version: "1.4.20.1",
+  version: "1.4.20.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
