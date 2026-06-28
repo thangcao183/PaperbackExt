@@ -168,10 +168,10 @@ If a source is broken, please open an issue.
 | Bbato | 1.4.1.1 | Mature |  |
 | ComicK Fanmade | 1.4.2.1 | Mature |  |
 | Coffee Manga | 1.4.56.2 | Mature |  |
-| Comic Asura | 1.4.34.2 | Mature |  |
+| Comic Asura | 1.4.34.3 | Mature |  |
 | Comix | 1.4.31.27 | Mature | Scanlation group shown in each chapter title, e.g. [Group]. |
 | DragonTea | 1.4.56.2 | Everyone |  |
-| Drake Scans | 1.4.48.1 | Everyone |  |
+| Drake Scans | 1.4.48.2 | Everyone |  |
 | Dynasty | 1.4.30.5 | Mature |  |
 | EZmanga | 1.4.62.1 | Everyone |  |
 | Flame Comics | 1.4.49.3 | Everyone |  |
