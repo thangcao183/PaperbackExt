@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (59)
+### ✅ Tested (60)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -197,6 +197,7 @@ If a source is broken, please open an issue.
 | MangaHub | 1.4.45.4 | Mature |  |
 | MangaKatana | 1.4.12.2 | Mature |  |
 | Mangakakalot | 1.4.21.13 | Mature |  |
+| Mangakakalot.fun | 1.4.35.4 | Mature |  |
 | Manganato | 1.4.18.14 | Mature |  |
 | Mangafreak | 1.4.13.1 | Mature |  |
 | MangaPill | 1.4.9.1 | Mature |  |
@@ -231,7 +232,7 @@ site is currently down.
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 
-### 🧪 Not yet tested (362)
+### 🧪 Not yet tested (361)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -403,7 +404,6 @@ site is currently down.
 | Mangahere | 1.4.23.1 | Mature |
 | MangaK | 1.4.30.1 | Mature |
 | MangaKa | 1.4.51.2 | Everyone |
-| Mangakakalot.fun | 1.4.35.4 | Mature |
 | MangaManiacs | 1.4.51.2 | Mature |
 | Mangamo | 1.4.7.1 | Everyone |
 | MangaNel | 1.4.35.4 | Mature |
