@@ -157,12 +157,13 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (51)
+### ✅ Tested (52)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
 | 8Muses | 1.4.2.1 | Mature |  |
 | Asura Scans | 1.4.62.1 | Everyone |  |
+| Bakkin | 1.4.7.1 | Everyone |  |
 | BatCave | 1.4.6.6 | Everyone |  |
 | ComicK Fanmade | 1.4.2.1 | Mature |  |
 | Coffee Manga | 1.4.56.2 | Mature |  |
@@ -223,7 +224,7 @@ site is currently down.
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 
-### 🧪 Not yet tested (370)
+### 🧪 Not yet tested (369)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -249,7 +250,6 @@ site is currently down.
 | Athrea Scans | 1.4.33.1 | Mature |
 | Atsumaru | 1.4.19.1 | Mature |
 | aurora | 1.4.4.1 | Everyone |
-| Bakkin | 1.4.7.1 | Everyone |
 | Bakkin Self-hosted | 1.4.7.1 | Everyone |
 | Battle In 5 Seconds After Meeting | 1.4.51.2 | Everyone |
 | Bbato | 1.4.1.1 | Mature |
