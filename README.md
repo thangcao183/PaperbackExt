@@ -156,7 +156,7 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (45)
+### ✅ Tested (46)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -165,6 +165,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | ComicK Fanmade | 1.4.2.1 | Mature |
 | Coffee Manga | 1.4.56.2 | Mature |
 | Comix | 1.4.31.27 | Mature |
+| DragonTea | 1.4.56.2 | Everyone |
 | Dynasty | 1.4.30.5 | Mature |
 | EZmanga | 1.4.62.1 | Everyone |
 | Flame Comics | 1.4.49.3 | Everyone |
@@ -214,7 +215,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (377)
+### 🧪 Not yet tested (376)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -279,7 +280,6 @@ These need an account or credentials I don’t have.
 | Diva Scans | 1.4.23.1 | Mature |
 | Doujin.io - J18 | 1.4.3.1 | Mature |
 | Doujins | 1.4.6.1 | Mature |
-| DragonTea | 1.4.56.2 | Everyone |
 | Drake Scans | 1.4.48.1 | Everyone |
 | Eggporncomics | 1.4.3.1 | Mature |
 | El Goonish Shive | 1.4.2.1 | Everyone |
