@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (66)
+### ✅ Tested (67)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -179,6 +179,7 @@ If a source is broken, please open an issue.
 | Gourmet Scans | 1.4.51.7 | Mature |  |
 | Guya | 1.4.25.1 | Everyone |  |
 | HentaiNexus | 1.4.17.2 | Mature |  |
+| HentaiRead | 1.4.61.7 | Mature |  |
 | Hiperdex | 1.4.80.2 | Mature |  |
 | Hive Scans | 1.4.65.3 | Everyone |  |
 | HotComics | 1.4.2.4 | Mature |  |
@@ -240,7 +241,7 @@ site is currently down.
 | Toonily.me | 1.4.24.4 | Mature | Server down — toonily.me HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 
-### 🧪 Not yet tested (352)
+### 🧪 Not yet tested (351)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -337,7 +338,6 @@ site is currently down.
 | HentaiHere | 1.4.7.1 | Mature |
 | HentaiKisu | 1.4.1.1 | Mature |
 | HentaiKun | 1.4.1.1 | Mature |
-| HentaiRead | 1.4.61.2 | Mature |
 | HentaiRead.io | 1.4.1.1 | Mature |
 | HentaiSco | 1.4.51.2 | Mature |
 | HentaiXComic | 1.4.51.2 | Mature |
