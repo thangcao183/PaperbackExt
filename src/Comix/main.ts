@@ -564,10 +564,22 @@ export class ComixExtension implements ComixImplementation {
 
       const namePart =
         ch.name && ch.name.trim().length > 0 ? `: ${ch.name.trim()}` : "";
+      // comix.to often has the SAME chapter number scanlated by DIFFERENT
+      // groups (or an official release). Surface the group so users can tell
+      // the duplicates apart: shown both in the title and the `version`
+      // subtitle that Paperback renders under the chapter row.
+      const groupName =
+        ch.group && ch.group.name && ch.group.name.trim().length > 0
+          ? ch.group.name.trim()
+          : ch.isOfficial
+            ? "Official"
+            : "";
+      const groupSuffix = groupName ? ` [${groupName}]` : "";
       chapters.push({
         chapterId,
         sourceManga,
-        title: `Chapter ${numStr}${namePart}`,
+        title: `Chapter ${numStr}${namePart}${groupSuffix}`,
+        version: groupName || undefined,
         volume: 0,
         chapNum: ch.number,
         publishDate: this.parseRelativeDate(ch.createdAtFormatted ?? ""),
@@ -1201,17 +1213,6 @@ async function decodeScrambledImage(
       // Place the cropped tile (1:1) at the destination position.
       outCtx.drawImage(scratch, dstX0, dstY0, tw, th);
     }
-
-    // DEBUG: draw a magenta border around descrambled pages so it is visually
-    // obvious which pages went through the grid descrambler. Uses fillRect (4
-    // edge bars) instead of strokeRect because Paperback's canvas polyfill is
-    // unreliable for stroked paths. Remove once descramble is verified on device.
-    const borderPx = Math.max(8, Math.round(Math.min(width, height) * 0.01));
-    outCtx.fillStyle = "#FF00FF";
-    outCtx.fillRect(0, 0, width, borderPx); // top
-    outCtx.fillRect(0, height - borderPx, width, borderPx); // bottom
-    outCtx.fillRect(0, 0, borderPx, height); // left
-    outCtx.fillRect(width - borderPx, 0, borderPx, height); // right
 
     const resultUrl = outCanvas.toDataURL("image/jpeg", 0.90);
     const commaIdx = resultUrl.indexOf(",");
