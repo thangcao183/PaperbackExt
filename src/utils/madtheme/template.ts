@@ -481,7 +481,10 @@ export class MadThemeExtension implements MadThemeImplementation {
         const match = html.match(/var\s+chapImages\s*=\s*['"]([^'"]+)['"]/);
         if (match) {
           for (const part of match[1].split(",")) {
-            const p = part.trim();
+            // Cheerio's .html() re-encodes `&` inside <script> as `&amp;`,
+            // which corrupts the CDN's signed query (?acc=...&expires=...)
+            // and triggers a 403. Decode entities back before requesting.
+            const p = this.decodeHtmlEntities(part.trim());
             if (p) pages.push(p.startsWith("http") ? p : `${this.baseUrl}/${p}`);
           }
         }
@@ -538,6 +541,21 @@ export class MadThemeExtension implements MadThemeImplementation {
     } catch {
       return id;
     }
+  }
+
+  private decodeHtmlEntities(text: string): string {
+    // Cheerio's .html() serialization escapes `&` -> `&amp;` (and other
+    // entities) inside <script> bodies. Signed CDN URLs use `&` to join
+    // query params, so the escaped form breaks the signature. Decode the
+    // common entities back to their literal characters.
+    return text
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#0?39;/g, "'")
+      .replace(/&#x27;/gi, "'")
+      .replace(/&apos;/g, "'");
   }
 
   private slugifyTag(text: string): string {

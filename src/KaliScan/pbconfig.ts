@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "KaliScan",
   description: "KaliScan - MadTheme source (kaliscan.com). Converted from keiyoushi.",
-  version: "1.4.25.5",
+  version: "1.4.25.6",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
