@@ -157,11 +157,12 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (64)
+### ✅ Tested (66)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
 | 8Muses | 1.4.2.1 | Mature |  |
+| Aqua Manga | 1.4.62.5 | Everyone |  |
 | Asura Scans | 1.4.62.1 | Everyone |  |
 | Bakkin | 1.4.7.1 | Everyone |  |
 | BatCave | 1.4.6.6 | Everyone |  |
@@ -214,6 +215,7 @@ If a source is broken, please open an issue.
 | Read One Piece Manga Online | 1.4.8.3 | Everyone |  |
 | ReadComicOnline | 1.4.43.13 | Everyone |  |
 | Rinko Comics | 1.4.2.1 | Everyone |  |
+| Rizz Comic | 1.4.45.2 | Everyone |  |
 | TCB Scans | 1.4.12.1 | Everyone |  |
 | Tapas | 1.4.24.2 | Mature | Locked/paywalled chapters can’t be opened — purchase required. |
 | Temple Scan | 1.4.49.1 | Mature |  |
@@ -238,7 +240,7 @@ site is currently down.
 | Toonily.me | 1.4.24.4 | Mature | Server down — toonily.me HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 
-### 🧪 Not yet tested (354)
+### 🧪 Not yet tested (352)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -252,7 +254,6 @@ site is currently down.
 | AllPornComic.io | 1.4.51.2 | Mature |
 | Anisa Scans | 1.4.52.2 | Mature |
 | AP Comics | 1.4.51.2 | Mature |
-| Aqua Manga | 1.4.62.2 | Everyone |
 | Arc-Relight | 1.4.15.1 | Everyone |
 | Arena Scans | 1.4.32.1 | Everyone |
 | Armageddon | 1.4.34.1 | Mature |
@@ -525,7 +526,6 @@ site is currently down.
 | Rest Scans | 1.4.32.1 | Mature |
 | Revival Scans | 1.4.1.1 | Mature |
 | RitharScans | 1.4.23.1 | Everyone |
-| Rizz Comic | 1.4.45.1 | Everyone |
 | Rizz Comic (unoriginal) | 1.4.32.1 | Everyone |
 | RokariComics | 1.4.34.1 | Everyone |
 | Rolia Scan | 1.4.8.1 | Everyone |
