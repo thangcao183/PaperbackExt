@@ -69,9 +69,15 @@ class MangaBoxInterceptor extends PaperbackInterceptor {
     super(id);
   }
 
+  /** Page images are served from cross-origin S3 CDNs (*.2xstorage.com). */
+  private static isImageRequest(url: string): boolean {
+    return /\.(jpe?g|png|webp|gif|avif|bmp|svg|apng)(\?|#|$)/i.test(url);
+  }
+
   override async interceptRequest(request: Request): Promise<Request> {
     const baseUrl = this.getBaseUrl();
     const incoming = request.headers ?? {};
+    const isImage = MangaBoxInterceptor.isImageRequest(request.url);
     // CF-critical headers (user-agent/referer/origin/accept-language) must be
     // forced LAST so they always match the Cloudflare clearance cookie -
     // letting a caller's user-agent win breaks the bypass. But the chapters
@@ -79,14 +85,23 @@ class MangaBoxInterceptor extends PaperbackInterceptor {
     // a default `accept` first and let the caller's accept/x-requested-with
     // override it before the CF headers are pinned.
     request.headers = {
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      accept: isImage
+        ? "image/avif,image/webp,image/apng,image/png,image/svg+xml,*/*;q=0.8"
+        : "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       ...incoming,
       referer: `${baseUrl}/`,
-      origin: baseUrl,
       "user-agent": await Application.getDefaultUserAgent(),
       "accept-language": "en-US,en;q=0.5",
     };
+    // Browsers omit Origin on <img> loads. The page images live on a
+    // cross-origin S3-backed CDN (*.2xstorage.com); sending an Origin to it
+    // confuses the S3 front (intermittent 400/IncompleteBody). Keep Origin
+    // only for same-origin (HTML/JSON) requests to the site itself.
+    if (isImage) {
+      delete request.headers["origin"];
+    } else {
+      request.headers["origin"] = baseUrl;
+    }
     return request;
   }
 
