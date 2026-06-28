@@ -156,7 +156,7 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (42)
+### ✅ Tested (43)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -174,6 +174,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | KaliScan | 1.4.25.6 | Mature |
 | LikeManga | 1.4.8.1 | Everyone |
 | Lily Manga | 1.4.58.4 | Mature |
+| Magus Manga | 1.4.69.3 | Everyone |
 | Mangadotnet | 1.4.11.2 | Mature |
 | Mangago | 1.4.34.6 | Mature |
 | Manga Demon | 1.4.19.4 | Everyone |
@@ -211,7 +212,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (380)
+### 🧪 Not yet tested (379)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -365,7 +366,6 @@ These need an account or credentials I don’t have.
 | LustToon | 1.4.1.1 | Mature |
 | Madara Scans | 1.4.34.1 | Everyone |
 | MadaraDex | 1.4.54.2 | Mature |
-| Magus Manga | 1.4.69.1 | Everyone |
 | Mahouirexnohentaikarte | 1.4.51.2 | Mature |
 | Manga 18x | 1.4.52.2 | Mature |
 | Manga Dass | 1.4.52.2 | Mature |
