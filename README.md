@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (47)
+### ✅ Tested (48)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -176,6 +176,7 @@ If a source is broken, please open an issue.
 | Hive Scans | 1.4.65.3 | Everyone |  |
 | InfinityScans | 1.4.10.2 | Mature |  |
 | KaliScan | 1.4.25.6 | Mature |  |
+| K Manga | 1.4.5.8 | Everyone | Only unlocked/free chapters tested; rented/purchased chapters require logging in (region-locked to Japan). |
 | LikeManga | 1.4.8.1 | Everyone |  |
 | Lily Manga | 1.4.58.4 | Mature |  |
 | MadaraDex | 1.4.54.4 | Mature |  |
@@ -219,7 +220,7 @@ site is currently down.
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 
-### 🧪 Not yet tested (374)
+### 🧪 Not yet tested (373)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -342,7 +343,6 @@ site is currently down.
 | IsekaiScan.top (unoriginal) | 1.4.52.2 | Mature |
 | J-Novel | 1.4.4.1 | Everyone |
 | Jinmangas | 1.4.51.2 | Mature |
-| K Manga | 1.4.5.5 | Everyone |
 | Kaizen Scan | 1.4.20.1 | Mature |
 | Kappa Beast | 1.4.33.1 | Mature |
 | Kayn Scans | 1.4.26.1 | Everyone |
