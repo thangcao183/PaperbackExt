@@ -73,16 +73,30 @@ class MadThemeInterceptor extends PaperbackInterceptor {
 
   override async interceptRequest(request: Request): Promise<Request> {
     const baseUrl = this.getBaseUrl();
+    const isImage = MadThemeInterceptor.isImageRequest(request.url);
     request.headers = {
       ...request.headers,
       referer: `${baseUrl}/`,
-      origin: baseUrl,
       "user-agent": await Application.getDefaultUserAgent(),
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      accept: isImage
+        ? "image/avif,image/webp,image/apng,image/png,image/svg+xml,*/*;q=0.8"
+        : "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.5",
     };
+    // Image CDNs (e.g. KaliScan's s11.1stmggv7.xyz) use nginx hotlink
+    // protection that 403s on an anomalous `Origin` header - real browsers
+    // never send Origin when loading <img> tags. Only set Origin on
+    // non-image (XHR/fetch/document) requests.
+    if (!isImage) {
+      request.headers["origin"] = baseUrl;
+    } else {
+      delete request.headers["origin"];
+    }
     return request;
+  }
+
+  private static isImageRequest(url: string): boolean {
+    return /\.(jpe?g|png|webp|gif|avif|bmp|svg|apng)(\?|#|$)/i.test(url);
   }
 
   override async interceptResponse(
