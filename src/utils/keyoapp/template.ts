@@ -486,9 +486,18 @@ export class KeyoappExtension implements KeyoappImplementation {
   }
 
   private parseChapterId(href: string): string {
-    // Keyoapp chapter URLs are flat: {baseUrl}/{chapter-slug}/
-    const cleaned = href.replace(/[?#].*$/, "").replace(/\/$/, "");
-    return this.toSafeId(cleaned.split("/").pop() ?? "");
+    // Keyoapp chapter URLs used to be flat ({baseUrl}/{chapter-slug}/) but
+    // newer deployments serve them under a /chapter/ prefix
+    // ({baseUrl}/chapter/{chapter-slug}/). Requesting the flat URL on those
+    // sites silently falls back to the series page (which has #chapters but
+    // no #pages) -> "No pages found". Preserve the FULL path (minus domain)
+    // so the exact reader URL is reproduced, mirroring keiyoushi's
+    // setUrlWithoutDomain. The charset allows "/", so toSafeId keeps it.
+    const cleaned = href
+      .replace(/[?#].*$/, "")
+      .replace(/^https?:\/\/[^/]+/i, "")
+      .replace(/^\/+|\/+$/g, "");
+    return this.toSafeId(cleaned);
   }
 
   // Paperback only allows IDs matching alphanumerics + `._-@()[]%?#+=/&:`.

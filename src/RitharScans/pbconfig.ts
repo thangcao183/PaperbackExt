@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "RitharScans",
   description: "RitharScans - Keyoapp source (ritharscans.com). Converted from keiyoushi.",
-  version: "1.4.23.3",
+  version: "1.4.23.4",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

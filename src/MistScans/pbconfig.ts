@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Mist Scans",
   description: "Mist Scans - Keyoapp source (mistscans.com). Converted from keiyoushi.",
-  version: "1.4.21.3",
+  version: "1.4.21.4",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
