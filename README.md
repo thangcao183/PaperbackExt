@@ -181,7 +181,7 @@ If a source is broken, please open an issue.
 | Hive Scans | 1.4.65.3 | Everyone |  |
 | HotComics | 1.4.2.4 | Mature |  |
 | InfinityScans | 1.4.10.2 | Mature |  |
-| Kaizen Scan | 1.4.20.4 | Mature |  |
+| Kaizen Scan | 1.4.20.4 | Mature | Coin-locked (paid) chapters can’t be opened — purchase required on the site. |
 | KaliScan | 1.4.25.6 | Mature |  |
 | K Manga | 1.4.5.8 | Everyone | Only unlocked/free chapters tested; rented/purchased chapters require logging in (region-locked to Japan). |
 | LikeManga | 1.4.8.1 | Everyone |  |
@@ -202,7 +202,7 @@ If a source is broken, please open an issue.
 | Mangatown | 1.4.10.2 | Mature |  |
 | ManhuaFast | 1.4.55.2 | Mature |  |
 | Manhwa18 | 1.4.13.1 | Mature |  |
-| MurimScan | 1.4.49.3 | Mature |  |
+| MurimScan | 1.4.49.3 | Mature | Paid (VIP) chapters can’t be opened — they require purchase/login on the site. |
 | Omega Scans | 1.4.50.1 | Mature |  |
 | Read Comics Online | 1.4.14.1 | Everyone |  |
 | Read One Piece Manga Online | 1.4.8.3 | Everyone |  |
