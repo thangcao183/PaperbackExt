@@ -85,8 +85,9 @@ const BROWSE_BOOTSTRAP = `
 
 // Chapter list: accumulate items across pages (click Next until lastPage),
 // resolve with the accumulated array.
-const CHAPTERS_BOOTSTRAP = `
+const CHAPTERS_BOOTSTRAP = (expectedMangaId: string) => `
 (function(){
+  var EXPECTED=${JSON.stringify(String(expectedMangaId))};
   var items=[], seen=new Set(), totalPages=null, submitted=false, doneResolve;
   window.__comixResult__ = new Promise(function(r){ doneResolve = r; });
   function submit(){ if(submitted) return; submitted=true; doneResolve(items); }
@@ -107,12 +108,16 @@ const CHAPTERS_BOOTSTRAP = `
     try {
       if(!submitted && parsed && parsed.result && Array.isArray(parsed.result.items) &&
          parsed.result.items[0] && parsed.result.items[0].id !== undefined &&
-         parsed.result.items[0].mangaId !== undefined){
+         parsed.result.items[0].mangaId !== undefined &&
+         (!EXPECTED || String(parsed.result.items[0].mangaId) === EXPECTED)){
         var meta=parsed.result.meta || parsed.result.pagination;
         var page=(meta && meta.page) || 1;
         if(!seen.has(page)){
           seen.add(page);
-          for(var i=0;i<parsed.result.items.length;i++) items.push(parsed.result.items[i]);
+          for(var i=0;i<parsed.result.items.length;i++){
+            var it=parsed.result.items[i];
+            if(!EXPECTED || String(it.mangaId) === EXPECTED) items.push(it);
+          }
           if(totalPages===null && meta && typeof meta.lastPage==="number") totalPages=meta.lastPage;
           if(totalPages!==null && page<totalPages){ armIdle(); gotoNext(); } else submit();
         }
@@ -239,22 +244,24 @@ class ComixInterceptor extends PaperbackInterceptor {
     const urlWithoutFragment = request.url.split("#")[0];
     const fragment = request.url.split("#")[1] ?? "";
 
-    // Scrambled pages (tagged `#scrambled` by getChapterDetails) MUST keep the
-    // Origin header so the CDN returns the x-enc-seed/x-enc-len headers that
-    // interceptResponse uses to byte-XOR-decode them. Plain off-host images
-    // (e.g. wowpic) return a bad variant when Origin is present, so we drop
-    // Origin for those. We tag intent in the URL fragment so we can decide
-    // here without re-parsing query params.
+    // V3 grid-scramble pages (tagged `#v3`) MUST NOT send Origin — the CDN
+    // withholds the x-scramble-seed header when Origin is present. Legacy
+    // scramble pages (tagged `#scrambled`, non-v3) MUST keep Origin so the CDN
+    // returns the x-enc-seed/x-enc-len headers interceptResponse uses. Plain
+    // off-host images (e.g. wowpic) return a bad variant with Origin, so they
+    // also drop it. We tag intent in the URL fragment so we can decide here
+    // without re-parsing query params.
     let host = "";
     try {
       host = urlWithoutFragment.replace(/^https?:\/\//, "").split("/")[0];
     } catch {
       host = "";
     }
-    const isScramble = fragment.includes("scrambled");
+    const isV3 = fragment.includes("v3");
+    const isLegacyScramble = fragment.includes("scrambled") && !isV3;
     const isOffHostImage =
       host.length > 0 && !host.includes("comix.to");
-    const dropOrigin = isOffHostImage && !isScramble;
+    const dropOrigin = isOffHostImage && !isLegacyScramble;
 
     const headers: Record<string, string> = {
       ...request.headers,
@@ -529,8 +536,14 @@ export class ComixExtension implements ComixImplementation {
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const mangaSlug = this.safeDecode(sourceManga.mangaId).replace(/^\/+/, "");
+    // The API tags every chapter with a numeric `mangaId`; the slug is
+    // `<numericId>-<title>`. Pass the numeric id so the WebView capture ignores
+    // chapter payloads that belong to OTHER manga (related/recommended lists),
+    // which previously leaked duplicate chapters into the list.
+    const numericMangaId = mangaSlug.split("-")[0] ?? "";
     const rawChapters = await this.captureChapters(
       this.mangaUrl(sourceManga.mangaId),
+      numericMangaId,
     );
 
     const chapters: Chapter[] = [];
@@ -569,19 +582,21 @@ export class ComixExtension implements ComixImplementation {
     const pages: string[] = [];
     if (result) {
       const base = (result.baseUrl ?? "").replace(/\/+$/, "");
-      // comix.to switched its image protection (keiyoushi #16517, 2026-06-08):
-      // the old 5x5 grid-scramble (x-scramble-* headers + a ?<token>&v3 query)
-      // is gone. Images are now served plain, and "protected" pages carry a
-      // byte-prefix XOR keyed by the x-enc-seed / x-enc-len response headers —
-      // decoded by interceptResponse (decodeWithLcg). No query string is needed
-      // anymore; appending the legacy ?<token>&v3 now yields a bad variant.
+      // comix.to restored the 5x5 grid-scramble protection (keiyoushi #16655 →
+      // #17035, 2026-06): two distinct page variants now coexist.
       //
-      // A page is treated as scrambled when the API marks it (`s === 1`) OR it
-      // is every 4th page (the site obfuscates those even without the flag).
-      // Scrambled pages MUST keep the Origin header, so we tag them with the
-      // `#scrambled` fragment (interceptRequest drops Origin only for off-host
-      // images that are NOT scrambled). Plain off-host images get no fragment
-      // so their Origin is dropped (wowpic returns a bad variant with Origin).
+      //  - V3 grid-scramble: API marks the page (`s === 1`) OR the captured URL
+      //    already carries a `?v3` flag. The CDN serves these scrambled and
+      //    returns x-scramble-* (+ optional x-enc-*) headers ONLY when the `v3`
+      //    query param is present AND the Origin header is ABSENT (it withholds
+      //    x-scramble-seed when Origin is sent). We ensure `v3` is in the query
+      //    and tag `#v3` so interceptRequest drops Origin for these.
+      //  - Legacy scramble: every 4th non-v3 page is obfuscated; tagged
+      //    `#scrambled`, and these MUST keep Origin.
+      //  - Everything else is plain; off-host plain images get Origin dropped.
+      //
+      // The hex token (e.g. `?6a38ff90&v3`) originates from the SPA's own image
+      // URL — we never synthesize one; we just guarantee `v3` is present.
       result.items.forEach((img, index) => {
         const raw = (img.url ?? "").trim();
         if (!raw) return;
@@ -589,8 +604,21 @@ export class ComixExtension implements ComixImplementation {
           ? raw
           : `${base}/${raw.replace(/^\/+/, "")}`;
 
-        const isScrambled = img.s === 1 || (index + 1) % 4 === 0;
-        pages.push(isScrambled ? `${full}#scrambled` : full);
+        const isV3 = img.s === 1 || /[?&]v3(\b|=|&|$)/.test(full);
+        const isLegacyScramble = !isV3 && (index + 1) % 4 === 0;
+
+        if (isV3) {
+          // Ensure the `v3` query flag is present, then tag `#v3`.
+          let v3Url = full;
+          if (!/[?&]v3(\b|=|&|$)/.test(v3Url)) {
+            v3Url += v3Url.includes("?") ? "&v3" : "?v3";
+          }
+          pages.push(`${v3Url}#v3`);
+        } else if (isLegacyScramble) {
+          pages.push(`${full}#scrambled`);
+        } else {
+          pages.push(full);
+        }
       });
     }
 
@@ -651,8 +679,14 @@ export class ComixExtension implements ComixImplementation {
     return this.findBrowseItems({ cap: parsed });
   }
 
-  private async captureChapters(pageUrl: string): Promise<ChapterDto[]> {
-    const raw = await this.runProxiedWebView(pageUrl, CHAPTERS_BOOTSTRAP);
+  private async captureChapters(
+    pageUrl: string,
+    expectedMangaId: string,
+  ): Promise<ChapterDto[]> {
+    const raw = await this.runProxiedWebView(
+      pageUrl,
+      CHAPTERS_BOOTSTRAP(expectedMangaId),
+    );
     if (!Array.isArray(raw)) return [];
     return raw.filter(
       (c): c is ChapterDto =>
@@ -1229,6 +1263,8 @@ function decodeScrambleHash(hash: string | undefined): number {
   switch (hash?.trim()) {
     case "03632":
       return 58414;
+    case "02900":
+      return 117532;
     default:
       return 0;
   }
