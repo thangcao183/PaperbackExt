@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Aqua Manga",
   description: "Aqua Manga - Madara source (aquareader.org). Converted from keiyoushi.",
-  version: "1.4.62.3",
+  version: "1.4.62.4",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

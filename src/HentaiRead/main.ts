@@ -295,4 +295,5 @@ export const HentaiRead = new HentaiReadExtension({
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
   popularMangaUrlSelector: "a.manga-item__link",
+  discoverItemSelector: ".manga-item",
 });

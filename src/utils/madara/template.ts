@@ -91,6 +91,13 @@ export interface MadaraConfig {
   supportsLatest?: boolean;
   /** Anchor selector for popular list items (upstream `popularMangaUrlSelector`). */
   popularMangaUrlSelector?: string;
+  /**
+   * Container selector for discover (popular/latest) list items. Defaults to
+   * the standard Madara `div.page-item-detail, .manga__item`. Custom themes
+   * that rebuild the listing markup (e.g. HentaiRead `.manga-item`, Aqua Manga
+   * `article.aqua-archive-card`) override this so the carousel isn't empty.
+   */
+  discoverItemSelector?: string;
   /** Anchor selector for search list items (upstream `searchMangaUrlSelector`). */
   searchMangaUrlSelector?: string;
   /** Chapter `<li>` selector (upstream `chapterListSelector`). */
@@ -213,6 +220,7 @@ export class MadaraExtension implements MadaraImplementation {
   readonly filterNonMangaItems: boolean;
   readonly supportsLatest: boolean;
   readonly popularMangaUrlSelector: string;
+  readonly discoverItemSelector: string;
   readonly searchMangaUrlSelector: string;
   readonly chapterListSelector: string;
   readonly chapterUrlSuffix: string;
@@ -257,6 +265,8 @@ export class MadaraExtension implements MadaraImplementation {
     this.supportsLatest = config.supportsLatest ?? true;
     this.popularMangaUrlSelector =
       config.popularMangaUrlSelector ?? "div.post-title a";
+    this.discoverItemSelector =
+      config.discoverItemSelector ?? "div.page-item-detail, .manga__item";
     this.searchMangaUrlSelector =
       config.searchMangaUrlSelector ?? "div.post-title a";
     this.chapterListSelector = config.chapterListSelector ?? "li.wp-manga-chapter";
@@ -427,7 +437,7 @@ export class MadaraExtension implements MadaraImplementation {
 
     const items: DiscoverSectionItem[] = [];
 
-    $("div.page-item-detail, .manga__item").each((_, element) => {
+    $(this.discoverItemSelector).each((_, element) => {
       const unit = $(element);
       const titleLink = unit.find(this.popularMangaUrlSelector).first();
       const title = titleLink.text().trim() || titleLink.attr("title") || "";
@@ -856,7 +866,10 @@ export class MadaraExtension implements MadaraImplementation {
     const chapters: Chapter[] = [];
     chapterElements.each((_, element) => {
       const el = $(element);
-      const link = el.find("a").first();
+      // Some custom themes (e.g. Aqua Manga's `a.aqua-ch-item`) make the
+      // chapter-row element itself the anchor rather than wrapping one, so
+      // use the element directly when it is an <a>.
+      const link = el.is("a") ? el : el.find("a").first();
       const href = link.attr("href") || "";
       if (!href) return;
 
