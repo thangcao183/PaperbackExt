@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Writer Scans",
   description: "Writer Scans - Keyoapp source (writerscans.com). Converted from keiyoushi.",
-  version: "1.4.20.2",
+  version: "1.4.20.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

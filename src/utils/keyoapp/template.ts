@@ -432,10 +432,19 @@ export class KeyoappExtension implements KeyoappImplementation {
       });
     }
 
+    const uniquePages = [...new Set(pages)];
+
+    // Returning an empty page list crashes the Paperback reader. Throw a
+    // clear error instead (e.g. the chapter page is JS-rendered/locked or
+    // the CDN host script was not found).
+    if (uniquePages.length === 0) {
+      throw new Error("No pages found for this chapter");
+    }
+
     return {
       id: chapter.chapterId,
       mangaId: chapter.sourceManga.mangaId,
-      pages: [...new Set(pages)],
+      pages: uniquePages,
     };
   }
 
