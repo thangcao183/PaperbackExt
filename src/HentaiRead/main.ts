@@ -121,31 +121,29 @@ class HentaiReadExtension extends MadaraExtension {
     description += `${$(".items-center:contains(pages:)").text()}\n`;
 
     // HentaiRead's detail page uses a custom theme, and keiyoushi never sets a
-    // detail thumbnail (Tachiyomi reuses the list cover). Probe several cover
-    // candidates, then meta tags, and finally fall back to the placeholder so
-    // thumbnailUrl is never empty (Paperback throws "Invalid URL" otherwise).
-    let image = "";
-    const coverSelectors = [
-      this.mangaDetailsThumbnailSelector ?? "",
-      ".manga-cover img",
-      ".manga-item__img img",
-      ".manga-item__img-inner",
-      "div.summary_image img",
-      "figure img",
-    ];
-    for (const sel of coverSelectors) {
-      if (!sel) continue;
-      const candidate = this.imageFromElement($(sel).first());
-      if (candidate) {
-        image = candidate;
-        break;
-      }
-    }
+    // detail thumbnail (Tachiyomi reuses the list cover). The main cover sits in
+    // `a.image--hover img`; og:image carries the same cover at full resolution.
+    // We avoid `.manga-item__img*` selectors here because those match the
+    // related/recommended sidebar items, not the current title.
+    let image =
+      $('meta[property="og:image"]').attr("content")?.trim() ??
+      $('meta[name="twitter:image"]').attr("content")?.trim() ??
+      "";
     if (!image) {
-      image =
-        $('meta[property="og:image"]').attr("content")?.trim() ??
-        $('meta[name="twitter:image"]').attr("content")?.trim() ??
-        "";
+      const coverSelectors = [
+        this.mangaDetailsThumbnailSelector ?? "",
+        "a.image--hover img",
+        ".manga-cover img",
+        "div.summary_image img",
+      ];
+      for (const sel of coverSelectors) {
+        if (!sel) continue;
+        const candidate = this.imageFromElement($(sel).first());
+        if (candidate) {
+          image = candidate;
+          break;
+        }
+      }
     }
     if (!image) {
       image = PLACEHOLDER_COVER;
@@ -330,4 +328,5 @@ export const HentaiRead = new HentaiReadExtension({
   langCode: "🇬🇧",
   popularMangaUrlSelector: "a.manga-item__link",
   discoverItemSelector: ".manga-item",
+  mangaDetailsTitleSelector: ".manga-titles h1",
 });
