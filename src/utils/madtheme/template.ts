@@ -389,12 +389,11 @@ export class MadThemeExtension implements MadThemeImplementation {
       // Note: manga_id alone is sufficient; manga_name is omitted because the
       // URLBuilder does not URL-encode values and a raw space breaks the query.
       const numericId = numericIdMatch[1];
-      const apiUrl = new URLBuilder(this.baseUrl)
-        .addPath("service")
-        .addPath("backend")
-        .addPath("chaplist")
-        .addQuery("manga_id", numericId)
-        .build();
+      // The trailing slash after `chaplist` is REQUIRED: without it the server
+      // returns the 83KB page shell (0 chapters); with it the ~13KB chapter-list
+      // fragment is returned. URLBuilder does not emit a trailing slash before
+      // the query string, so build this URL directly.
+      const apiUrl = `${this.baseUrl}/service/backend/chaplist/?manga_id=${numericId}`;
       $ = await this.fetchCheerio({ url: apiUrl, method: "GET" });
     } else if (numericIdMatch) {
       const numericId = numericIdMatch[1];
