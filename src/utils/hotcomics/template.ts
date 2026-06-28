@@ -72,21 +72,34 @@ class HotComicsInterceptor extends PaperbackInterceptor {
 
   override async interceptRequest(request: Request): Promise<Request> {
     const baseUrl = this.getBaseUrl();
+    const isImage = HotComicsInterceptor.isImageRequest(request.url);
     request.headers = {
       ...request.headers,
       referer: `${baseUrl}/`,
-      origin: baseUrl,
       "user-agent": await Application.getDefaultUserAgent(),
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      accept: isImage
+        ? "image/avif,image/webp,image/apng,image/png,image/svg+xml,*/*;q=0.8"
+        : "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.5",
     };
+    // Browsers do NOT send an Origin header when loading <img> tags (Origin is
+    // only for CORS/fetch/XHR). Sending it to the image CDN trips hotlink
+    // protection (403) on some series, so drop it for image requests.
+    if (isImage) {
+      delete request.headers["origin"];
+    } else {
+      request.headers["origin"] = baseUrl;
+    }
     // Age verification gate cookie used by the site.
     request.cookies = {
       ...request.cookies,
       hc_vfs: "Y",
     };
     return request;
+  }
+
+  private static isImageRequest(url: string): boolean {
+    return /\.(jpe?g|png|webp|gif|avif|bmp|svg|apng)(\?|#|$)/i.test(url);
   }
 
   override async interceptResponse(
@@ -447,10 +460,20 @@ export class HotComicsExtension implements HotComicsImplementation {
       if (image) pages.push(image);
     });
 
+    const uniquePages = [...new Set(pages)];
+
+    // Returning an empty page list crashes the Paperback reader. Throw a
+    // clear error instead (e.g. the chapter is locked / requires purchase).
+    if (uniquePages.length === 0) {
+      throw new Error(
+        "No pages found — this chapter may be locked or require purchase.",
+      );
+    }
+
     return {
       id: chapter.chapterId,
       mangaId: chapter.sourceManga.mangaId,
-      pages: [...new Set(pages)],
+      pages: uniquePages,
     };
   }
 
