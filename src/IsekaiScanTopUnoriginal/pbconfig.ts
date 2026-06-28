@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "IsekaiScan.top (unoriginal)",
   description: "IsekaiScan.top (unoriginal) - Madara source (isekaiscan.top). Converted from keiyoushi.",
-  version: "1.4.52.2",
+  version: "1.4.52.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

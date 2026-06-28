@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Manga District",
   description: "Manga District - Madara source (mangadistrict.com). Converted from keiyoushi.",
-  version: "1.4.67.2",
+  version: "1.4.67.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

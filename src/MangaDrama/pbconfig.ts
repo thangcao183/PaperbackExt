@@ -4,7 +4,7 @@ export default {
   name: "Manga Drama",
   description:
     "Manga Drama - Madara source (mangadrama.com). Converted from keiyoushi.",
-  version: "1.4.51.2",
+  version: "1.4.51.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "YakshaComics",
   description: "YakshaComics - Madara source (yakshacomics.com). Converted from keiyoushi.",
-  version: "1.4.53.2",
+  version: "1.4.53.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

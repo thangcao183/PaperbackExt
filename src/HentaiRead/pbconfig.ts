@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "HentaiRead",
   description: "HentaiRead - Madara source (hentairead.com). Converted from keiyoushi.",
-  version: "1.4.61.2",
+  version: "1.4.61.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Manhua Plus",
   description: "Manhua Plus - Madara source (manhuaplus.com). Converted from keiyoushi.",
-  version: "1.4.58.2",
+  version: "1.4.58.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

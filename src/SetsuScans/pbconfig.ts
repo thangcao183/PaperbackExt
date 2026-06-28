@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Setsu Scans",
   description: "Setsu Scans - Madara source (setsuscans.com). Converted from keiyoushi.",
-  version: "1.4.54.2",
+  version: "1.4.54.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

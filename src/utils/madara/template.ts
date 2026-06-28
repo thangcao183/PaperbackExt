@@ -110,19 +110,33 @@ class MadaraInterceptor extends PaperbackInterceptor {
 
   override async interceptRequest(request: Request): Promise<Request> {
     const baseUrl = this.getBaseUrl();
+    const isImage = MadaraInterceptor.isImageRequest(request.url);
     request.headers = {
       ...request.headers,
       referer: `${baseUrl}/`,
-      origin: baseUrl,
       "user-agent": await Application.getDefaultUserAgent(),
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      accept: isImage
+        ? "image/avif,image/webp,image/apng,image/png,image/svg+xml,*/*;q=0.8"
+        : "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.5",
       "accept-encoding": "gzip, deflate, br",
       "cache-control": "no-cache",
       pragma: "no-cache",
     };
+    if (isImage) {
+      // Browsers omit the Origin header when loading <img> elements (Origin is
+      // a CORS/fetch concept). Image CDNs (e.g. cdn.madaradex.org) treat an
+      // unexpected Origin as a hotlink attempt and return 403. Drop it for
+      // image requests; keep it for the WordPress/AJAX page requests.
+      delete request.headers["origin"];
+    } else {
+      request.headers["origin"] = baseUrl;
+    }
     return request;
+  }
+
+  private static isImageRequest(url: string): boolean {
+    return /\.(jpe?g|png|webp|gif|avif|bmp|svg|apng)(\?|#|$)/i.test(url);
   }
 
   override async interceptResponse(

@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "GingeRTooN",
   description: "GingeRTooN - Madara source (gingertoon.com). Converted from keiyoushi.",
-  version: "1.4.51.2",
+  version: "1.4.51.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
