@@ -85,10 +85,15 @@ const BROWSE_BOOTSTRAP = `
 
 // Chapter list: accumulate items across pages (click Next until lastPage),
 // resolve with the accumulated array.
-const CHAPTERS_BOOTSTRAP = (expectedMangaId: string) => `
+const CHAPTERS_BOOTSTRAP = `
 (function(){
-  var EXPECTED=${JSON.stringify(String(expectedMangaId))};
   var items=[], seen=new Set(), totalPages=null, submitted=false, doneResolve;
+  // Lock onto the FIRST manga whose chapter list we observe. The detail page's
+  // own chapter list loads first; related/recommended lists (a DIFFERENT
+  // mangaId) load afterwards and previously leaked in as duplicate chapters.
+  // We can't derive the id from the slug (the slug prefix != API mangaId), so
+  // we capture it dynamically from the first valid payload.
+  var lockedMangaId=null;
   window.__comixResult__ = new Promise(function(r){ doneResolve = r; });
   function submit(){ if(submitted) return; submitted=true; doneResolve(items); }
   var idleTimer;
@@ -108,18 +113,21 @@ const CHAPTERS_BOOTSTRAP = (expectedMangaId: string) => `
     try {
       if(!submitted && parsed && parsed.result && Array.isArray(parsed.result.items) &&
          parsed.result.items[0] && parsed.result.items[0].id !== undefined &&
-         parsed.result.items[0].mangaId !== undefined &&
-         (!EXPECTED || String(parsed.result.items[0].mangaId) === EXPECTED)){
-        var meta=parsed.result.meta || parsed.result.pagination;
-        var page=(meta && meta.page) || 1;
-        if(!seen.has(page)){
-          seen.add(page);
-          for(var i=0;i<parsed.result.items.length;i++){
-            var it=parsed.result.items[i];
-            if(!EXPECTED || String(it.mangaId) === EXPECTED) items.push(it);
+         parsed.result.items[0].number !== undefined){
+        var payloadMangaId=parsed.result.items[0].mangaId;
+        if(lockedMangaId===null && payloadMangaId!==undefined) lockedMangaId=String(payloadMangaId);
+        if(lockedMangaId===null || payloadMangaId===undefined || String(payloadMangaId)===lockedMangaId){
+          var meta=parsed.result.meta || parsed.result.pagination;
+          var page=(meta && meta.page) || 1;
+          if(!seen.has(page)){
+            seen.add(page);
+            for(var i=0;i<parsed.result.items.length;i++){
+              var it=parsed.result.items[i];
+              if(lockedMangaId===null || it.mangaId===undefined || String(it.mangaId)===lockedMangaId) items.push(it);
+            }
+            if(totalPages===null && meta && typeof meta.lastPage==="number") totalPages=meta.lastPage;
+            if(totalPages!==null && page<totalPages){ armIdle(); gotoNext(); } else submit();
           }
-          if(totalPages===null && meta && typeof meta.lastPage==="number") totalPages=meta.lastPage;
-          if(totalPages!==null && page<totalPages){ armIdle(); gotoNext(); } else submit();
         }
       }
     } catch(e){}
@@ -536,14 +544,8 @@ export class ComixExtension implements ComixImplementation {
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const mangaSlug = this.safeDecode(sourceManga.mangaId).replace(/^\/+/, "");
-    // The API tags every chapter with a numeric `mangaId`; the slug is
-    // `<numericId>-<title>`. Pass the numeric id so the WebView capture ignores
-    // chapter payloads that belong to OTHER manga (related/recommended lists),
-    // which previously leaked duplicate chapters into the list.
-    const numericMangaId = mangaSlug.split("-")[0] ?? "";
     const rawChapters = await this.captureChapters(
       this.mangaUrl(sourceManga.mangaId),
-      numericMangaId,
     );
 
     const chapters: Chapter[] = [];
@@ -679,14 +681,8 @@ export class ComixExtension implements ComixImplementation {
     return this.findBrowseItems({ cap: parsed });
   }
 
-  private async captureChapters(
-    pageUrl: string,
-    expectedMangaId: string,
-  ): Promise<ChapterDto[]> {
-    const raw = await this.runProxiedWebView(
-      pageUrl,
-      CHAPTERS_BOOTSTRAP(expectedMangaId),
-    );
+  private async captureChapters(pageUrl: string): Promise<ChapterDto[]> {
+    const raw = await this.runProxiedWebView(pageUrl, CHAPTERS_BOOTSTRAP);
     if (!Array.isArray(raw)) return [];
     return raw.filter(
       (c): c is ChapterDto =>
