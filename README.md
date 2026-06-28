@@ -222,7 +222,7 @@ If a source is broken, please open an issue.
 | VyvyManga | 1.4.40.1 | Mature |  |
 | Weeb Central | 1.4.22.2 | Mature |  |
 
-### ⚠️ Can’t test (2)
+### ⚠️ Can’t test (4)
 
 These can’t be verified right now — they need credentials I don’t have, or the
 site is currently down.
@@ -231,8 +231,10 @@ site is currently down.
 | ------ | ------- | ------- | ---- |
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
+| Toonily.me | 1.4.24.4 | Mature | Server down — toonily.me HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
+| VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 
-### 🧪 Not yet tested (361)
+### 🧪 Not yet tested (359)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -558,7 +560,6 @@ site is currently down.
 | TimelessToons | 1.4.20.1 | Everyone |
 | TodayManga | 1.4.3.1 | Mature |
 | Toon18 | 1.4.51.2 | Mature |
-| Toonily.me | 1.4.24.1 | Mature |
 | TooniTube | 1.4.24.1 | Mature |
 | Toonizy | 1.4.51.2 | Mature |
 | Top Manhua | 1.4.58.2 | Mature |
@@ -570,7 +571,6 @@ site is currently down.
 | vgperson | 1.4.7.1 | Everyone |
 | Violet Scans | 1.4.35.1 | Everyone |
 | Voyce.Me | 1.4.6.1 | Everyone |
-| VyvyManga.org | 1.4.51.2 | Mature |
 | War For Rayuba | 1.4.3.1 | Everyone |
 | Webcomics | 1.4.10.1 | Everyone |
 | Webdex Scans | 1.4.52.1 | Everyone |
