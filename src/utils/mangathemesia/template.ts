@@ -657,11 +657,10 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const url = new URLBuilder(this.baseUrl)
-      .addPath(this.mangaUrlDirectory)
-      .addPath(chapter.sourceManga.mangaId)
-      .addPath(chapter.chapterId)
-      .build();
+    // chapterId now holds the full path (minus the domain), so request it
+    // directly instead of rebuilding a nested {mangaUrlDirectory}/{mangaId}/...
+    // URL (which broke forks whose chapters live under a different prefix).
+    const url = `${this.baseUrl}/${chapter.chapterId}`;
 
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const pages: string[] = [];
@@ -720,9 +719,21 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
   }
 
   private parseChapterId(href: string, _mangaId: string): string {
-    // MangaThemesia chapter URLs are flat: {baseUrl}/{chapter-slug}/
-    const cleaned = href.replace(/[?#].*$/, "").replace(/\/$/, "");
-    return this.toSafeId(cleaned.split("/").pop() ?? "");
+    // Store the FULL path (minus the domain), mirroring keiyoushi's
+    // setUrlWithoutDomain(). Chapter URLs differ between forks: standard
+    // MangaThemesia is flat ({baseUrl}/{chapter-slug}), some forks nest the
+    // chapter under a "/chapter/" prefix (e.g. Rizz Comic:
+    // {baseUrl}/chapter/{slug}) and others nest under the series directory
+    // (e.g. Comic Asura: {baseUrl}/manga/{series}/chapter-N). Keeping only the
+    // last path segment dropped these prefixes and produced a broken nested
+    // URL in getChapterDetails. Preserving the whole path lets the chapter be
+    // requested verbatim.
+    const cleaned = href
+      .replace(/^https?:\/\/[^/]+/i, "")
+      .replace(/[?#].*$/, "")
+      .replace(/^\/+/, "")
+      .replace(/\/$/, "");
+    return this.toSafeId(cleaned);
   }
 
   // Paperback only allows IDs matching alphanumerics + `._-@()[]%?#+=/&:`.

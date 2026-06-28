@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "TCB Scans (Unoriginal)",
   description: "TCB Scans (Unoriginal) - MangaThemesia source (tcbscanonepiecechapters.com). Converted from keiyoushi.",
-  version: "1.4.32.1",
+  version: "1.4.32.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

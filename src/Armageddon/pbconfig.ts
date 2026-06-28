@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Armageddon",
   description: "Armageddon - MangaThemesia source (www.silentquill.net). Converted from keiyoushi.",
-  version: "1.4.34.1",
+  version: "1.4.34.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
