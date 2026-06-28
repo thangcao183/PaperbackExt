@@ -777,6 +777,12 @@ export class KMangaExtension implements KMangaImplementation {
       (p) => `${p}#scramble_seed=${seed}`,
     );
 
+    if (pages.length === 0) {
+      throw new Error(
+        "Log in via WebView and rent or purchase this chapter to read.",
+      );
+    }
+
     return {
       id: chapter.chapterId,
       mangaId: chapter.sourceManga.mangaId,
@@ -878,6 +884,15 @@ export class KMangaExtension implements KMangaImplementation {
       headers: { "x-kmanga-hash": hash },
     });
     if (response.status === 404) throw new Error("Content not found");
+    // A locked/unpurchased chapter returns HTTP 400 from the viewer endpoint
+    // (mirrors upstream KManga.kt interceptor). Surface a clear message instead
+    // of parsing the error body, which would yield an empty page list and crash
+    // the reader.
+    if (response.status === 400 && url.includes("/episode/viewer")) {
+      throw new Error(
+        "Log in via WebView and rent or purchase this chapter to read.",
+      );
+    }
     return JSON.parse(Application.arrayBufferToUTF8String(data)) as T;
   }
 
