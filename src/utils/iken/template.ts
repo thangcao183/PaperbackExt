@@ -105,6 +105,12 @@ interface IkenPage {
   isShortLinkLocked?: boolean;
 }
 
+// The /api/chapter endpoint wraps the page data in a `chapter` envelope:
+// `{ "chapter": { "images": [...] } }`.
+interface IkenPageResponse {
+  chapter?: IkenPage;
+}
+
 class IkenInterceptor extends PaperbackInterceptor {
   constructor(
     id: string,
@@ -514,7 +520,12 @@ export class IkenExtension implements IkenImplementation {
       .addQuery("chapterId", id)
       .build();
 
-    const data = await this.fetchJson<IkenPage>({ url, method: "GET" });
+    const response = await this.fetchJson<IkenPageResponse>({
+      url,
+      method: "GET",
+    });
+    // The API wraps the chapter data in a `chapter` envelope.
+    const data = response.chapter ?? (response as unknown as IkenPage);
 
     if (data.isShortLinkLocked) throw new Error("Chapter locked (short link)");
     if (data.isLockedByCoins) throw new Error("Chapter locked (coins required)");
@@ -526,7 +537,12 @@ export class IkenExtension implements IkenImplementation {
       return ao - bo;
     });
 
-    const pages = sorted.map((p) => p.url.replace(/ /g, "%20"));
+    const pages = sorted
+      .map((p) => p.url)
+      .filter((u): u is string => typeof u === "string" && u.length > 0)
+      .map((u) => u.replace(/ /g, "%20"));
+
+    if (pages.length === 0) throw new Error("No pages found for this chapter");
 
     return {
       id: chapter.chapterId,

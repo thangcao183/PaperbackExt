@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Kayn Scans",
   description: "Kayn Scans - Iken source (kaynscan.org). Converted from keiyoushi.",
-  version: "1.4.26.2",
+  version: "1.4.26.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
