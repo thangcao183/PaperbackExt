@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (49)
+### ✅ Tested (50)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -166,6 +166,7 @@ If a source is broken, please open an issue.
 | BatCave | 1.4.6.6 | Everyone |  |
 | ComicK Fanmade | 1.4.2.1 | Mature |  |
 | Coffee Manga | 1.4.56.2 | Mature |  |
+| Comic Asura | 1.4.34.2 | Mature |  |
 | Comix | 1.4.31.27 | Mature | Scanlation group shown in each chapter title, e.g. [Group]. |
 | DragonTea | 1.4.56.2 | Everyone |  |
 | Dynasty | 1.4.30.5 | Mature |  |
@@ -221,7 +222,7 @@ site is currently down.
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 
-### 🧪 Not yet tested (372)
+### 🧪 Not yet tested (371)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -261,7 +262,6 @@ site is currently down.
 | CManhua | 1.4.1.1 | Mature |
 | Cocomic | 1.4.53.2 | Mature |
 | Collected Curios | 1.4.2.1 | Everyone |
-| Comic Asura | 1.4.34.1 | Mature |
 | Comic CX | 1.4.1.1 | Mature |
 | ComicHubFree | 1.4.3.1 | Everyone |
 | ComicLand | 1.4.1.1 | Mature |
