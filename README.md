@@ -147,8 +147,8 @@ images, unscrambled in-process via Paperback's canvas polyfill),
 
 ## Available Sources
 
-**422** sources are currently published. Sources marked **Mature** contain
-adult/NSFW content (232 Mature, 190 Everyone).
+**421** sources are currently published. Sources marked **Mature** contain
+adult/NSFW content (232 Mature, 189 Everyone).
 
 The lists below group sources by manual testing status. **Tested** sources
 have been verified working on a device. **Not yet tested** sources are plain
@@ -234,7 +234,7 @@ site is currently down.
 | Toonily.me | 1.4.24.4 | Mature | Server down — toonily.me HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 
-### 🧪 Not yet tested (359)
+### 🧪 Not yet tested (358)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -521,7 +521,6 @@ site is currently down.
 | Real Life Comics | 1.4.3.1 | Everyone |
 | ReiManga | 1.4.1.1 | Mature |
 | Renascans | 1.4.23.1 | Everyone |
-| Reset Scans | 1.4.65.2 | Everyone |
 | Rest Scans | 1.4.32.1 | Mature |
 | Revival Scans | 1.4.1.1 | Mature |
 | RitharScans | 1.4.23.1 | Everyone |
@@ -724,7 +723,7 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   custom chapter/list/detail/page selectors, `chapterUrlSuffix`,
   `filterNonMangaItems`, etc.) mirroring the upstream keiyoushi subclasses, and
   the ~30 Madara sites with genuinely custom Kotlin logic (e.g. Hiperdex,
-  Manga18fx, HentaiRead, Reset Scans, Manga District, Firescans' AES chapter
+  Manga18fx, HentaiRead, Manga District, Firescans' AES chapter
   protector, the year-inference date parsers) are reproduced as small
   `MadaraExtension` subclasses.
 - The bespoke standalone (non-framework) keiyoushi **English** sources are now
