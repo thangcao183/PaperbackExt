@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (54)
+### ✅ Tested (56)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -178,6 +178,7 @@ If a source is broken, please open an issue.
 | HentaiNexus | 1.4.17.2 | Mature |  |
 | Hiperdex | 1.4.80.2 | Mature |  |
 | Hive Scans | 1.4.65.3 | Everyone |  |
+| HotComics | 1.4.2.4 | Mature |  |
 | InfinityScans | 1.4.10.2 | Mature |  |
 | Kaizen Scan | 1.4.20.4 | Mature |  |
 | KaliScan | 1.4.25.6 | Mature |  |
@@ -200,6 +201,7 @@ If a source is broken, please open an issue.
 | Mangatown | 1.4.10.2 | Mature |  |
 | ManhuaFast | 1.4.55.2 | Mature |  |
 | Manhwa18 | 1.4.13.1 | Mature |  |
+| MurimScan | 1.4.49.3 | Mature |  |
 | Omega Scans | 1.4.50.1 | Mature |  |
 | Read Comics Online | 1.4.14.1 | Everyone |  |
 | Read One Piece Manga Online | 1.4.8.3 | Everyone |  |
@@ -226,7 +228,7 @@ site is currently down.
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 
-### 🧪 Not yet tested (367)
+### 🧪 Not yet tested (365)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -338,7 +340,6 @@ site is currently down.
 | Hiveworks Comics | 1.4.12.1 | Everyone |
 | HM2D | 1.4.53.2 | Mature |
 | Honkai Impact 3rd | 1.4.4.1 | Everyone |
-| HotComics | 1.4.2.1 | Mature |
 | Hyakuro Translations | 1.4.1.1 | Mature |
 | I | 1.4.7.1 | Everyone |
 | I Roved Out | 1.4.5.1 | Mature |
@@ -457,7 +458,6 @@ site is currently down.
 | Monochrome Custom | 1.4.6.1 | Everyone |
 | Monochrome Scans | 1.4.5.1 | Everyone |
 | Multporn | 1.4.6.1 | Mature |
-| MurimScan | 1.4.49.1 | Mature |
 | MyAdultComics | 1.4.1.1 | Mature |
 | MyHentaiComics | 1.4.4.1 | Mature |
 | MyHentaiGallery | 1.4.9.1 | Mature |
