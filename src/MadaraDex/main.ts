@@ -6,6 +6,7 @@ export const MadaraDex = new MadaraExtension({
   baseUrl: "https://madaradex.org",
   mangaSubString: "title",
   useNewChapterEndpoint: false,
+  mdxAuth: true,
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
 });

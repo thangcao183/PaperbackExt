@@ -54,6 +54,20 @@ const PLACEHOLDER_COVER =
   "ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRk" +
   "bGUiPk5vIENvdmVyPC90ZXh0Pjwvc3ZnPg==";
 
+/** Generate a random 16-byte (32-hex-char) string for the MadaraDex `mdx_fp`
+ * fingerprint cookie. Mirrors keiyoushi's `randomHex16()` (SecureRandom 16
+ * bytes -> hex). `Math.random` is adequate here: the value only needs to be
+ * a well-formed unique-ish fingerprint, not cryptographically strong. */
+function randomHex16(): string {
+  let out = "";
+  for (let i = 0; i < 16; i++) {
+    out += Math.floor(Math.random() * 256)
+      .toString(16)
+      .padStart(2, "0");
+  }
+  return out;
+}
+
 export interface MadaraConfig {
   name: string;
   baseUrl: string;
@@ -92,6 +106,17 @@ export interface MadaraConfig {
   mangaDetailsThumbnailSelector?: string;
   mangaDetailsAuthorSelector?: string;
   mangaDetailsArtistSelector?: string;
+
+  /**
+   * Upstream MadaraDex-specific anti-bot scheme. When enabled, the source
+   * requires two cookies — `mdx_fp` (a client fingerprint) and `mdx_auth`
+   * (a server-issued token) — before it serves real chapter images. Without
+   * them the site returns decoy pages (tiny `wp-content/uploads/NNN.webp`
+   * images and a "MadaChan" block mascot). Mirrors keiyoushi's MadaraDex
+   * `refreshAuth()` + `sec-fetch-site: same-site` header override. Only
+   * MadaraDex sets this; every other Madara source omits it (default false).
+   */
+  mdxAuth?: boolean;
 }
 
 interface MadaraMetadata {
@@ -104,6 +129,7 @@ class MadaraInterceptor extends PaperbackInterceptor {
   constructor(
     id: string,
     private readonly getBaseUrl: () => string,
+    private readonly mdxAuth: boolean = false,
   ) {
     super(id);
   }
@@ -123,6 +149,12 @@ class MadaraInterceptor extends PaperbackInterceptor {
       "cache-control": "no-cache",
       pragma: "no-cache",
     };
+    if (this.mdxAuth) {
+      // Upstream MadaraDex sets this header on every request; the site's
+      // anti-bot rejects requests without it (images come from the same-site
+      // cdn.madaradex.org host).
+      request.headers["sec-fetch-site"] = "same-site";
+    }
     if (isImage) {
       // Browsers omit the Origin header when loading <img> elements (Origin is
       // a CORS/fetch concept). Image CDNs (e.g. cdn.madaradex.org) treat an
@@ -191,6 +223,7 @@ export class MadaraExtension implements MadaraImplementation {
   readonly mangaDetailsThumbnailSelector?: string;
   readonly mangaDetailsAuthorSelector?: string;
   readonly mangaDetailsArtistSelector?: string;
+  readonly mdxAuth: boolean;
 
   /**
    * Effective base URL: a user-configured override (set via the settings
@@ -240,8 +273,13 @@ export class MadaraExtension implements MadaraImplementation {
     this.mangaDetailsThumbnailSelector = config.mangaDetailsThumbnailSelector;
     this.mangaDetailsAuthorSelector = config.mangaDetailsAuthorSelector;
     this.mangaDetailsArtistSelector = config.mangaDetailsArtistSelector;
+    this.mdxAuth = config.mdxAuth ?? false;
 
-    this.requestManager = new MadaraInterceptor("main", () => this.baseUrl);
+    this.requestManager = new MadaraInterceptor(
+      "main",
+      () => this.baseUrl,
+      this.mdxAuth,
+    );
   }
 
   async getSettingsForm(): Promise<Form> {
@@ -252,6 +290,62 @@ export class MadaraExtension implements MadaraImplementation {
     this.requestManager.registerInterceptor();
     this.cookieStorageInterceptor.registerInterceptor();
     this.globalRateLimiter.registerInterceptor();
+    await this.ensureMdxAuth();
+  }
+
+  // ----------------------------------------------------------------
+  // MadaraDex anti-bot auth (no-op unless `mdxAuth` is enabled)
+  // ----------------------------------------------------------------
+
+  /**
+   * Establish the `mdx_fp` / `mdx_auth` cookie pair MadaraDex requires before
+   * it serves real chapter images. Mirrors keiyoushi's `refreshAuth()`:
+   *   1. If no `mdx_fp` cookie exists, mint a random 16-byte hex fingerprint
+   *      and store it (30-day expiry, domain-scoped so it applies to the
+   *      `cdn.madaradex.org` image subdomain too).
+   *   2. If either `mdx_fp` or `mdx_auth` is missing, POST
+   *      `action=mdx_auth_refresh` to `/wp-admin/admin-ajax.php` with the
+   *      `X-Mdx-Auth-Refresh: 1` header; the response Set-Cookie supplies
+   *      `mdx_auth`, captured automatically by the CookieStorageInterceptor.
+   * Cheap to call repeatedly: it short-circuits once both cookies are present.
+   */
+  private async ensureMdxAuth(): Promise<void> {
+    if (!this.mdxAuth) return;
+    const host = this.baseUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    // Cookie domain without a leading dot; RFC 6265 domain-match covers
+    // subdomains (e.g. cdn.<host>).
+    const cookieDomain = host.replace(/^www\./, "");
+    const stored = this.cookieStorageInterceptor.cookiesForUrl(this.baseUrl);
+    const hasFp = stored.some((c) => c.name === "mdx_fp");
+    const hasAuth = stored.some((c) => c.name === "mdx_auth");
+    if (hasFp && hasAuth) return;
+
+    if (!hasFp) {
+      this.cookieStorageInterceptor.setCookie({
+        name: "mdx_fp",
+        value: randomHex16(),
+        domain: cookieDomain,
+        path: "/",
+        expires: new Date(Date.now() + 2592000000),
+      });
+    }
+
+    // Refresh the server-issued auth token. Errors here are non-fatal — the
+    // chapter fetch will still be attempted and surface its own error.
+    try {
+      await Application.scheduleRequest({
+        url: `${this.baseUrl}/wp-admin/admin-ajax.php`,
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "x-mdx-auth-refresh": "1",
+          "x-requested-with": "XMLHttpRequest",
+        },
+        body: "action=mdx_auth_refresh",
+      });
+    } catch {
+      // ignore — best-effort token refresh
+    }
   }
 
   // ----------------------------------------------------------------
@@ -886,6 +980,11 @@ export class MadaraExtension implements MadaraImplementation {
     } else {
       url = path + this.chapterUrlSuffix;
     }
+
+    // Ensure the MadaraDex anti-bot cookies are present before fetching the
+    // reader page; without them the site returns decoy images. No-op for every
+    // other Madara source.
+    await this.ensureMdxAuth();
 
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const pages: string[] = [];
