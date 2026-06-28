@@ -1206,6 +1206,17 @@ async function decodeScrambledImage(
       outCtx.drawImage(scratch, dstX0, dstY0, tw, th);
     }
 
+    // DEBUG: draw a magenta border around descrambled pages so it is visually
+    // obvious which pages went through the grid descrambler. Uses fillRect (4
+    // edge bars) instead of strokeRect because Paperback's canvas polyfill is
+    // unreliable for stroked paths. Remove once descramble is verified on device.
+    const borderPx = Math.max(8, Math.round(Math.min(width, height) * 0.01));
+    outCtx.fillStyle = "#FF00FF";
+    outCtx.fillRect(0, 0, width, borderPx); // top
+    outCtx.fillRect(0, height - borderPx, width, borderPx); // bottom
+    outCtx.fillRect(0, 0, borderPx, height); // left
+    outCtx.fillRect(width - borderPx, 0, borderPx, height); // right
+
     const resultUrl = outCanvas.toDataURL("image/jpeg", 0.90);
     const commaIdx = resultUrl.indexOf(",");
     if (commaIdx < 0) return bufferOf(bytes);
