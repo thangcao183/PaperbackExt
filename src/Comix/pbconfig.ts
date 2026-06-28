@@ -4,7 +4,7 @@ export default {
   name: "Comix",
   description:
     "Comix - HTML scraper source (comix.to). Converted from keiyoushi.",
-  version: "1.4.31.27",
+  version: "1.4.31.28",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

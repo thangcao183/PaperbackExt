@@ -39,7 +39,9 @@ const BASE_URL = "https://comix.to";
 const PLACEHOLDER_COVER =
   "https://imagizer.imageshack.com/img922/7118/ArGMjt.png";
 
-// Grid-scramble constants — ported verbatim from the upstream Descrambler.kt.
+// Grid-scramble constants — retained for the legacy 5x5 tile descramble path
+// (only triggered if the CDN ever serves x-scramble-* headers again). The
+// current site (post keiyoushi #16517) uses x-enc-* byte-XOR only.
 const GRID_COLS = 5;
 const GRID_ROWS = 5;
 const NUM_TILES = GRID_COLS * GRID_ROWS;
@@ -47,13 +49,6 @@ const ENC_MULTIPLIER = 1000005;
 const ENC_INCREMENT = 1234567891;
 const LCG_MULTIPLIER = 1664525;
 const LCG_INCREMENT = 1013904223;
-
-// The CDN requires a per-session token (hex unix seconds) in the query string
-// to authorize the x-scramble-*/x-enc-* response headers. The SPA issues its
-// own token which we capture; if capture fails, a fresh timestamp is equivalent.
-function freshScrambleQuery(): string {
-  return Math.floor(Date.now() / 1000).toString(16);
-}
 
 // ---------------------------------------------------------------------------
 // WebView capture bootstraps.
@@ -244,21 +239,22 @@ class ComixInterceptor extends PaperbackInterceptor {
     const urlWithoutFragment = request.url.split("#")[0];
     const fragment = request.url.split("#")[1] ?? "";
 
-    // V3 grid-scramble pages must NOT send Origin — the server withholds
-    // x-scramble-seed when Origin is present. Legacy byte-XOR pages keep
-    // Origin so the server returns x-enc-seed. We tag the intent in the
-    // URL fragment from getChapterDetails (#v3 / #scrambled) so we can
-    // decide here without re-parsing query params.
+    // Scrambled pages (tagged `#scrambled` by getChapterDetails) MUST keep the
+    // Origin header so the CDN returns the x-enc-seed/x-enc-len headers that
+    // interceptResponse uses to byte-XOR-decode them. Plain off-host images
+    // (e.g. wowpic) return a bad variant when Origin is present, so we drop
+    // Origin for those. We tag intent in the URL fragment so we can decide
+    // here without re-parsing query params.
     let host = "";
     try {
       host = urlWithoutFragment.replace(/^https?:\/\//, "").split("/")[0];
     } catch {
       host = "";
     }
-    const isLegacyScramble = fragment.includes("scrambled");
+    const isScramble = fragment.includes("scrambled");
     const isOffHostImage =
       host.length > 0 && !host.includes("comix.to");
-    const dropOrigin = isOffHostImage && !isLegacyScramble;
+    const dropOrigin = isOffHostImage && !isScramble;
 
     const headers: Record<string, string> = {
       ...request.headers,
@@ -573,35 +569,28 @@ export class ComixExtension implements ComixImplementation {
     const pages: string[] = [];
     if (result) {
       const base = (result.baseUrl ?? "").replace(/\/+$/, "");
-      // The CDN requires TWO things in the query string for it to return the
-      // x-scramble-*/x-enc-* decrypt headers that interceptResponse uses:
-      //   1. A per-session token (hex unix seconds) — authenticates the request.
-      //   2. A `v3` query flag — signals the CDN to emit scramble headers.
-      // Without BOTH, the CDN serves scrambled bytes with no headers.
+      // comix.to switched its image protection (keiyoushi #16517, 2026-06-08):
+      // the old 5x5 grid-scramble (x-scramble-* headers + a ?<token>&v3 query)
+      // is gone. Images are now served plain, and "protected" pages carry a
+      // byte-prefix XOR keyed by the x-enc-seed / x-enc-len response headers —
+      // decoded by interceptResponse (decodeWithLcg). No query string is needed
+      // anymore; appending the legacy ?<token>&v3 now yields a bad variant.
       //
-      // The captured `imgQuery` is the token the SPA itself uses; fallback is a
-      // fresh hex-unix-seconds timestamp. The `#v3` fragment signals our
-      // interceptRequest to drop Origin (the CDN withholds x-scramble-seed when
-      // Origin is present on off-host images).
-      const token = result.imgQuery ?? freshScrambleQuery();
-      result.items.forEach((img) => {
+      // A page is treated as scrambled when the API marks it (`s === 1`) OR it
+      // is every 4th page (the site obfuscates those even without the flag).
+      // Scrambled pages MUST keep the Origin header, so we tag them with the
+      // `#scrambled` fragment (interceptRequest drops Origin only for off-host
+      // images that are NOT scrambled). Plain off-host images get no fragment
+      // so their Origin is dropped (wowpic returns a bad variant with Origin).
+      result.items.forEach((img, index) => {
         const raw = (img.url ?? "").trim();
         if (!raw) return;
         const full = raw.startsWith("http")
           ? raw
           : `${base}/${raw.replace(/^\/+/, "")}`;
 
-        // If the raw URL already has query params (e.g. already contains the
-        // token), append &v3; otherwise build ?<token>&v3.
-        let pageUrl: string;
-        if (full.includes("?")) {
-          // Already has query — ensure v3 is present
-          const hasV3 = /[?&]v3(\b|=|&|$)/.test(full);
-          pageUrl = hasV3 ? `${full}#v3` : `${full}&v3#v3`;
-        } else {
-          pageUrl = `${full}?${token}&v3#v3`;
-        }
-        pages.push(pageUrl);
+        const isScrambled = img.s === 1 || (index + 1) % 4 === 0;
+        pages.push(isScrambled ? `${full}#scrambled` : full);
       });
     }
 
