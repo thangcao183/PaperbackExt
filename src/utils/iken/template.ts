@@ -115,15 +115,26 @@ class IkenInterceptor extends PaperbackInterceptor {
 
   override async interceptRequest(request: Request): Promise<Request> {
     const baseUrl = this.getBaseUrl();
+    // Image hosts (e.g. storage.<domain>) sit behind their own Cloudflare
+    // challenge. Sending the JSON `accept` used for the API on an image
+    // request is an anomalous, bot-like signal that can trigger a CF
+    // challenge. Use a browser-like image accept for image requests.
+    const accept = IkenInterceptor.isImageRequest(request.url)
+      ? "image/avif,image/webp,image/apng,image/png,image/svg+xml,*/*;q=0.8"
+      : "application/json, text/plain, */*";
     request.headers = {
       ...request.headers,
       referer: `${baseUrl}/`,
       origin: baseUrl,
       "user-agent": await Application.getDefaultUserAgent(),
-      accept: "application/json, text/plain, */*",
+      accept,
       "accept-language": "en-US,en;q=0.5",
     };
     return request;
+  }
+
+  private static isImageRequest(url: string): boolean {
+    return /\.(jpe?g|png|webp|gif|avif|bmp|svg|apng)(\?|#|$)/i.test(url);
   }
 
   override async interceptResponse(

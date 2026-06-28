@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Sana Scans",
   description: "Sana Scans - Iken source (sanascans.com). Converted from keiyoushi.",
-  version: "1.4.23.1",
+  version: "1.4.23.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
