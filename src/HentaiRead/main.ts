@@ -12,6 +12,13 @@ import {
 import { MadaraExtension } from "../utils/madara/template";
 import { URLBuilder } from "../utils/url-builder/base";
 
+// Inline "No Cover" placeholder (300x450, #23282f) used when the detail page
+// has no resolvable cover. Paperback throws "Invalid URL" on an empty
+// thumbnailUrl, and keiyoushi never sets one here (Tachiyomi reuses the list
+// cover, which Paperback cannot carry over).
+const PLACEHOLDER_COVER =
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iNDUwIiB2aWV3Qm94PSIwIDAgMzAwIDQ1MCI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMyMzI4MmYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZmlsbD0iIzhhOTBhNiIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBDb3ZlcjwvdGV4dD48L3N2Zz4=";
+
 // Page-list JSON, base64-decoded from `window.m... = 'eyJkYX...'`.
 type PagesDto = {
   data: {
@@ -113,9 +120,36 @@ class HentaiReadExtension extends MadaraExtension {
     }
     description += `${$(".items-center:contains(pages:)").text()}\n`;
 
-    const image = this.imageFromElement(
-      $(this.mangaDetailsThumbnailSelector ?? "div.summary_image img").first(),
-    );
+    // HentaiRead's detail page uses a custom theme, and keiyoushi never sets a
+    // detail thumbnail (Tachiyomi reuses the list cover). Probe several cover
+    // candidates, then meta tags, and finally fall back to the placeholder so
+    // thumbnailUrl is never empty (Paperback throws "Invalid URL" otherwise).
+    let image = "";
+    const coverSelectors = [
+      this.mangaDetailsThumbnailSelector ?? "",
+      ".manga-cover img",
+      ".manga-item__img img",
+      ".manga-item__img-inner",
+      "div.summary_image img",
+      "figure img",
+    ];
+    for (const sel of coverSelectors) {
+      if (!sel) continue;
+      const candidate = this.imageFromElement($(sel).first());
+      if (candidate) {
+        image = candidate;
+        break;
+      }
+    }
+    if (!image) {
+      image =
+        $('meta[property="og:image"]').attr("content")?.trim() ??
+        $('meta[name="twitter:image"]').attr("content")?.trim() ??
+        "";
+    }
+    if (!image) {
+      image = PLACEHOLDER_COVER;
+    }
 
     return {
       mangaId,
