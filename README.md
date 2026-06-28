@@ -157,10 +157,11 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (48)
+### ✅ Tested (49)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
+| 8Muses | 1.4.2.1 | Mature |  |
 | Asura Scans | 1.4.62.1 | Everyone |  |
 | BatCave | 1.4.6.6 | Everyone |  |
 | ComicK Fanmade | 1.4.2.1 | Mature |  |
@@ -220,14 +221,13 @@ site is currently down.
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 
-### 🧪 Not yet tested (373)
+### 🧪 Not yet tested (372)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
 | 18 Porn Comic | 1.4.3.1 | Mature |
 | 1Manga.co | 1.4.35.4 | Mature |
 | 24HNovel | 1.4.52.2 | Mature |
-| 8Muses | 1.4.2.1 | Mature |
 | Akai Comic | 1.4.3.1 | Everyone |
 | Alandal | 1.4.2.1 | Everyone |
 | AllManga | 1.4.19.1 | Mature |
