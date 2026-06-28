@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "I'm An Evil God",
   description: "I'm An Evil God - MangaCatalog source (imanevilgod.com). Converted from keiyoushi.",
-  version: "1.4.7.1",
+  version: "1.4.7.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

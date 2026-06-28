@@ -33,6 +33,21 @@ import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../url-builder/base";
 import { getBaseUrlOverride, MangaCatalogSettingsForm } from "./settings";
 
+// Paperback rejects an empty `thumbnailUrl`/`imageUrl` ("Could not convert
+// JSValue: Invalid URL:"), so any item that has no cover falls back to this
+// placeholder. It is an inline data: URI (a tiny self-contained SVG) rather
+// than an external image, so it can never 404/expire. These single-franchise
+// catalog sites have no cover in their hardcoded title list, so the discover
+// and search items always need it.
+const PLACEHOLDER_COVER =
+  "data:image/svg+xml;base64," +
+  "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAi" +
+  "IGhlaWdodD0iNDUwIiB2aWV3Qm94PSIwIDAgMzAwIDQ1MCI+PHJlY3Qgd2lkdGg9IjMw" +
+  "MCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMyMzI4MmYiLz48dGV4dCB4PSIxNTAiIHk9IjIy" +
+  "NSIgZmlsbD0iIzhhOTNhMyIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6" +
+  "ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRk" +
+  "bGUiPk5vIENvdmVyPC90ZXh0Pjwvc3ZnPg==";
+
 export interface MangaCatalogEntry {
   title: string;
   /** Path relative to the base URL, e.g. "/manga/one-piece/". */
@@ -185,7 +200,7 @@ export class MangaCatalogExtension implements MangaCatalogImplementation {
     const items: DiscoverSectionItem[] = this.mangaList.map((entry) => ({
       type: "simpleCarouselItem",
       mangaId: this.pathToId(entry.url),
-      imageUrl: "",
+      imageUrl: PLACEHOLDER_COVER,
       title: entry.title,
       metadata: undefined,
     }));
@@ -208,7 +223,7 @@ export class MangaCatalogExtension implements MangaCatalogImplementation {
       )
       .map((entry) => ({
         mangaId: this.pathToId(entry.url),
-        imageUrl: "",
+        imageUrl: PLACEHOLDER_COVER,
         title: entry.title,
         subtitle: undefined,
         metadata: undefined,
@@ -257,7 +272,7 @@ export class MangaCatalogExtension implements MangaCatalogImplementation {
       mangaInfo: {
         primaryTitle: title || configTitle || mangaId,
         secondaryTitles: configTitle && configTitle !== title ? [configTitle] : [],
-        thumbnailUrl: thumbnail,
+        thumbnailUrl: thumbnail || PLACEHOLDER_COVER,
         synopsis: description,
         contentRating: this.contentRating,
         status: "Unknown",
