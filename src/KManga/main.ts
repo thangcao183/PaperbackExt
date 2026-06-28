@@ -13,6 +13,7 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
+  Form,
   MangaProviding,
   Metadata,
   PagedResults,
@@ -22,10 +23,12 @@ import {
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
+  SettingsFormProviding,
   SourceManga,
   TagSection,
 } from "@paperback/types";
 import { remapKMangaCells } from "../utils/descramble/canvas";
+import { KMangaSettingsForm } from "./settings";
 
 const DOMAIN = "kmanga.kodansha.com";
 const BASE_URL = `https://${DOMAIN}`;
@@ -494,7 +497,8 @@ type KMangaImplementation = Extension &
   MangaProviding &
   ChapterProviding &
   CloudflareBypassRequestProviding &
-  DiscoverSectionProviding;
+  DiscoverSectionProviding &
+  SettingsFormProviding;
 
 interface KMangaMetadata {
   page?: number;
@@ -516,6 +520,10 @@ export class KMangaExtension implements KMangaImplementation {
     this.requestManager.registerInterceptor();
     this.cookieStorageInterceptor.registerInterceptor();
     this.globalRateLimiter.registerInterceptor();
+  }
+
+  async getSettingsForm(): Promise<Form> {
+    return new KMangaSettingsForm(this.cookieStorageInterceptor);
   }
 
   // ----------------------------------------------------------------
