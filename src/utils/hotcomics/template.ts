@@ -456,7 +456,7 @@ export class HotComicsExtension implements HotComicsImplementation {
 
     const pages: string[] = [];
     $("#viewer-img img").each((_, element) => {
-      const image = this.imageFromElement($(element));
+      const image = this.pageImageFromElement($(element));
       if (image) pages.push(image);
     });
 
@@ -506,6 +506,56 @@ export class HotComicsExtension implements HotComicsImplementation {
     } catch {
       return id;
     }
+  }
+
+  /**
+   * Resolves the real page image. For anti-scrape protection HotComics
+   * serves a DECOY primary `src` (e.g. a tiktokcdn.com avatar) for some
+   * series, while the genuine content URL (on hcgcontent.com) is hidden in
+   * a `data-backup-sources` JSON array that the site's `onerror` handler
+   * cycles through. Prefer the real content host, then the first
+   * non-decoy candidate, then fall back to the raw src/data-src.
+   */
+  private pageImageFromElement(img: Cheerio<AnyNode>): string {
+    if (!img || img.length === 0) return "";
+
+    const candidates: string[] = [];
+    const backup = img.attr("data-backup-sources");
+    if (backup) {
+      try {
+        const parsed = JSON.parse(backup);
+        if (Array.isArray(parsed)) {
+          for (const u of parsed) {
+            if (typeof u === "string" && u.trim()) candidates.push(u.trim());
+          }
+        }
+      } catch {
+        // ignore malformed backup-source lists
+      }
+    }
+    const direct = this.imageFromElement(img);
+    if (direct) candidates.push(direct);
+
+    const REAL_HOST = "hcgcontent.com";
+    const DECOY_HOSTS = ["tiktokcdn.com"];
+
+    const real = candidates.find((u) => u.includes(REAL_HOST));
+    if (real) return this.normalizeUrl(real);
+
+    const nonDecoy = candidates.find(
+      (u) => !DECOY_HOSTS.some((h) => u.includes(h)),
+    );
+    if (nonDecoy) return this.normalizeUrl(nonDecoy);
+
+    return candidates.length > 0 ? this.normalizeUrl(candidates[0]) : "";
+  }
+
+  private normalizeUrl(src: string): string {
+    let s = src.trim().replace(/#.*$/, "");
+    if (s && !s.startsWith("http")) {
+      s = s.startsWith("/") ? `${this.baseUrl}${s}` : `${this.baseUrl}/${s}`;
+    }
+    return s;
   }
 
   private imageFromElement(img: Cheerio<AnyNode>): string {
