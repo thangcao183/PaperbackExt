@@ -679,10 +679,12 @@ export class KMangaExtension implements KMangaImplementation {
           tagGroups.push({
             id: "genres",
             title: "Genres",
-            tags: genreList.map((g) => ({
-              id: g.genre_name.toLowerCase().replace(/\s+/g, "-"),
-              title: g.genre_name,
-            })),
+            tags: genreList
+              .map((g) => ({
+                id: this.slugifyTag(g.genre_name),
+                title: g.genre_name,
+              }))
+              .filter((tag) => tag.id.length > 0),
           });
         }
       } catch {
@@ -1029,6 +1031,22 @@ export class KMangaExtension implements KMangaImplementation {
     } catch {
       return id;
     }
+  }
+
+  /**
+   * Build a Paperback-safe tag ID. Genre names can contain characters
+   * outside the allowed ID charset (`._-@()[]%?#+=/&:`), e.g. the Japanese
+   * middle dot `･` (U+30FB) in "SF･Fantasy", which would otherwise throw
+   * "Invalid ID". Lowercases, collapses whitespace to dashes, strips any
+   * disallowed character, and trims edge dashes.
+   */
+  private slugifyTag(text: string): string {
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9._\-@()[\]%?#+=/&:]/g, "")
+      .replace(/^-+|-+$/g, "");
   }
 
   // ----------------------------------------------------------------
