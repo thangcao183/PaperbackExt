@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Read Naruto Boruto Samurai 8 Manga Online",
   description: "Read Naruto Boruto Samurai 8 Manga Online - MangaCatalog source (ww11.readnaruto.com). Converted from keiyoushi.",
-  version: "1.4.9.2",
+  version: "1.4.9.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

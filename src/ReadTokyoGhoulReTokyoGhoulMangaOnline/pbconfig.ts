@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Read Tokyo Ghoul Re & Tokyo Ghoul Manga Online",
   description: "Read Tokyo Ghoul Re & Tokyo Ghoul Manga Online - MangaCatalog source (ww11.tokyoghoulre.com). Converted from keiyoushi.",
-  version: "1.4.11.2",
+  version: "1.4.11.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

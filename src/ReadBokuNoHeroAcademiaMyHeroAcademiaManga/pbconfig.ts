@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Read Boku no Hero Academia My Hero Academia Manga",
   description: "Read Boku no Hero Academia My Hero Academia Manga - MangaCatalog source (ww10.readmha.com). Converted from keiyoushi.",
-  version: "1.4.10.2",
+  version: "1.4.10.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

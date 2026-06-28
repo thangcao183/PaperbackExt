@@ -197,13 +197,18 @@ export class MangaCatalogExtension implements MangaCatalogImplementation {
     _section: DiscoverSection,
     _metadata: Metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const items: DiscoverSectionItem[] = this.mangaList.map((entry) => ({
-      type: "simpleCarouselItem",
-      mangaId: this.pathToId(entry.url),
-      imageUrl: PLACEHOLDER_COVER,
-      title: entry.title,
-      metadata: undefined,
-    }));
+    const items: DiscoverSectionItem[] = await Promise.all(
+      this.mangaList.map(async (entry) => {
+        const mangaId = this.pathToId(entry.url);
+        return {
+          type: "simpleCarouselItem" as const,
+          mangaId,
+          imageUrl: await this.resolveCover(mangaId),
+          title: entry.title,
+          metadata: undefined,
+        };
+      }),
+    );
     return { items, metadata: undefined };
   }
 
@@ -216,18 +221,21 @@ export class MangaCatalogExtension implements MangaCatalogImplementation {
     _metadata: Metadata | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
     const titleQuery = (query.title || "").trim().toLowerCase();
-    const items: SearchResultItem[] = this.mangaList
-      .filter(
-        (entry) =>
-          !titleQuery || entry.title.toLowerCase().includes(titleQuery),
-      )
-      .map((entry) => ({
-        mangaId: this.pathToId(entry.url),
-        imageUrl: PLACEHOLDER_COVER,
-        title: entry.title,
-        subtitle: undefined,
-        metadata: undefined,
-      }));
+    const matches = this.mangaList.filter(
+      (entry) => !titleQuery || entry.title.toLowerCase().includes(titleQuery),
+    );
+    const items: SearchResultItem[] = await Promise.all(
+      matches.map(async (entry) => {
+        const mangaId = this.pathToId(entry.url);
+        return {
+          mangaId,
+          imageUrl: await this.resolveCover(mangaId),
+          title: entry.title,
+          subtitle: undefined,
+          metadata: undefined,
+        };
+      }),
+    );
     return { items, metadata: undefined };
   }
 
@@ -242,7 +250,6 @@ export class MangaCatalogExtension implements MangaCatalogImplementation {
 
     let title = "";
     let description = "";
-    let thumbnail = "";
 
     if (this.detailVariant === "card") {
       description = $("div.card-body > p").text().trim();
@@ -250,10 +257,8 @@ export class MangaCatalogExtension implements MangaCatalogImplementation {
       if (this.stripMangaPrefix && title.includes("Manga: ")) {
         title = title.split("Manga: ").pop()!.trim();
       }
-      thumbnail = this.absUrl($(".card-img-right").attr("src") || "");
     } else if (this.detailVariant === "meta") {
       title = configTitle;
-      thumbnail = $("meta[property='og:image']").attr("content") || "";
       description = $("div.entry-content p").first().text().trim();
     } else {
       // default
@@ -264,8 +269,12 @@ export class MangaCatalogExtension implements MangaCatalogImplementation {
       description = info.includes("Description")
         ? info.split("Description").pop()!.trim()
         : info;
-      thumbnail = this.absUrl($("div.flex > img").attr("src") || "");
     }
+
+    const thumbnail = this.extractCover($);
+    // Cache the resolved cover so the discover/search carousels can show it
+    // without re-fetching the detail page every time.
+    if (thumbnail) this.setCachedCover(mangaId, thumbnail);
 
     return {
       mangaId,
@@ -393,6 +402,74 @@ export class MangaCatalogExtension implements MangaCatalogImplementation {
 
   getMangaShareUrl(mangaId: string): string {
     return `${this.baseUrl}/${this.safeDecode(mangaId)}`;
+  }
+
+  // ----------------------------------------------------------------
+  // Cover resolution (discover/search carousels)
+  // ----------------------------------------------------------------
+
+  // Paperback loads each carousel item's `imageUrl` as a real network
+  // request (and runs it through the cookie interceptor's `cookiesForUrl`,
+  // which throws "URL Hostname and Protocol are required" on a `data:` URI).
+  // So discover/search items MUST use a real http(s) cover, never the inline
+  // placeholder. These single-franchise catalog sites have no cover in their
+  // hardcoded title list, so we fetch it from the detail page once and cache
+  // it persistently (keyed per source + manga).
+
+  private coverKey(mangaId: string): string {
+    return `mangacatalog.cover.${this.sourceName}.${mangaId}`;
+  }
+
+  private getCachedCover(mangaId: string): string | undefined {
+    const value = Application.getState(this.coverKey(mangaId));
+    return typeof value === "string" && value.length > 0 ? value : undefined;
+  }
+
+  private setCachedCover(mangaId: string, url: string): void {
+    Application.setState(url, this.coverKey(mangaId));
+  }
+
+  /**
+   * Returns a real http(s) cover for the given manga. Uses the persistent
+   * cache first; on a miss it fetches the detail page once, extracts the
+   * cover, caches it, and returns it. Falls back to the site favicon (a valid
+   * http URL) if extraction fails, so the carousel image request never
+   * receives a `data:` URI.
+   */
+  private async resolveCover(mangaId: string): Promise<string> {
+    const cached = this.getCachedCover(mangaId);
+    if (cached) return cached;
+
+    try {
+      const $ = await this.fetchCheerio({
+        url: this.getMangaShareUrl(mangaId),
+        method: "GET",
+      });
+      const cover = this.extractCover($);
+      if (cover) {
+        this.setCachedCover(mangaId, cover);
+        return cover;
+      }
+    } catch {
+      // fall through to favicon fallback
+    }
+    return `${this.baseUrl}/favicon.ico`;
+  }
+
+  /** Extracts the cover image URL from a loaded detail page. */
+  private extractCover($: CheerioAPI): string {
+    let src = "";
+    if (this.detailVariant === "card") {
+      src = $(".card-img-right").attr("src") || "";
+    } else if (this.detailVariant === "meta") {
+      src = $("meta[property='og:image']").attr("content") || "";
+    } else {
+      src =
+        $("div.flex > img").attr("src") ||
+        $("meta[property='og:image']").attr("content") ||
+        "";
+    }
+    return this.absUrl(src);
   }
 
   // ----------------------------------------------------------------
