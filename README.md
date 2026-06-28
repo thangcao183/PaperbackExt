@@ -156,7 +156,7 @@ keiyoushi conversions that haven’t been checked yet (they may or may not
 work). **Can’t test** sources require an account or credentials I don’t have,
 so I’m unable to verify them. If a source is broken, please open an issue.
 
-### ✅ Tested (37)
+### ✅ Tested (41)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -170,6 +170,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | Gourmet Scans | 1.4.51.7 | Mature |
 | HentaiNexus | 1.4.17.2 | Mature |
 | Hiperdex | 1.4.80.2 | Mature |
+| InfinityScans | 1.4.10.2 | Mature |
 | LikeManga | 1.4.8.1 | Everyone |
 | Lily Manga | 1.4.58.4 | Mature |
 | Mangadotnet | 1.4.11.2 | Mature |
@@ -183,6 +184,7 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | Mangakakalot | 1.4.21.13 | Mature |
 | Mangafreak | 1.4.13.1 | Mature |
 | MangaPill | 1.4.9.1 | Mature |
+| Mangatown | 1.4.10.2 | Mature |
 | ManhuaFast | 1.4.55.2 | Mature |
 | Manhwa18 | 1.4.13.1 | Mature |
 | Omega Scans | 1.4.50.1 | Mature |
@@ -190,10 +192,12 @@ so I’m unable to verify them. If a source is broken, please open an issue.
 | ReadComicOnline | 1.4.43.13 | Everyone |
 | Rinko Comics | 1.4.2.1 | Everyone |
 | TCB Scans | 1.4.12.1 | Everyone |
+| Tapas | 1.4.24.2 | Mature |
 | The Blank | 1.4.56.12 | Mature |
 | ToonGod | 1.4.56.9 | Mature |
 | Toonily | 1.4.65.2 | Mature |
 | Utoon | 1.4.55.4 | Everyone |
+| VIZ | 1.4.25.6 | Everyone |
 | Vortex Scans | 1.4.61.1 | Everyone |
 | VyvyManga | 1.4.40.1 | Mature |
 | Weeb Central | 1.4.22.2 | Mature |
@@ -206,7 +210,7 @@ These need an account or credentials I don’t have.
 | ------ | ------- | ------- |
 | Madokami | 1.4.13.3 | Everyone |
 
-### 🧪 Not yet tested (384)
+### 🧪 Not yet tested (381)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -330,7 +334,6 @@ These need an account or credentials I don’t have.
 | Hyakuro Translations | 1.4.1.1 | Mature |
 | I | 1.4.7.1 | Everyone |
 | I Roved Out | 1.4.5.1 | Mature |
-| InfinityScans | 1.4.10.1 | Mature |
 | IsekaiScan.top (unoriginal) | 1.4.52.2 | Mature |
 | J-Novel | 1.4.4.1 | Everyone |
 | Jinmangas | 1.4.51.2 | Mature |
@@ -409,7 +412,6 @@ These need an account or credentials I don’t have.
 | Mangasushi | 1.4.54.2 | Everyone |
 | Mangatellers | 1.4.5.1 | Everyone |
 | MangaToday | 1.4.35.4 | Mature |
-| Mangatown | 1.4.10.1 | Mature |
 | MangaTX | 1.4.33.1 | Mature |
 | MangaYY | 1.4.52.2 | Mature |
 | Manhua Plus | 1.4.58.2 | Everyone |
@@ -545,7 +547,6 @@ These need an account or credentials I don’t have.
 | Sunshine Butterfly Scans | 1.4.39.2 | Mature |
 | SUPER MEGA | 1.4.4.1 | Everyone |
 | Swords Comic | 1.4.5.1 | Everyone |
-| Tapas | 1.4.24.1 | Mature |
 | Taroweb | 1.4.51.2 | Mature |
 | TCB Scans (Unoriginal) | 1.4.32.1 | Everyone |
 | Team Shadowi | 1.4.1.1 | Mature |
@@ -566,7 +567,6 @@ These need an account or credentials I don’t have.
 | Vanilla Scans | 1.4.23.1 | Everyone |
 | vgperson | 1.4.7.1 | Everyone |
 | Violet Scans | 1.4.35.1 | Everyone |
-| VIZ | 1.4.25.5 | Everyone |
 | Voyce.Me | 1.4.6.1 | Everyone |
 | VyvyManga.org | 1.4.51.2 | Mature |
 | War For Rayuba | 1.4.3.1 | Everyone |
