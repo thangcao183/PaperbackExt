@@ -33,6 +33,15 @@ import type { AnyNode } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
 import { getBaseUrlOverride, ZeistMangaSettingsForm } from "./settings";
 
+const PLACEHOLDER_COVER =
+  "data:image/svg+xml;base64," +
+  "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAi" +
+  "IGhlaWdodD0iNDUwIiB2aWV3Qm94PSIwIDAgMzAwIDQ1MCI+PHJlY3Qgd2lkdGg9IjMw" +
+  "MCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMyMzI4MmYiLz48dGV4dCB4PSIxNTAiIHk9IjIy" +
+  "NSIgZmlsbD0iIzhhOTNhMyIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6" +
+  "ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRk" +
+  "bGUiPk5vIENvdmVyPC90ZXh0Pjwvc3ZnPg==";
+
 export interface ZeistMangaConfig {
   name: string;
   baseUrl: string;
@@ -246,12 +255,35 @@ export class ZeistMangaExtension implements ZeistMangaImplementation {
           items.push({
             type: "featuredCarouselItem",
             mangaId,
-            imageUrl: image,
+            imageUrl: image || PLACEHOLDER_COVER,
             title,
             metadata: undefined,
           });
         }
       });
+
+      // Some Blogger/Zeist themes render the popular carousel client-side
+      // (e.g. a BloggerRandom slider), so the static HTML yields nothing.
+      // Fall back to the manga-category feed in that case.
+      if (items.length === 0) {
+        const feedUrl =
+          `${this.baseUrl}/feeds/posts/default/-/${encodeURIComponent(
+            this.mangaCategory,
+          )}?alt=json&orderby=published&max-results=${MAX_MANGA_RESULTS}`;
+        const { items: feedItems } = await this.parseFeedList(feedUrl);
+        for (const m of feedItems) {
+          if (seen.has(m.mangaId)) continue;
+          seen.add(m.mangaId);
+          items.push({
+            type: "featuredCarouselItem",
+            mangaId: m.mangaId,
+            imageUrl: m.imageUrl,
+            title: m.title,
+            metadata: undefined,
+          });
+        }
+      }
+
       return { items, metadata: undefined };
     }
 
@@ -387,7 +419,7 @@ export class ZeistMangaExtension implements ZeistMangaImplementation {
       imageUrl = $c("img").first().attr("src") ?? "";
     }
 
-    return { mangaId, title, imageUrl };
+    return { mangaId, title, imageUrl: imageUrl || PLACEHOLDER_COVER };
   }
 
   // ----------------------------------------------------------------
@@ -401,7 +433,12 @@ export class ZeistMangaExtension implements ZeistMangaImplementation {
     const profile = $(this.mangaDetailsSelector).first();
     const scope = profile.length > 0 ? profile : $("body");
 
-    const title = ($("meta[property='og:title']").attr("content") || "").trim();
+    // og:title often carries a " - Site Name" suffix; #chapterlist[data-label]
+    // holds the exact bare series title when present.
+    const dataLabel = ($("#chapterlist").attr("data-label") || "").trim();
+    const title =
+      dataLabel ||
+      ($("meta[property='og:title']").attr("content") || "").trim();
     const image = this.imageFromElement(scope.find("img").first());
 
     let description = scope.find("#synopsis").text().trim();
@@ -467,7 +504,7 @@ export class ZeistMangaExtension implements ZeistMangaImplementation {
       mangaInfo: {
         primaryTitle: title,
         secondaryTitles: [],
-        thumbnailUrl: image,
+        thumbnailUrl: image || PLACEHOLDER_COVER,
         author,
         artist,
         synopsis: description,
@@ -493,8 +530,11 @@ export class ZeistMangaExtension implements ZeistMangaImplementation {
       method: "GET",
     });
 
-    const entries = (json.feed?.entry ?? []).filter((e) =>
-      (e.category ?? []).some((c) => c.term === this.chapterCategory),
+    const entries = (json.feed?.entry ?? []).filter(
+      (e) =>
+        !(e.category ?? []).some(
+          (c) => c.term?.toLowerCase() === this.mangaCategory.toLowerCase(),
+        ),
     );
 
     const chapters: Chapter[] = [];
@@ -540,12 +580,16 @@ export class ZeistMangaExtension implements ZeistMangaImplementation {
   }
 
   private getChapterFeedUrl($: CheerioAPI): string {
-    const label = $("meta[property='og:title']").attr("content");
+    // Preferred: the site's own chapter-loader reads the bare series title
+    // from #chapterlist[data-label] and queries the title-only feed. The
+    // og:title meta often carries a " - Site Name" suffix that breaks the
+    // feed match, so data-label is the reliable source.
+    const dataLabel = $("#chapterlist").attr("data-label");
+    const label = (dataLabel ?? "").replace(/[',]/g, "").trim();
     if (label) {
       return (
-        `${this.baseUrl}/feeds/posts/default/-/${encodeURIComponent(
-          this.chapterCategory,
-        )}/${encodeURIComponent(label)}` + `?alt=json&max-results=999999`
+        `${this.baseUrl}/feeds/posts/default/-/${encodeURIComponent(label)}` +
+        `?alt=json&max-results=999999`
       );
     }
 
@@ -557,13 +601,25 @@ export class ZeistMangaExtension implements ZeistMangaImplementation {
       const m =
         data.match(/clwd\.run\(["']([^"']+)["']\)/) ||
         data.match(/label\s*=\s*'([^']+)'/);
-      if (m) feed = m[1];
+      if (m) feed = m[1].replace(/[',]/g, "").trim();
     });
     if (feed) {
       return (
-        `${this.baseUrl}/feeds/posts/default/-/${encodeURIComponent(
-          this.chapterCategory,
-        )}/${feed}` + `?alt=json&start-index=1&max-results=999999`
+        `${this.baseUrl}/feeds/posts/default/-/${encodeURIComponent(feed)}` +
+        `?alt=json&start-index=1&max-results=999999`
+      );
+    }
+
+    // Last resort: derive the bare title from og:title (strip any
+    // " - Site Name" suffix) and query the title-only feed.
+    const ogTitle = ($("meta[property='og:title']").attr("content") ?? "")
+      .replace(/\s*-\s*[^-]+\s*$/, "")
+      .replace(/[',]/g, "")
+      .trim();
+    if (ogTitle) {
+      return (
+        `${this.baseUrl}/feeds/posts/default/-/${encodeURIComponent(ogTitle)}` +
+        `?alt=json&max-results=999999`
       );
     }
 
