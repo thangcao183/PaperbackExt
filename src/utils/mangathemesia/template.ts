@@ -50,6 +50,30 @@ export interface MangaThemesiaConfig {
   mangaUrlDirectory?: string;
   contentRating?: ContentRating;
   langCode?: string;
+  // ----------------------------------------------------------------
+  // Optional per-source overrides. These default to the standard
+  // WordPress MangaThemesia behaviour; only heavily-customised forks
+  // (e.g. Comic Asura's Next.js rebuild) need to set them.
+  // ----------------------------------------------------------------
+  // Browse/search endpoint path (relative). Defaults to mangaUrlDirectory.
+  // e.g. Comic Asura uses "/advanced-search".
+  browsePath?: string;
+  // When true, the browse/search endpoint expects the Comic-Asura style
+  // query params (name=, sort=, page=) instead of the standard
+  // title=, order=, page=. Also maps the discover orders rating/latest.
+  useAdvancedSearchParams?: boolean;
+  // Override CSS selectors (cheerio). Each defaults to the standard set.
+  discoverItemSelector?: string; // selects each manga card/link
+  seriesTitleSelector?: string;
+  seriesThumbnailSelector?: string;
+  seriesDescriptionSelector?: string;
+  seriesGenreSelector?: string;
+  seriesStatusSelector?: string;
+  // Label text used to find the status row (e.g. "Status").
+  chapterSelector?: string;
+  chapterNameSelector?: string;
+  chapterDateSelector?: string;
+  pageSelector?: string;
 }
 
 interface MangaThemesiaMetadata {
@@ -116,6 +140,20 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
   readonly contentRating: ContentRating;
   readonly langCode: string;
 
+  // Optional overrides (see MangaThemesiaConfig).
+  readonly browsePath: string;
+  readonly useAdvancedSearchParams: boolean;
+  readonly discoverItemSelectorOverride?: string;
+  readonly seriesTitleSelectorOverride?: string;
+  readonly seriesThumbnailSelectorOverride?: string;
+  readonly seriesDescriptionSelectorOverride?: string;
+  readonly seriesGenreSelectorOverride?: string;
+  readonly seriesStatusSelectorOverride?: string;
+  readonly chapterSelectorOverride?: string;
+  readonly chapterNameSelectorOverride?: string;
+  readonly chapterDateSelectorOverride?: string;
+  readonly pageSelectorOverride?: string;
+
   get baseUrl(): string {
     return getBaseUrlOverride(this.sourceName) ?? this.defaultBaseUrl;
   }
@@ -140,6 +178,21 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
     );
     this.contentRating = config.contentRating ?? ContentRating.EVERYONE;
     this.langCode = config.langCode ?? "🇬🇧";
+    // browsePath stored without leading/trailing slashes; defaults to the
+    // manga directory (standard MangaThemesia behaviour).
+    this.browsePath = (config.browsePath ?? `/${this.mangaUrlDirectory}`)
+      .replace(/^\/+|\/+$/g, "");
+    this.useAdvancedSearchParams = config.useAdvancedSearchParams ?? false;
+    this.discoverItemSelectorOverride = config.discoverItemSelector;
+    this.seriesTitleSelectorOverride = config.seriesTitleSelector;
+    this.seriesThumbnailSelectorOverride = config.seriesThumbnailSelector;
+    this.seriesDescriptionSelectorOverride = config.seriesDescriptionSelector;
+    this.seriesGenreSelectorOverride = config.seriesGenreSelector;
+    this.seriesStatusSelectorOverride = config.seriesStatusSelector;
+    this.chapterSelectorOverride = config.chapterSelector;
+    this.chapterNameSelectorOverride = config.chapterNameSelector;
+    this.chapterDateSelectorOverride = config.chapterDateSelector;
+    this.pageSelectorOverride = config.pageSelector;
     this.requestManager = new MangaThemesiaInterceptor(
       "main",
       () => this.baseUrl,
@@ -207,23 +260,23 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
     const page = metadata?.page ?? 1;
     const collectedIds = metadata?.collectedIds ?? [];
 
-    const url = new URLBuilder(this.baseUrl)
-      .addPath(this.mangaUrlDirectory)
-      .addQuery("title", "")
-      .addQuery("page", page.toString())
-      .addQuery("order", order)
-      .build();
+    const url = this.buildBrowseUrl({ page, order });
 
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const items: DiscoverSectionItem[] = [];
 
     $(this.searchMangaSelector).each((_, element) => {
       const unit = $(element);
-      const link = unit.find("a").first();
+      const link = unit.is("a") ? unit : unit.find("a").first();
       const href = link.attr("href") || "";
-      const title = (link.attr("title") || link.text()).trim();
+      const img = unit.find("img").first();
+      const title = (
+        img.attr("title") ||
+        link.attr("title") ||
+        link.text()
+      ).trim();
       const mangaId = this.parseMangaId(href);
-      const image = this.imageFromElement(unit.find("img").first());
+      const image = this.imageFromElement(img);
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -237,7 +290,7 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
       }
     });
 
-    const hasNextPage = $("div.pagination .next, div.hpage .r").length > 0;
+    const hasNextPage = this.hasNextBrowsePage($);
 
     return {
       items,
@@ -250,7 +303,71 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
   // ----------------------------------------------------------------
 
   get searchMangaSelector(): string {
-    return ".utao .uta .imgu, .listupd .bs .bsx, .listo .bs .bsx";
+    return (
+      this.discoverItemSelectorOverride ??
+      ".utao .uta .imgu, .listupd .bs .bsx, .listo .bs .bsx"
+    );
+  }
+
+  // Detects whether a browse/search page has a "next page" link. Includes
+  // the standard MangaThemesia pagination plus the Comic-Asura-style
+  // "Next" image button used by advanced-search forks.
+  private hasNextBrowsePage($: CheerioAPI): boolean {
+    return (
+      $("div.pagination .next, div.hpage .r, a:has(img[alt=Next])").length > 0
+    );
+  }
+
+  // Builds the browse/search URL, honouring browsePath +
+  // useAdvancedSearchParams overrides. `order` uses the standard tokens
+  // ("popular"/"update"/...) and is translated for advanced-search forks.
+  private buildBrowseUrl(opts: {
+    page: number;
+    order?: string;
+    title?: string;
+    author?: string;
+    year?: string;
+    status?: string;
+    type?: string;
+  }): string {
+    const builder = new URLBuilder(this.baseUrl).addPath(this.browsePath);
+
+    if (this.useAdvancedSearchParams) {
+      // Comic-Asura style: name=, sort=, page=, status=, type=
+      builder.addQuery("name", encodeURIComponent(opts.title ?? ""));
+      const sort = this.mapAdvancedOrder(opts.order);
+      if (sort) builder.addQuery("sort", sort);
+      if (opts.status) builder.addQuery("status", opts.status);
+      if (opts.type) builder.addQuery("type", opts.type.toLowerCase());
+      builder.addQuery("page", opts.page.toString());
+      return builder.build();
+    }
+
+    // Standard MangaThemesia: title=, page=, order=, author=, yearx=, ...
+    builder
+      .addQuery("title", encodeURIComponent(opts.title ?? ""))
+      .addQuery("page", opts.page.toString());
+    if (opts.order) builder.addQuery("order", opts.order);
+    if (opts.author) builder.addQuery("author", encodeURIComponent(opts.author));
+    if (opts.year) builder.addQuery("yearx", encodeURIComponent(opts.year));
+    if (opts.status) builder.addQuery("status", opts.status);
+    if (opts.type) builder.addQuery("type", opts.type);
+    return builder.build();
+  }
+
+  // Maps standard discover/sort tokens to Comic-Asura's `sort` values.
+  private mapAdvancedOrder(order?: string): string {
+    switch (order) {
+      case "popular":
+        return "rating";
+      case "update":
+      case "latest":
+        return "latest";
+      case "title":
+        return "name_desc";
+      default:
+        return order ?? "";
+    }
   }
 
   async getSortingOptions(): Promise<SortingOption[]> {
@@ -286,43 +403,40 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
     const effectiveOrderBy = sortId || filterOrderBy;
 
     // MangaThemesia uses the SAME endpoint for search, popular, latest and
-    // browse: {mangaUrlDirectory}/?title=&page=&order=&... so an empty query
-    // simply lists everything.
-    const builder = new URLBuilder(this.baseUrl)
-      .addPath(this.mangaUrlDirectory)
-      .addQuery("title", encodeURIComponent(titleQuery))
-      .addQuery("page", page.toString());
-
-    if (effectiveOrderBy) {
-      builder.addQuery("order", effectiveOrderBy);
-    }
-
-    if (searchMeta) {
-      if (searchMeta.author) {
-        builder.addQuery("author", encodeURIComponent(searchMeta.author));
-      }
-      if (searchMeta.year) {
-        builder.addQuery("yearx", encodeURIComponent(searchMeta.year));
-      }
-      if (searchMeta.status && searchMeta.status.length > 0) {
-        builder.addQuery("status", searchMeta.status[0]);
-      }
-      if (searchMeta.type && searchMeta.type.length > 0) {
-        builder.addQuery("type", searchMeta.type[0]);
-      }
-    }
-
-    const url = builder.build();
+    // browse: {browsePath}/?title=&page=&order=&... so an empty query
+    // simply lists everything. Forks like Comic Asura use a dedicated
+    // /advanced-search endpoint with name=/sort= params (handled in
+    // buildBrowseUrl via useAdvancedSearchParams).
+    const url = this.buildBrowseUrl({
+      page,
+      title: titleQuery,
+      order: effectiveOrderBy || undefined,
+      author: searchMeta?.author,
+      year: searchMeta?.year,
+      status:
+        searchMeta?.status && searchMeta.status.length > 0
+          ? searchMeta.status[0]
+          : undefined,
+      type:
+        searchMeta?.type && searchMeta.type.length > 0
+          ? searchMeta.type[0]
+          : undefined,
+    });
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const results: SearchResultItem[] = [];
 
     $(this.searchMangaSelector).each((_, element) => {
       const unit = $(element);
-      const link = unit.find("a").first();
+      const link = unit.is("a") ? unit : unit.find("a").first();
       const href = link.attr("href") || "";
-      const title = (link.attr("title") || link.text()).trim();
+      const img = unit.find("img").first();
+      const title = (
+        img.attr("title") ||
+        link.attr("title") ||
+        link.text()
+      ).trim();
       const mangaId = this.parseMangaId(href);
-      const image = this.imageFromElement(unit.find("img").first());
+      const image = this.imageFromElement(img);
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -336,7 +450,7 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
       }
     });
 
-    const hasNextPage = $("div.pagination .next, div.hpage .r").length > 0;
+    const hasNextPage = this.hasNextBrowsePage($);
     const reachedPageLimit = page >= MangaThemesiaExtension.MAX_SEARCH_PAGES;
 
     return {
@@ -365,18 +479,29 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
     const scope = details.length > 0 ? details : $("html");
 
     const title = scope
-      .find("h1.entry-title, .ts-breadcrumb li:last-child span")
+      .find(
+        this.seriesTitleSelectorOverride ??
+          "h1.entry-title, .ts-breadcrumb li:last-child span",
+      )
       .first()
       .text()
       .trim();
 
     const image = this.imageFromElement(
-      scope.find(".infomanga > div[itemprop=image] img, .thumb img").first(),
+      scope
+        .find(
+          this.seriesThumbnailSelectorOverride ??
+            ".infomanga > div[itemprop=image] img, .thumb img",
+        )
+        .first(),
     );
 
     let description = "";
     scope
-      .find(".desc, .entry-content[itemprop=description]")
+      .find(
+        this.seriesDescriptionSelectorOverride ??
+          ".desc, .entry-content[itemprop=description]",
+      )
       .each((_, el) => {
         const t = $(el).text().trim();
         if (t) description += (description ? "\n" : "") + t;
@@ -420,10 +545,13 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
 
     const genres: string[] = [];
     scope
-      .find("div.gnr a, .mgen a, .seriestugenre a")
+      .find(
+        this.seriesGenreSelectorOverride ??
+          "div.gnr a, .mgen a, .seriestugenre a",
+      )
       .each((_, el) => {
         const g = $(el).text().trim();
-        if (g) genres.push(g);
+        if (g && !genres.includes(g)) genres.push(g);
       });
 
     const tagGroups: TagSection[] = [];
@@ -440,7 +568,8 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
 
     const statusText = scope
       .find(
-        ".infotable tr:contains(Status) td:last-child, .tsinfo .imptdt:contains(Status) i, .fmed b:contains(Status)+span",
+        this.seriesStatusSelectorOverride ??
+          ".infotable tr:contains(Status) td:last-child, .tsinfo .imptdt:contains(Status) i, .fmed b:contains(Status)+span",
       )
       .first()
       .text()
@@ -478,10 +607,13 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
     const chapters: Chapter[] = [];
 
     $(
-      "div.bxcl li, div.cl li, #chapterlist li, ul li:has(div.chbox):has(div.eph-num)",
+      this.chapterSelectorOverride ??
+        "div.bxcl li, div.cl li, #chapterlist li, ul li:has(div.chbox):has(div.eph-num)",
     ).each((_, element) => {
       const el = $(element);
-      const link = el.find("a").first();
+      // Some forks (e.g. Comic Asura) use the row element itself as the
+      // anchor; otherwise the anchor is nested inside the row.
+      const link = el.is("a") ? el : el.find("a").first();
       const href = link.attr("href") || "";
       if (!href) return;
 
@@ -489,7 +621,10 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
       if (!chapterId) return;
 
       const chapterTitle =
-        el.find(".lch a, .chapternum").text().trim() || link.text().trim();
+        el
+          .find(this.chapterNameSelectorOverride ?? ".lch a, .chapternum")
+          .text()
+          .trim() || link.text().trim();
 
       let chapNum = 0;
       const numMatch = chapterTitle.match(/chapter[.\s-]*(\d+(?:\.\d+)?)/i);
@@ -500,7 +635,11 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
         if (anyNum) chapNum = parseFloat(anyNum[1]);
       }
 
-      const dateText = el.find(".chapterdate").text().trim();
+      const dateText = el
+        .find(this.chapterDateSelectorOverride ?? ".chapterdate")
+        .first()
+        .text()
+        .trim();
       const publishDate = this.parseDate(dateText);
 
       chapters.push({
@@ -527,8 +666,8 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const pages: string[] = [];
 
-    $("div#readerarea img").each((_, element) => {
-      const image = this.imageFromElement($(element));
+    $(this.pageSelectorOverride ?? "div#readerarea img").each((_, element) => {
+      const image = this.imageFromElement($(element as Element));
       if (image) pages.push(image);
     });
 
@@ -651,7 +790,10 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
 
   private parseDate(dateText: string): Date {
     if (!dateText) return new Date();
-    const direct = new Date(dateText);
+    // Strip ordinal suffixes ("12th", "1st", "2nd", "3rd") that some
+    // forks (e.g. Comic Asura) embed, which break Date parsing.
+    const normalized = dateText.replace(/(\d+)(st|nd|rd|th)/gi, "$1");
+    const direct = new Date(normalized);
     if (!isNaN(direct.getTime())) return direct;
 
     const now = new Date();
