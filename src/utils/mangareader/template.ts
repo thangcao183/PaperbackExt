@@ -66,17 +66,33 @@ class MangaReaderInterceptor extends PaperbackInterceptor {
     super(id);
   }
 
+  private static hostOf(url: string): string {
+    // Strip scheme, then take everything before the first /, ? or #.
+    const withoutScheme = url.replace(/^[a-z]+:\/\//i, "");
+    return withoutScheme.split(/[/?#]/, 1)[0]?.toLowerCase() ?? "";
+  }
+
   override async interceptRequest(request: Request): Promise<Request> {
     const baseUrl = this.getBaseUrl();
     request.headers = {
       ...request.headers,
-      referer: `${baseUrl}/`,
-      origin: baseUrl,
       "user-agent": await Application.getDefaultUserAgent(),
       accept:
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.5",
     };
+    // Only attach the site referer/origin for same-host requests. Page images
+    // are frequently hotlinked to foreign CDNs whose Cloudflare hotlink
+    // protection returns 403 when a cross-site referer/origin is present.
+    const baseHost = MangaReaderInterceptor.hostOf(baseUrl);
+    const requestHost = MangaReaderInterceptor.hostOf(request.url);
+    if (baseHost && requestHost === baseHost) {
+      request.headers = {
+        ...request.headers,
+        referer: `${baseUrl}/`,
+        origin: baseUrl,
+      };
+    }
     return request;
   }
 
