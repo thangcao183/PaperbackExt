@@ -297,7 +297,7 @@ site is currently down.
 | Dark Legacy Comics | 1.4.1.1 | Everyone |
 | Dark Science | 1.4.1.1 | Everyone |
 | Darths & Droids | 1.4.2.1 | Everyone |
-| Death Toll Scans | 1.4.5.2 | Everyone |
+| Death Toll Scans | 1.4.5.3 | Everyone |
 | Decadence Scans | 1.4.53.2 | Mature |
 | DFlowScans | 1.4.1.1 | Everyone |
 | Digital Comic Museum | 1.4.4.1 | Everyone |
@@ -422,7 +422,7 @@ site is currently down.
 | MangaRead.org | 1.4.53.2 | Mature |
 | MangaReader.site | 1.4.35.4 | Everyone |
 | Mangasushi | 1.4.54.2 | Everyone |
-| Mangatellers | 1.4.5.2 | Everyone |
+| Mangatellers | 1.4.5.3 | Everyone |
 | MangaToday | 1.4.35.4 | Mature |
 | MangaTX | 1.4.33.1 | Mature |
 | MangaYY | 1.4.52.2 | Mature |

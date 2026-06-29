@@ -170,16 +170,14 @@ export class FoolSlideExtension implements FoolSlideImplementation {
     const meta = metadata as { page?: number } | undefined;
     const page = meta?.page ?? 1;
 
-    const path = section.id === "latest_section" ? "latest" : "directory";
-    const itemType =
-      section.id === "latest_section"
-        ? "simpleCarouselItem"
-        : "featuredCarouselItem";
+    const isLatest = section.id === "latest_section";
+    const path = isLatest ? "latest" : "directory";
+    const itemType = isLatest ? "simpleCarouselItem" : "featuredCarouselItem";
 
     const url = `${this.prefix}/${path}/${page}/`;
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
-    const items: DiscoverSectionItem[] = [];
+    const parsed: { mangaId: string; title: string; imageUrl: string }[] = [];
     const seen = new Set<string>();
 
     $("div.group").each((_: number, element) => {
@@ -204,13 +202,43 @@ export class FoolSlideExtension implements FoolSlideImplementation {
         );
       }
 
-      items.push({
-        type: itemType,
+      parsed.push({
         mangaId,
         title: link.text().trim() || link.attr("title")?.trim() || mangaId,
-        imageUrl: imageUrl || PLACEHOLDER_COVER,
-      } as DiscoverSectionItem);
+        imageUrl,
+      });
     });
+
+    // FoolSlide's "Latest" page lists series without a cover thumbnail (only the
+    // Directory page embeds `img.preview`). Resolve the missing covers from the
+    // Directory listing, which is keyed by the same mangaId, then fall back to
+    // the placeholder for anything still uncovered.
+    if (isLatest) {
+      const needed = new Set<string>();
+      for (const entry of parsed) {
+        if (!entry.imageUrl) {
+          needed.add(entry.mangaId);
+        }
+      }
+      if (needed.size > 0) {
+        const covers = await this.fetchDirectoryCovers(needed);
+        for (const entry of parsed) {
+          if (!entry.imageUrl) {
+            entry.imageUrl = covers.get(entry.mangaId) ?? "";
+          }
+        }
+      }
+    }
+
+    const items: DiscoverSectionItem[] = parsed.map(
+      (entry) =>
+        ({
+          type: itemType,
+          mangaId: entry.mangaId,
+          title: entry.title,
+          imageUrl: entry.imageUrl || PLACEHOLDER_COVER,
+        }) as DiscoverSectionItem,
+    );
 
     const hasNext =
       $("div.next").length > 0 && page < FoolSlideExtension.MAX_SEARCH_PAGES;
@@ -219,6 +247,57 @@ export class FoolSlideExtension implements FoolSlideImplementation {
       items,
       metadata: hasNext ? { page: page + 1 } : undefined,
     };
+  }
+
+  // Builds a mangaId -> cover-image map from the Directory listing, where each
+  // series is shown with an `img.preview` thumbnail (the Latest page omits
+  // these). Walks Directory pages until every needed cover is found, a page
+  // yields no new covers, or the page cap is reached. Failures are swallowed so
+  // a missing cover simply falls back to the placeholder.
+  private async fetchDirectoryCovers(
+    needed: Set<string>,
+  ): Promise<Map<string, string>> {
+    const covers = new Map<string, string>();
+    try {
+      for (let page = 1; page <= FoolSlideExtension.MAX_SEARCH_PAGES; page++) {
+        const url = `${this.prefix}/directory/${page}/`;
+        const $ = await this.fetchCheerio({ url, method: "GET" });
+
+        let foundOnPage = 0;
+        $("div.group").each((_: number, element) => {
+          const group = $(element);
+          const href = group.find("a[title]").first().attr("href");
+          if (!href) {
+            return;
+          }
+          const mangaId = this.parseMangaId(href);
+          if (!mangaId || covers.has(mangaId)) {
+            return;
+          }
+          const img = group.find("img").first();
+          if (img.length === 0) {
+            return;
+          }
+          const imageUrl = this.resolveUrl(img.attr("src") ?? "").replace(
+            "/thumb_",
+            "/",
+          );
+          if (imageUrl) {
+            covers.set(mangaId, imageUrl);
+            foundOnPage++;
+          }
+        });
+
+        const stillNeeded = [...needed].some((id) => !covers.has(id));
+        const hasNext = $("div.next").length > 0;
+        if (!stillNeeded || !hasNext || foundOnPage === 0) {
+          break;
+        }
+      }
+    } catch {
+      // ignore; uncovered items fall back to the placeholder
+    }
+    return covers;
   }
 
   // -------------------------------------------------------------------- Search
