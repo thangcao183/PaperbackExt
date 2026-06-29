@@ -232,7 +232,7 @@ If a source is broken, please open an issue.
 | VyvyManga | 1.4.40.1 | Mature |  |
 | Weeb Central | 1.4.22.2 | Mature |  |
 
-### ⚠️ Can’t test (5)
+### ⚠️ Can’t test (6)
 
 These can’t be verified right now — they need credentials I don’t have, or the
 site is currently down.
@@ -242,10 +242,11 @@ site is currently down.
 | Arc-Relight | 1.4.15.1 | Everyone | Server down — arc-relight.com’s TLS certificate expired (Jun 22, 2026; Let’s Encrypt E7). iOS rejects the handshake (NSURLErrorDomain -1200 / errSSLClosedAbort -9802); curl/openssl confirm “certificate has expired”. Affects all clients, not just Paperback. Will re-test once the cert is renewed. |
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
+| MangaReader.in | 1.4.6.1 | Mature | Images down — the site delivers every cover and page through its own server-side proxy (`mangareader.in/imgs/<base64>`), which times out (HTTP 500 `cURL error 28`) when its upstream CDNs (`h2.manimg24.com`, `harimanga.me`) are unreachable. Those origins return Cloudflare 522 directly. Parsing/selectors verified correct (reachable images load fine via the same path); affects all clients, not just Paperback. Will re-test when the image origins recover. |
 | Toonily.me | 1.4.24.4 | Mature | Server down — toonily.me HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 
-### 🧪 Not yet tested (347)
+### 🧪 Not yet tested (346)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -419,7 +420,6 @@ site is currently down.
 | MangaOwl.io (unoriginal) | 1.4.52.2 | Mature |
 | MangaPanda.onl | 1.4.35.4 | Everyone |
 | MangaRead.org | 1.4.53.2 | Mature |
-| MangaReader.in | 1.4.6.1 | Mature |
 | MangaReader.site | 1.4.35.4 | Everyone |
 | Mangasushi | 1.4.54.2 | Everyone |
 | Mangatellers | 1.4.5.1 | Everyone |
