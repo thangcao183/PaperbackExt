@@ -32,6 +32,20 @@ import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
 import { FoolSlideSettingsForm, getBaseUrlOverride, getShowAdult } from "./settings";
 
+// Paperback rejects an empty `imageUrl`/`thumbnailUrl` ("could not convert
+// JSValue: invalid URL"). FoolSlide's "Latest releases" page lists each series
+// without a cover thumbnail (only the Directory page embeds `img.preview`), so
+// cover-less items fall back to this inline data: URI placeholder. An inline
+// SVG never 404s/expires the way a hosted placeholder would.
+const PLACEHOLDER_COVER =
+  "data:image/svg+xml;base64," +
+  "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAi" +
+  "IGhlaWdodD0iNDUwIiB2aWV3Qm94PSIwIDAgMzAwIDQ1MCI+PHJlY3Qgd2lkdGg9IjMw" +
+  "MCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMyMzI4MmYiLz48dGV4dCB4PSIxNTAiIHk9IjIy" +
+  "NSIgZmlsbD0iIzhhOTNhMyIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6" +
+  "ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRk" +
+  "bGUiPk5vIENvdmVyPC90ZXh0Pjwvc3ZnPg==";
+
 export interface FoolSlideConfig {
   name: string;
   baseUrl: string;
@@ -194,7 +208,7 @@ export class FoolSlideExtension implements FoolSlideImplementation {
         type: itemType,
         mangaId,
         title: link.text().trim() || link.attr("title")?.trim() || mangaId,
-        imageUrl,
+        imageUrl: imageUrl || PLACEHOLDER_COVER,
       } as DiscoverSectionItem);
     });
 
@@ -249,7 +263,7 @@ export class FoolSlideExtension implements FoolSlideImplementation {
       items.push({
         mangaId,
         title: link.text().trim() || link.attr("title")?.trim() || mangaId,
-        imageUrl,
+        imageUrl: imageUrl || PLACEHOLDER_COVER,
       });
     });
 
@@ -284,6 +298,11 @@ export class FoolSlideExtension implements FoolSlideImplementation {
     if (thumb.length > 0) {
       thumbnailUrl = this.resolveUrl(thumb.attr("src") ?? "");
     }
+    // If the details page has no cover image, fall back to the first page of
+    // the series' first chapter (mirrors keiyoushi's getDetailsThumbnail).
+    if (!thumbnailUrl) {
+      thumbnailUrl = await this.thumbnailFromFirstChapter($);
+    }
 
     const title =
       $("h1.title").first().text().trim() ||
@@ -295,7 +314,7 @@ export class FoolSlideExtension implements FoolSlideImplementation {
       mangaInfo: {
         primaryTitle: title,
         secondaryTitles: [],
-        thumbnailUrl,
+        thumbnailUrl: thumbnailUrl || PLACEHOLDER_COVER,
         author: author || undefined,
         artist: artist || undefined,
         synopsis: description,
@@ -342,32 +361,7 @@ export class FoolSlideExtension implements FoolSlideImplementation {
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     const url = this.chapterUrl(chapter.chapterId);
-    const showAdult = getShowAdult(this.sourceName);
-    const [response, data] = await Application.scheduleRequest({
-      url,
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: `adult=${showAdult}`,
-    });
-    if (response.status === 404) {
-      throw new Error("Chapter not found");
-    }
-    const html = Application.arrayBufferToUTF8String(data);
-
-    const pages: string[] = [];
-    const match = html.match(/var pages = (\[[\s\S]*?\]);/);
-    if (match && match[1]) {
-      try {
-        const parsed = JSON.parse(match[1]) as { url?: string }[];
-        for (const entry of parsed) {
-          if (entry && typeof entry.url === "string") {
-            pages.push(this.resolveUrl(entry.url));
-          }
-        }
-      } catch {
-        // ignore parse failure; pages stays empty
-      }
-    }
+    const pages = await this.fetchChapterPages(url);
 
     return {
       id: chapter.chapterId,
@@ -422,6 +416,60 @@ export class FoolSlideExtension implements FoolSlideImplementation {
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body,
     });
+  }
+
+  // Derives a cover from the series' first chapter when the details page has
+  // none: the chapter list is newest-first, so the LAST element is chapter 1.
+  // Fetches that chapter and returns its first page image. Any failure yields
+  // an empty string so the caller can fall back to a placeholder.
+  private async thumbnailFromFirstChapter($: CheerioAPI): Promise<string> {
+    const elements = $("div.group div.element, div.list div.element");
+    const last = elements.last();
+    if (last.length === 0) {
+      return "";
+    }
+    const href = last.find("a[title]").first().attr("href");
+    if (!href) {
+      return "";
+    }
+    try {
+      const pages = await this.fetchChapterPages(this.resolveUrl(href));
+      return pages[0] ?? "";
+    } catch {
+      return "";
+    }
+  }
+
+  // Fetches a chapter page and extracts its image URLs from the embedded
+  // `var pages = [...]` JSON array. Returns an empty array on any failure.
+  private async fetchChapterPages(url: string): Promise<string[]> {
+    const showAdult = getShowAdult(this.sourceName);
+    const [response, data] = await Application.scheduleRequest({
+      url,
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: `adult=${showAdult}`,
+    });
+    if (response.status === 404) {
+      throw new Error("Chapter not found");
+    }
+    const html = Application.arrayBufferToUTF8String(data);
+
+    const pages: string[] = [];
+    const match = html.match(/var pages = (\[[\s\S]*?\]);/);
+    if (match && match[1]) {
+      try {
+        const parsed = JSON.parse(match[1]) as { url?: string }[];
+        for (const entry of parsed) {
+          if (entry && typeof entry.url === "string") {
+            pages.push(this.resolveUrl(entry.url));
+          }
+        }
+      } catch {
+        // ignore parse failure; pages stays empty
+      }
+    }
+    return pages;
   }
 
   private resolveUrl(href: string): string {
