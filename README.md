@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (71)
+### ✅ Tested (72)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -207,6 +207,7 @@ If a source is broken, please open an issue.
 | MangaNow | 1.4.4.2 | Mature |  |
 | Mangafreak | 1.4.13.1 | Mature |  |
 | MangaPill | 1.4.9.1 | Mature |  |
+| Mangatellers | 1.4.5.3 | Everyone |  |
 | Mangatown | 1.4.10.2 | Mature |  |
 | ManhuaFast | 1.4.55.2 | Mature |  |
 | ManhuaPlus (unoriginal) | 1.4.5.1 | Everyone |  |
@@ -247,7 +248,7 @@ site is currently down.
 | Toonily.me | 1.4.24.4 | Mature | Server down — toonily.me HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 
-### 🧪 Not yet tested (345)
+### 🧪 Not yet tested (344)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -422,7 +423,6 @@ site is currently down.
 | MangaRead.org | 1.4.53.2 | Mature |
 | MangaReader.site | 1.4.35.4 | Everyone |
 | Mangasushi | 1.4.54.2 | Everyone |
-| Mangatellers | 1.4.5.3 | Everyone |
 | MangaToday | 1.4.35.4 | Mature |
 | MangaTX | 1.4.33.1 | Mature |
 | MangaYY | 1.4.52.2 | Mature |
