@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (70)
+### ✅ Tested (71)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -204,6 +204,7 @@ If a source is broken, please open an issue.
 | Mangakakalot | 1.4.21.13 | Mature |  |
 | Mangakakalot.fun | 1.4.35.4 | Mature |  |
 | Manganato | 1.4.18.14 | Mature |  |
+| MangaNow | 1.4.4.2 | Mature |  |
 | Mangafreak | 1.4.13.1 | Mature |  |
 | MangaPill | 1.4.9.1 | Mature |  |
 | Mangatown | 1.4.10.2 | Mature |  |
@@ -246,7 +247,7 @@ site is currently down.
 | Toonily.me | 1.4.24.4 | Mature | Server down — toonily.me HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 
-### 🧪 Not yet tested (346)
+### 🧪 Not yet tested (345)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -415,7 +416,6 @@ site is currently down.
 | MangaManiacs | 1.4.51.2 | Mature |
 | Mangamo | 1.4.7.1 | Everyone |
 | MangaNel | 1.4.35.4 | Mature |
-| MangaNow | 1.4.4.2 | Mature |
 | MangaOnline.fun | 1.4.35.4 | Mature |
 | MangaOwl.io (unoriginal) | 1.4.52.2 | Mature |
 | MangaPanda.onl | 1.4.35.4 | Everyone |
