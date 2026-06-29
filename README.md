@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (67)
+### ✅ Tested (70)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -194,6 +194,7 @@ If a source is broken, please open an issue.
 | Mangadotnet | 1.4.11.2 | Mature |  |
 | Mangago | 1.4.34.6 | Mature |  |
 | Manga Demon | 1.4.19.4 | Everyone |  |
+| Manga18.Club | 1.4.3.1 | Mature |  |
 | Manga18fx | 1.4.56.3 | Mature |  |
 | MangaGeko | 1.4.32.1 | Mature |  |
 | MangaFox | 1.4.9.1 | Mature |  |
@@ -209,6 +210,8 @@ If a source is broken, please open an issue.
 | ManhuaFast | 1.4.55.2 | Mature |  |
 | ManhuaPlus (unoriginal) | 1.4.5.1 | Everyone |  |
 | Manhwa18 | 1.4.13.1 | Mature |  |
+| ManhwaZ | 1.4.42.1 | Mature |  |
+| Monochrome Scans | 1.4.5.1 | Everyone |  |
 | MurimScan | 1.4.49.3 | Mature | Paid (VIP) chapters can’t be opened — they require purchase/login on the site. |
 | NineHentai | 1.4.6.1 | Mature |  |
 | Omega Scans | 1.4.50.1 | Mature |  |
@@ -229,19 +232,20 @@ If a source is broken, please open an issue.
 | VyvyManga | 1.4.40.1 | Mature |  |
 | Weeb Central | 1.4.22.2 | Mature |  |
 
-### ⚠️ Can’t test (4)
+### ⚠️ Can’t test (5)
 
 These can’t be verified right now — they need credentials I don’t have, or the
 site is currently down.
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
+| Arc-Relight | 1.4.15.1 | Everyone | Server down — arc-relight.com’s TLS certificate expired (Jun 22, 2026; Let’s Encrypt E7). iOS rejects the handshake (NSURLErrorDomain -1200 / errSSLClosedAbort -9802); curl/openssl confirm “certificate has expired”. Affects all clients, not just Paperback. Will re-test once the cert is renewed. |
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 | Toonily.me | 1.4.24.4 | Mature | Server down — toonily.me HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 
-### 🧪 Not yet tested (351)
+### 🧪 Not yet tested (347)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -255,7 +259,6 @@ site is currently down.
 | AllPornComic.io | 1.4.51.2 | Mature |
 | Anisa Scans | 1.4.52.2 | Mature |
 | AP Comics | 1.4.51.2 | Mature |
-| Arc-Relight | 1.4.15.1 | Everyone |
 | Arena Scans | 1.4.32.1 | Everyone |
 | Armageddon | 1.4.34.1 | Mature |
 | Art Lapsa | 1.4.25.1 | Everyone |
@@ -390,7 +393,6 @@ site is currently down.
 | Manga Read | 1.4.52.2 | Mature |
 | Manga Trend | 1.4.32.1 | Everyone |
 | Manga-Bay | 1.4.1.1 | Mature |
-| Manga18.Club | 1.4.3.1 | Mature |
 | Manga18Free | 1.4.52.2 | Mature |
 | Mangabat | 1.4.20.12 | Mature |
 | MangaBlaze | 1.4.51.3 | Everyone |
@@ -451,7 +453,6 @@ site is currently down.
 | ManhwaRead | 1.4.1.1 | Mature |
 | Manhwatop | 1.4.53.2 | Mature |
 | Manhwax | 1.4.32.1 | Mature |
-| ManhwaZ | 1.4.42.1 | Mature |
 | ManhwaZone | 1.4.1.1 | Mature |
 | Megatokyo | 1.4.4.1 | Everyone |
 | Mehgazone | 1.4.2.1 | Mature |
@@ -461,7 +462,6 @@ site is currently down.
 | Mist Scans | 1.4.21.1 | Everyone |
 | MLBB Lore | 1.4.1.1 | Everyone |
 | Monochrome Custom | 1.4.6.1 | Everyone |
-| Monochrome Scans | 1.4.5.1 | Everyone |
 | Multporn | 1.4.6.1 | Mature |
 | MyAdultComics | 1.4.1.1 | Mature |
 | MyHentaiComics | 1.4.4.1 | Mature |
