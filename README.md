@@ -234,7 +234,7 @@ If a source is broken, please open an issue.
 | VyvyManga | 1.4.40.1 | Mature |  |
 | Weeb Central | 1.4.22.2 | Mature |  |
 
-### ⚠️ Can’t test (6)
+### ⚠️ Can’t test (7)
 
 These can’t be verified right now — they need credentials I don’t have, or the
 site is currently down.
@@ -245,10 +245,11 @@ site is currently down.
 | BeeHentai | 1.4.24.4 | Mature | Server down — beehentai.com HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | Madokami | 1.4.13.3 | Everyone | Needs HTTP Basic account credentials. |
 | MangaReader.in | 1.4.6.1 | Mature | Images down — the site delivers every cover and page through its own server-side proxy (`mangareader.in/imgs/<base64>`), which times out (HTTP 500 `cURL error 28`) when its upstream CDNs (`h2.manimg24.com`, `harimanga.me`) are unreachable. Those origins return Cloudflare 522 directly. Parsing/selectors verified correct (reachable images load fine via the same path); affects all clients, not just Paperback. Will re-test when the image origins recover. |
+| NineAnime | 1.4.6.1 | Mature | Site dead — www.nineanime.com (the baseUrl, same as upstream keiyoushi) 302-redirects every request, including the discover endpoint `/category/index_1.html?sort=views`, to a parked domain (`popgo.cc/game/word/`). Affects all clients, not just Paperback. Will re-test if the site returns. |
 | Toonily.me | 1.4.24.4 | Mature | Server down — toonily.me HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 
-### 🧪 Not yet tested (344)
+### 🧪 Not yet tested (343)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -470,7 +471,6 @@ site is currently down.
 | New Manhwa | 1.4.34.1 | Mature |
 | NexComic | 1.4.32.1 | Mature |
 | Nika Toons | 1.4.32.1 | Everyone |
-| NineAnime | 1.4.6.1 | Mature |
 | Ninekon | 1.4.1.1 | Mature |
 | NixManga | 1.4.2.1 | Mature |
 | NovelCrow | 1.4.52.2 | Mature |
