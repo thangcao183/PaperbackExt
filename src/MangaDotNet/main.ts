@@ -28,7 +28,7 @@ import {
     SourceManga,
     TagSection,
 } from '@paperback/types'
-import { getShowAdult, MangaDotNetSettingsForm } from './settings'
+import { getShowAdult, getShowTags, MangaDotNetSettingsForm } from './settings'
 import { MangaDotNetSearchForm, MangaDotNetSearchMeta } from './forms'
 
 const BASE_URL = 'https://mangadot.net'
@@ -81,10 +81,23 @@ interface MangaList {
     allGenres?: string[]
 }
 
+interface TagItem {
+    name: string
+    weight?: string
+    is_adult?: boolean
+}
+
+interface TagCategory {
+    category: string
+    is_adult?: boolean
+    tags?: TagItem[]
+}
+
 interface MangaDetail {
     id: number
     title: string
     genres?: string[]
+    tags?: TagCategory[]
     description?: string
     photo?: string
     hiatus?: string
@@ -215,6 +228,7 @@ export class MangaDotNetExtension implements MangaDotNetImplementation {
         params.push(getShowAdult() ? 'adult=both' : 'adult=0')
         if (titleQuery) params.push(`search=${encodeURIComponent(titleQuery)}`)
         params.push(`page=${page}`)
+        params.push('perPage=56')
 
         const sort = searchMeta?.sort?.[0] ?? ''
         const effectiveSort = sort === '' && !titleQuery ? 'latest' : sort
@@ -280,6 +294,18 @@ export class MangaDotNetExtension implements MangaDotNetImplementation {
                 break
         }
         for (const g of manga.genres ?? []) genres.push(g.trim())
+
+        // Tags are exposed after genres in the same tag section (keiyoushi
+        // #17066). Gated by a user toggle since some readers want to avoid
+        // tag-borne spoilers.
+        if (getShowTags()) {
+            const tagNames = (manga.tags ?? [])
+                .flatMap((c) => c.tags ?? [])
+                .map((t) => t.name.trim())
+                .filter((n) => n.length > 0)
+                .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+            for (const t of tagNames) genres.push(t)
+        }
 
         const tagGroups: TagSection[] =
             genres.length > 0

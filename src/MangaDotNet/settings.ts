@@ -1,6 +1,7 @@
 import { ButtonRow, Form, Section, ToggleRow } from '@paperback/types'
 
 const SHOW_ADULT_KEY = 'mangadotnet.showAdult'
+const SHOW_TAGS_KEY = 'mangadotnet.showTags'
 
 export function getShowAdult(): boolean {
     const value = Application.getState(SHOW_ADULT_KEY)
@@ -11,8 +12,18 @@ function setShowAdult(value: boolean): void {
     Application.setState(value, SHOW_ADULT_KEY)
 }
 
+export function getShowTags(): boolean {
+    const value = Application.getState(SHOW_TAGS_KEY)
+    return typeof value === 'boolean' ? value : true
+}
+
+function setShowTags(value: boolean): void {
+    Application.setState(value, SHOW_TAGS_KEY)
+}
+
 export class MangaDotNetSettingsForm extends Form {
     private showAdult: boolean = getShowAdult()
+    private showTags: boolean = getShowTags()
 
     async updateShowAdult(value: boolean): Promise<void> {
         this.showAdult = value
@@ -20,9 +31,17 @@ export class MangaDotNetSettingsForm extends Form {
         this.reloadForm()
     }
 
+    async updateShowTags(value: boolean): Promise<void> {
+        this.showTags = value
+        setShowTags(value)
+        this.reloadForm()
+    }
+
     async resetSettings(): Promise<void> {
         this.showAdult = false
         setShowAdult(false)
+        this.showTags = true
+        setShowTags(true)
         this.reloadForm()
     }
 
@@ -35,6 +54,14 @@ export class MangaDotNetSettingsForm extends Form {
                     onValueChange: Application.Selector(
                         this as MangaDotNetSettingsForm,
                         'updateShowAdult',
+                    ),
+                }),
+                ToggleRow('show_tags', {
+                    title: 'Show Tags In Details',
+                    value: this.showTags,
+                    onValueChange: Application.Selector(
+                        this as MangaDotNetSettingsForm,
+                        'updateShowTags',
                     ),
                 }),
                 ButtonRow('reset', {
