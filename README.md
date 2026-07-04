@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (72)
+### ✅ Tested (73)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -198,6 +198,7 @@ If a source is broken, please open an issue.
 | Manga18fx | 1.4.56.3 | Mature |  |
 | MangaGeko | 1.4.32.1 | Mature |  |
 | MangaFox | 1.4.9.1 | Mature |  |
+| Mangahere | 1.4.23.1 | Mature |  |
 | MangaHere.onl | 1.4.35.4 | Mature |  |
 | MangaHub | 1.4.45.4 | Mature |  |
 | MangaKatana | 1.4.12.2 | Mature |  |
@@ -249,7 +250,7 @@ site is currently down.
 | Toonily.me | 1.4.24.4 | Mature | Server down — toonily.me HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 
-### 🧪 Not yet tested (343)
+### 🧪 Not yet tested (342)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -412,7 +413,6 @@ site is currently down.
 | MangaGG | 1.4.54.2 | Mature |
 | MangaGo.fun | 1.4.51.2 | Everyone |
 | MangaHe | 1.4.51.2 | Mature |
-| Mangahere | 1.4.23.1 | Mature |
 | MangaK | 1.4.30.1 | Mature |
 | MangaKa | 1.4.51.2 | Everyone |
 | MangaManiacs | 1.4.51.2 | Mature |
