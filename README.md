@@ -235,7 +235,7 @@ If a source is broken, please open an issue.
 | VyvyManga | 1.4.40.1 | Mature |  |
 | Weeb Central | 1.4.22.2 | Mature |  |
 
-### ⚠️ Can’t test (7)
+### ⚠️ Can’t test (8)
 
 These can’t be verified right now — they need credentials I don’t have, or the
 site is currently down.
@@ -249,8 +249,9 @@ site is currently down.
 | NineAnime | 1.4.6.1 | Mature | Site dead — www.nineanime.com (the baseUrl, same as upstream keiyoushi) 302-redirects every request, including the discover endpoint `/category/index_1.html?sort=views`, to a parked domain (`popgo.cc/game/word/`). Affects all clients, not just Paperback. Will re-test if the site returns. |
 | Toonily.me | 1.4.24.4 | Mature | Server down — toonily.me HTTPS origin is unresponsive (Cloudflare connects but the origin never replies). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
+| XOXO Comics | 1.4.13.1 | Everyone | Images unavailable to headless clients — every chapter page image is self-hosted on xoxocomic.com (`/comic/<slug>/<issue>/<id>/<n>.jpg`) but those URLs return HTTP 200 with a ~106 KB HTML "404!" reader page instead of image bytes for any non-browser request (verified across iOS/Googlebot UAs, image-only Accept, with/without referer/cookies). The site gates page images behind JS/Cloudflare/adblock detection, so Paperback can never retrieve them. Affects all headless clients. |
 
-### 🧪 Not yet tested (342)
+### 🧪 Not yet tested (341)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -401,7 +402,7 @@ site is currently down.
 | Manga18Free | 1.4.52.2 | Mature |
 | Mangabat | 1.4.20.12 | Mature |
 | MangaBlaze | 1.4.51.3 | Everyone |
-| MangaBolt | 1.4.1.1 | Everyone |
+| MangaBolt | 1.4.1.2 | Everyone |
 | MangaBTT | 1.4.5.1 | Mature |
 | Mangack | 1.4.2.1 | Everyone |
 | MangaCloud | 1.4.7.1 | Everyone |
@@ -583,7 +584,6 @@ site is currently down.
 | WuxiaWorld | 1.4.52.2 | Everyone |
 | XlecX | 1.4.1.1 | Mature |
 | XoManga | 1.4.1.1 | Mature |
-| XOXO Comics | 1.4.13.1 | Everyone |
 | Xscans | 1.4.1.1 | Everyone |
 | YakshaComics | 1.4.53.2 | Everyone |
 | YaoiHot | 1.4.1.1 | Mature |

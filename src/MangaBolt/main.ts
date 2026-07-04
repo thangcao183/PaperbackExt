@@ -81,6 +81,8 @@ type MangaBoltImplementation = Extension &
   DiscoverSectionProviding;
 
 export class MangaBoltExtension implements MangaBoltImplementation {
+  static readonly MAX_CATALOG_PAGES = 10;
+
   requestManager = new MangaBoltInterceptor("main");
   cookieStorageInterceptor = new CookieStorageInterceptor({
     storage: "stateManager",
@@ -143,7 +145,7 @@ export class MangaBoltExtension implements MangaBoltImplementation {
     }
 
     // popular
-    const popular = await this.fetchPopularList();
+    const popular = await this.fetchCatalog(1);
     const items: DiscoverSectionItem[] = popular.map((m) => ({
       type: "featuredCarouselItem",
       mangaId: m.mangaId,
@@ -163,9 +165,9 @@ export class MangaBoltExtension implements MangaBoltImplementation {
     _metadata: Metadata | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
     const titleQuery = (query.title || "").trim().toLowerCase();
-    const popular = await this.fetchPopularList();
+    const catalog = await this.fetchCatalog();
 
-    const results: SearchResultItem[] = popular
+    const results: SearchResultItem[] = catalog
       .filter((m) => m.title.toLowerCase().includes(titleQuery))
       .map((m) => ({
         mangaId: m.mangaId,
@@ -286,38 +288,50 @@ export class MangaBoltExtension implements MangaBoltImplementation {
   // Helpers
   // ----------------------------------------------------------------
 
-  private async fetchPopularList(): Promise<
-    { mangaId: string; title: string; imageUrl: string }[]
-  > {
-    const $ = await this.fetchCheerio({
-      url: `${BASE_URL}/storage/manga-list.html`,
-      method: "GET",
-    });
-
+  private async fetchCatalog(
+    maxPages = MangaBoltExtension.MAX_CATALOG_PAGES,
+  ): Promise<{ mangaId: string; title: string; imageUrl: string }[]> {
     const list: { mangaId: string; title: string; imageUrl: string }[] = [];
     const seen = new Set<string>();
-    $(".section-header, .menu-item").each((_, element) => {
-      const el = $(element);
-      const onclick = el.attr("onclick") || "";
-      const start = onclick.indexOf("'");
-      if (start < 0) return;
-      const end = onclick.indexOf("'", start + 1);
-      if (end < 0) return;
-      const path = onclick.substring(start + 1, end);
-      if (!path) return;
+    let nextUrl: string | undefined = `${BASE_URL}/manga-list/`;
+    let pages = 0;
 
-      const title = el
-        .find("h2, .item-title")
-        .text()
-        .replace(/🔥/g, "")
-        .trim();
-      if (!title) return;
+    while (nextUrl && pages < maxPages) {
+      pages += 1;
+      const $: CheerioAPI = await this.fetchCheerio({
+        url: nextUrl,
+        method: "GET",
+      });
 
-      const mangaId = this.parsePath(path);
-      if (seen.has(mangaId)) return;
-      seen.add(mangaId);
-      list.push({ mangaId, title, imageUrl: PLACEHOLDER_COVER });
-    });
+      let added = 0;
+      $("a.manga-card").each((_, element) => {
+        const el = $(element);
+        const href = el.attr("href") || "";
+        if (!href) return;
+
+        const title = (
+          el.attr("title") ||
+          el.find(".manga-card-title").first().text() ||
+          el.find("img").first().attr("alt") ||
+          ""
+        ).trim();
+        if (!title) return;
+
+        const mangaId = this.parsePath(href);
+        if (seen.has(mangaId)) return;
+        seen.add(mangaId);
+
+        const imageUrl =
+          this.absoluteUrl(el.find("img").first().attr("src") || "") ||
+          PLACEHOLDER_COVER;
+        list.push({ mangaId, title, imageUrl });
+        added += 1;
+      });
+
+      // Follow the "Load Next Page" link; stop when a page adds nothing new.
+      const next = $("#js-pagination a[href]").first().attr("href");
+      nextUrl = added > 0 && next ? this.absoluteUrl(next) : undefined;
+    }
 
     return list;
   }
@@ -338,11 +352,15 @@ export class MangaBoltExtension implements MangaBoltImplementation {
       el.find(".font-bold").text().split("Chapter")[0]?.trim() || "";
     if (!title) return undefined;
 
-    const imageUrl =
-      this.absoluteUrl(el.find("img").first().attr("src") || "") ||
-      PLACEHOLDER_COVER;
-
-    return { mangaId: this.parsePath(`/manga/${slug}/`), title, imageUrl };
+    // The latest-updates cards frequently reference dead imgur links that
+    // respond with an HTML "removed image" page (200 text/html), which
+    // Paperback cannot decode as an image. Use the placeholder here; the real
+    // cover is resolved later when the manga details page is opened.
+    return {
+      mangaId: this.parsePath(`/manga/${slug}/`),
+      title,
+      imageUrl: PLACEHOLDER_COVER,
+    };
   }
 
   private mangaUrl(mangaId: string): string {
