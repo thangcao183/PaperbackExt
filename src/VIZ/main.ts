@@ -38,6 +38,10 @@ const SERVICE_PATH = "shonenjump";
 // VIZ moved the section listing from /read/ to /manga-books/. Manga detail and
 // chapter pages still live at /<service>/chapters/... (no manga-books prefix).
 const FREE_CHAPTERS_URL = `${BASE_URL}/manga-books/${SERVICE_PATH}/section/free-chapters`;
+// Real server-side search endpoint (added upstream #17409): /search?search=<q>&category=<SEARCH_PATH>.
+// SEARCH_PATH pairs with SERVICE_PATH ("shonenjump" -> "SjChapterSeries").
+const SEARCH_PATH = "SjChapterSeries";
+const SEARCH_URL = `${BASE_URL}/search`;
 
 // Endpoint that returns the (short-lived) signed URL of the scrambled page image.
 const IMAGE_URL_ENDPOINT = "get_manga_url";
@@ -197,22 +201,62 @@ export class VIZExtension implements VIZImplementation {
     query: SearchQuery<Metadata>,
     _metadata: Metadata | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
-    const titleQuery = (query.title || "").trim().toLowerCase();
-    const series = await this.fetchSeriesList();
+    const titleQuery = (query.title || "").trim();
 
-    const results: SearchResultItem[] = series
-      .filter(
-        (s) => titleQuery === "" || s.title.toLowerCase().includes(titleQuery),
-      )
-      .map((s) => ({
+    // Upstream #17409 replaced the client-side filter of the free-chapters
+    // list with a real server-side search (/search?search=<q>&category=…),
+    // which also surfaces non-free titles. Fall back to the free list when the
+    // query is empty (nothing to search).
+    if (titleQuery === "") {
+      const series = await this.fetchSeriesList();
+      const items: SearchResultItem[] = series.map((s) => ({
         mangaId: s.mangaId,
         imageUrl: s.imageUrl,
         title: s.title,
         subtitle: undefined,
         metadata: undefined,
       }));
+      return { items, metadata: undefined };
+    }
+
+    const url = `${SEARCH_URL}?search=${encodeURIComponent(titleQuery)}&category=${SEARCH_PATH}`;
+    const $ = await this.fetchCheerio({ url, method: "GET" });
+
+    const results: SearchResultItem[] = [];
+    const seen = new Set<string>();
+    // Search results are laid out as "div.p-cs-tile a.o_property-link".
+    $("div.p-cs-tile a.o_property-link").each((_, element) => {
+      const item = this.mangaFromElement($(element));
+      if (!item || seen.has(item.mangaId)) return;
+      seen.add(item.mangaId);
+      results.push({
+        mangaId: item.mangaId,
+        imageUrl: item.imageUrl,
+        title: item.title,
+        subtitle: undefined,
+        metadata: undefined,
+      });
+    });
 
     return { items: results, metadata: undefined };
+  }
+
+  // Shared parser for the redesigned catalog/search tiles (upstream
+  // mangaFromElement): title in div.pad-x-rg, thumbnail in
+  // div.pos-r img.disp-bl[data-original], link href points at the series page.
+  private mangaFromElement(
+    el: Cheerio<AnyNode>,
+  ): { mangaId: string; title: string; imageUrl: string } | null {
+    const href = el.attr("href") || "";
+    if (!href) return null;
+    const mangaId = this.parsePath(href);
+    if (!mangaId) return null;
+    const title = el.find("div.pad-x-rg").first().text().trim();
+    if (!title) return null;
+    const imageUrl = this.imageFromElement(
+      el.find("div.pos-r img.disp-bl").first(),
+    );
+    return { mangaId, title, imageUrl };
   }
 
   private async fetchSeriesList(): Promise<
@@ -232,21 +276,14 @@ export class VIZExtension implements VIZImplementation {
 
     const out: { mangaId: string; title: string; imageUrl: string }[] = [];
     const seen = new Set<string>();
+    // Redesigned catalog (upstream #17409) simplified the tile selector.
     $(
-      "section.section_chapters div.o_sort_container div.o_sortable > a.o_chapters-link",
+      "div.o_sortable > a.o_chapters-link, section.section_chapters div.o_sort_container div.o_sortable > a.o_chapters-link",
     ).each((_, element) => {
-      const el = $(element);
-      const href = el.attr("href") || "";
-      if (!href) return;
-      const mangaId = this.parsePath(href);
-      if (!mangaId || seen.has(mangaId)) return;
-      seen.add(mangaId);
-      const title = el.find("div.pad-x-rg").first().text().trim();
-      const imageUrl = this.imageFromElement(
-        el.find("div.pos-r img.disp-bl").first(),
-      );
-      if (!title) return;
-      out.push({ mangaId, title, imageUrl });
+      const item = this.mangaFromElement($(element));
+      if (!item || seen.has(item.mangaId)) return;
+      seen.add(item.mangaId);
+      out.push(item);
     });
 
     out.sort((a, b) => a.title.localeCompare(b.title));
@@ -264,23 +301,28 @@ export class VIZExtension implements VIZImplementation {
     const seriesIntro = $("section#series-intro").first();
 
     const author =
-      seriesIntro
-        .find("div.type-rg span")
-        .first()
-        .text()
+      (
+        seriesIntro.find("span.disp-bl--bm").first().text().trim() ||
+        seriesIntro.find("div.type-rg span").first().text().trim()
+      )
         .replace("Created by ", "")
         .trim() || undefined;
-    const synopsis = seriesIntro.find("div.line-solid").first().text().trim();
+    const synopsis =
+      seriesIntro.find("h2 + div").first().text().trim() ||
+      seriesIntro.find("div.line-solid").first().text().trim();
 
-    let thumbnailUrl = this.imageFromElement(
-      $("section.section_chapters td a > img").first(),
-    );
+    let thumbnailUrl = this.imageFromElement($("meta[property=og:image]"));
+    if (!thumbnailUrl) {
+      thumbnailUrl = this.imageFromElement(
+        $("section.section_chapters td a > img").first(),
+      );
+    }
     if (!thumbnailUrl) {
       thumbnailUrl = this.imageFromElement(seriesIntro.find("img").first());
     }
 
     const title =
-      seriesIntro.find("h2.type-lg").first().text().trim() ||
+      seriesIntro.find("h2").first().text().trim() ||
       this.safeDecode(mangaId);
 
     return {
@@ -311,47 +353,51 @@ export class VIZExtension implements VIZImplementation {
     const chapters: Chapter[] = [];
     const seen = new Set<string>();
 
-    $(
-      "section.section_chapters div.o_sortable > a.o_chapter-container, section.section_chapters div.o_sortable div.o_chapter-vol-container tr.o_chapter a.o_chapter-container",
-    ).each((_, element) => {
-      const el = $(element);
+    $("section.section_chapters a.o_chapter-container[id^=ch-]").each(
+      (_, element) => {
+        const el = $(element);
 
-      const isVolume = el.find("div:nth-child(1) table").length === 0;
-      let name: string;
-      let publishDate = new Date(0);
+        const targetUrl = el.attr("data-target-url") || "";
+        if (!targetUrl) return;
+        // Locked chapters use a "javascript:" target and require a paid login,
+        // which this standalone doesn't support — skip them.
+        if (targetUrl.startsWith("javascript")) return;
 
-      if (isVolume) {
-        name = el.text().trim();
-      } else {
-        const rightSide = el.find("div:nth-child(2) table").first();
-        name = rightSide.find("td").first().text().trim();
-        const dateStr = el
-          .find("div:nth-child(1) table td[align=right]")
-          .first()
-          .text()
-          .trim();
-        publishDate = this.parseDate(dateStr);
-      }
+        const dateTable = el.find("div:nth-child(1) table").first();
+        let name: string;
+        let publishDate = new Date(0);
 
-      const targetUrl = el.attr("data-target-url") || "";
-      // Only free (non-locked) chapters are reachable without a login; locked
-      // ones use a "javascript:" target which we skip.
-      if (!targetUrl || targetUrl.startsWith("javascript")) return;
+        if (dateTable.length === 0) {
+          name = el.text().trim();
+        } else {
+          name =
+            el.find("div:nth-child(2) table td").first().text().trim() ||
+            "Oneshot";
+          const dateStr = el
+            .find(
+              "div:nth-child(1) table td[align=right], div:nth-child(1) table td > span",
+            )
+            .first()
+            .text()
+            .trim();
+          publishDate = this.parseDate(dateStr);
+        }
 
-      const chapterId = this.parsePath(targetUrl);
-      if (!chapterId || seen.has(chapterId)) return;
-      seen.add(chapterId);
+        const chapterId = this.parsePath(targetUrl);
+        if (!chapterId || seen.has(chapterId)) return;
+        seen.add(chapterId);
 
-      chapters.push({
-        chapterId,
-        sourceManga,
-        title: name,
-        volume: 0,
-        chapNum: this.parseChapterNumber(name),
-        publishDate,
-        langCode: "🇬🇧",
-      });
-    });
+        chapters.push({
+          chapterId,
+          sourceManga,
+          title: name,
+          volume: 0,
+          chapNum: this.parseChapterNumber(name),
+          publishDate,
+          langCode: "🇬🇧",
+        });
+      },
+    );
 
     chapters.sort((a, b) => b.chapNum - a.chapNum);
     return chapters;
@@ -454,6 +500,7 @@ export class VIZExtension implements VIZImplementation {
       img.attr("data-original") ||
       img.attr("data-src") ||
       img.attr("src") ||
+      img.attr("content") ||
       "";
     return this.absoluteUrl(src);
   }

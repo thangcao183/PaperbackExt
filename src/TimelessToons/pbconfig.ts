@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "TimelessToons",
   description: "TimelessToons - Keyoapp source (timelesstoons.org). Converted from keiyoushi.",
-  version: "1.4.20.4",
+  version: "1.4.21.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

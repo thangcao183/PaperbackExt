@@ -2,8 +2,8 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
   name: "Yaoihub",
-  description: "Yaoihub - Madara source (yaoihub.net). Converted from keiyoushi.",
-  version: "1.4.53.4",
+  description: "Yaoihub - Madara source (yaoihub.org). Converted from keiyoushi.",
+  version: "1.4.54.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

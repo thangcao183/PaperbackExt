@@ -33,6 +33,11 @@ import { descrambleMangago } from "../utils/descramble/canvas";
 
 const BASE_URL = "https://www.mangago.me";
 const DOMAIN = "mangago.me";
+// Chapter reader mirror; "/chapter/..." paths 404 on the main domain.
+// Chapter lists are also fetched from here: the main domain randomly
+// alternates between two chapter URL formats with unrelated ids, while
+// the mirror consistently serves "/chapter/<mangaId>/<chapterId>/".
+const READER_DOMAIN = "www.mangago.zone";
 
 // Regular expressions taken verbatim from the keiyoushi Mangago source.
 const IMG_SRCS_REGEX = /var imgsrcs\s*=\s*['"]([a-zA-Z0-9+=/]+)['"]/;
@@ -349,8 +354,31 @@ export class MangaGoExtension implements MangaGoImplementation {
   // ----------------------------------------------------------------
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
-    const url = this.mangaUrl(sourceManga.mangaId);
-    const $ = await this.fetchCheerio({ url, method: "GET" });
+    // The main domain randomly alternates between two chapter URL formats
+    // with unrelated ids, which resets read state. The reader mirror serves
+    // a stable "/chapter/<mangaId>/<chapterId>/" path, so prefer it and fall
+    // back to the main domain only if the mirror request fails.
+    const mangaPath = this.mangaPath(sourceManga.mangaId);
+    let $: CheerioAPI;
+    if (mangaPath === null) {
+      // Absolute-URL manga id: fetch it directly.
+      $ = await this.fetchCheerio({
+        url: this.mangaUrl(sourceManga.mangaId),
+        method: "GET",
+      });
+    } else {
+      try {
+        $ = await this.fetchCheerio({
+          url: `https://${READER_DOMAIN}${mangaPath}`,
+          method: "GET",
+        });
+      } catch {
+        $ = await this.fetchCheerio({
+          url: this.mangaUrl(sourceManga.mangaId),
+          method: "GET",
+        });
+      }
+    }
 
     const chapters: Chapter[] = [];
     const seen = new Set<string>();
@@ -707,9 +735,23 @@ JSON.stringify(${JSON.stringify(urls)}.map(function(u){
     return slug.startsWith("http") ? slug : `${BASE_URL}/${slug}`;
   }
 
+  // The path portion of a manga URL (leading slash, no host), used to build
+  // reader-mirror requests. Returns null for absolute-URL manga ids.
+  private mangaPath(mangaId: string): string | null {
+    const slug = this.safeDecode(mangaId);
+    if (slug.startsWith("http")) return null;
+    return `/${slug.replace(/^\/+/, "")}`;
+  }
+
   private chapterUrl(chapterId: string): string {
     const slug = this.safeDecode(chapterId);
-    return slug.startsWith("http") ? slug : `${BASE_URL}/${slug}`;
+    if (slug.startsWith("http")) return slug;
+    // Reader paths only resolve on the mirror domain, not on baseUrl.
+    const path = `/${slug.replace(/^\/+/, "")}`;
+    if (path.startsWith("/chapter/")) {
+      return `https://${READER_DOMAIN}${path}`;
+    }
+    return `${BASE_URL}/${slug}`;
   }
 
   private parseMangaId(href: string): string {
@@ -717,6 +759,24 @@ JSON.stringify(${JSON.stringify(urls)}.map(function(u){
   }
 
   private parseChapterId(href: string): string {
+    // Reader links rotate between mirror hosts but keep a stable path.
+    // Store only the path for "/chapter/..." links so rotated hosts don't
+    // register as new chapters (which would reset read state); the host is
+    // restored by chapterUrl. Truly external links stay absolute.
+    if (href.startsWith("http")) {
+      try {
+        const parsed = new URL(href);
+        const firstSegment = parsed.pathname.replace(/^\/+/, "").split("/")[0];
+        if (firstSegment === "chapter") {
+          return this.parsePath(parsed.pathname);
+        }
+        if (parsed.host.endsWith(DOMAIN)) {
+          return this.parsePath(parsed.pathname);
+        }
+      } catch {
+        // Fall through to the default handling below.
+      }
+    }
     return this.parsePath(href);
   }
 

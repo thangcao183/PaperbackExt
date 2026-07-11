@@ -30,7 +30,7 @@ import { CheerioAPI, Cheerio } from "cheerio";
 import type { AnyNode } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
 
-const BASE_URL = "https://fairyscans.com";
+const BASE_URL = "https://fairyscans.org";
 
 const NONCE_REGEX = /"nonce"\s*:\s*"([^"]+)"/;
 const AUTHOR_REGEX = /"author"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"/;

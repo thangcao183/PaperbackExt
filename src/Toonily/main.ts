@@ -42,4 +42,5 @@ export const Toonily = new ToonilyExtension({
   langCode: "🇬🇧",
   useLoadMoreRequest: true,
   filterNonMangaItems: false,
+  mangaDetailsDescriptionSelector: "div.content-area div.summary__content",
 });

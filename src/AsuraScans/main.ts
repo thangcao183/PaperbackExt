@@ -46,6 +46,9 @@ interface MangaDto {
   author?: string;
   artist?: string;
   description?: string;
+  rating?: number;
+  popularity_rank?: number;
+  alt_titles?: string[];
   genres?: { name: string }[];
   status?: string;
 }
@@ -274,7 +277,7 @@ class AsuraScansExtension implements AsuraScansImplementation {
         thumbnailUrl: series.cover ?? "",
         author: series.author,
         artist: series.artist,
-        synopsis: this.stripHtml(series.description ?? ""),
+        synopsis: this.buildDescription(series),
         contentRating: ContentRating.EVERYONE,
         status: this.parseStatus(series.status),
         tagGroups,
@@ -384,6 +387,20 @@ class AsuraScansExtension implements AsuraScansImplementation {
     } catch {
       return html.replace(/<[^>]+>/g, "").trim();
     }
+  }
+
+  private buildDescription(series: MangaDto): string {
+    const parts: string[] = [];
+    const plain = this.stripHtml(series.description ?? "");
+    if (plain) parts.push(plain);
+    if (series.rating != null) parts.push(`Rating: ${series.rating.toFixed(2)}`);
+    if (series.popularity_rank != null) parts.push(`Rank: #${series.popularity_rank}`);
+    if (series.alt_titles && series.alt_titles.length > 0) {
+      parts.push(
+        "Alternative Titles:\n" + series.alt_titles.map((t) => `- ${t}`).join("\n"),
+      );
+    }
+    return parts.join("\n\n");
   }
 
   private parseStatus(status?: string): string {

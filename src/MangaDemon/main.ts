@@ -339,7 +339,7 @@ export class MangaDemonExtension implements MangaDemonImplementation {
         primaryTitle: title,
         secondaryTitles: [],
         thumbnailUrl,
-        author: author || undefined,
+        author: this.parseAuthor(author),
         synopsis,
         contentRating: ContentRating.EVERYONE,
         status: this.parseStatus(statusText),
@@ -480,6 +480,11 @@ export class MangaDemonExtension implements MangaDemonImplementation {
     if (!s) return "";
     if (s.startsWith("http")) return s;
     return s.startsWith("/") ? `${BASE_URL}${s}` : `${BASE_URL}/${s}`;
+  }
+
+  private parseAuthor(author: string | undefined): string | undefined {
+    if (!author || /updating/i.test(author)) return undefined;
+    return author;
   }
 
   private parseStatus(status: string): string {

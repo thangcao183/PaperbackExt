@@ -33,7 +33,7 @@ import * as htmlparser2 from "htmlparser2";
 import { AllMangaSearchForm, AllMangaSearchMeta } from "./forms";
 import { AllMangaSettingsForm, getImageQuality, getShowAdult } from "./settings";
 
-const BASE_URL = "https://allmanga.to";
+const BASE_URL = "https://mkissa.to";
 const API_URL = "https://api.allanime.day/api";
 const THUMBNAIL_CDN = "https://wp.youtube-anime.com/aln.youtube-anime.com/";
 const IMAGE_CDN = "https://wp.youtube-anime.com";

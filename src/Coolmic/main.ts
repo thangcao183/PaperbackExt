@@ -33,14 +33,13 @@ const DOMAIN = "coolmic.me";
 const BASE_URL = `https://${DOMAIN}`;
 const API_URL = `${BASE_URL}/api/v1`;
 const CDN_URL = `https://en-img.${DOMAIN}`;
-const SEARCH_URL = `https://en-search.${DOMAIN}`;
 
 const SEARCH_SIZE = 20;
 
-// Sort values mirrored from the upstream Kotlin SortFilter.
-const SORT_RELEVANCE = "_score+desc,+like_vote_count+desc";
-const SORT_RECENT = "start_at+desc";
-const SORT_POPULAR = "like_vote_count+desc";
+// Sort values mirrored from the upstream Kotlin SortFilter (new search_titles API).
+const SORT_RELEVANCE = "relevance";
+const SORT_RECENT = "newest";
+const SORT_POPULAR = "like_vote";
 
 interface CoolmicMetadata {
   page?: number;
@@ -52,11 +51,8 @@ interface CoolmicMetadata {
 // ----------------------------------------------------------------
 
 interface SeriesResponse {
-  hits?: {
-    found?: number;
-    start?: number;
-    hit?: { fields?: { title_id?: string; title_name?: string } }[];
-  };
+  total?: number;
+  results?: { title_id?: number; title_name?: string }[];
 }
 
 interface NamedEntity {
@@ -286,7 +282,7 @@ export class CoolmicExtension implements CoolmicImplementation {
   }
 
   // ----------------------------------------------------------------
-  // Series search helper (CloudSearch JSON API)
+  // Series search helper (search_titles JSON API)
   // ----------------------------------------------------------------
 
   private async fetchSeries(opts: {
@@ -297,40 +293,28 @@ export class CoolmicExtension implements CoolmicImplementation {
     items: { mangaId: string; imageUrl: string; title: string }[];
     hasNextPage: boolean;
   }> {
-    const keywords = (opts.query || "")
-      .trim()
-      .split(/\s+/)
-      .filter((s) => s.length > 0)
-      .map((s) => `(${s}|${s}*)`)
-      .join(" ");
-
     const params: string[] = [];
-    params.push(`q=${encodeURIComponent(keywords || "(matchall)")}`);
-    params.push(`size=${SEARCH_SIZE}`);
-    params.push(`start=${(opts.page - 1) * SEARCH_SIZE}`);
-    params.push(`q.options=`);
-    params.push(`q.parser=${keywords ? "simple" : "structured"}`);
-    params.push(`return=_all_fields`);
-    // sort is pre-encoded with '+' separators upstream, keep verbatim.
-    params.push(`sort=${opts.sort}`);
-    params.push(`fq=`);
+    params.push(`keyword=${encodeURIComponent((opts.query || "").trim())}`);
+    params.push(`page=${opts.page}`);
+    params.push(`per=${SEARCH_SIZE}`);
+    params.push(`search_field=all`);
+    params.push(`sort=${encodeURIComponent(opts.sort)}`);
 
-    const url = `${SEARCH_URL}/search?${params.join("&")}`;
+    const url = `${API_URL}/search_titles?${params.join("&")}`;
     const json = await this.fetchJson<SeriesResponse>({ url, method: "GET" });
 
-    const hits = json.hits;
-    const start = hits?.start ?? 0;
-    const found = hits?.found ?? 0;
-    const hasNextPage = start + SEARCH_SIZE < found;
+    const total = json.total ?? 0;
+    const hasNextPage = opts.page * SEARCH_SIZE < total;
 
     const items: { mangaId: string; imageUrl: string; title: string }[] = [];
-    for (const hit of hits?.hit ?? []) {
-      const titleId = hit.fields?.title_id;
-      const titleName = hit.fields?.title_name;
-      if (!titleId || !titleName) continue;
+    for (const result of json.results ?? []) {
+      const titleId = result.title_id;
+      const titleName = result.title_name;
+      if (titleId == null || !titleName) continue;
+      const titleIdStr = String(titleId);
       items.push({
-        mangaId: this.toSafeId(titleId),
-        imageUrl: this.thumbnailFor(titleId),
+        mangaId: this.toSafeId(titleIdStr),
+        imageUrl: this.thumbnailFor(titleIdStr),
         title: titleName,
       });
     }

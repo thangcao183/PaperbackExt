@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Mangabat",
   description: "Mangabat - MangaBox source (www.mangabats.com). Converted from keiyoushi.",
-  version: "1.4.20.14",
+  version: "1.4.21.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

@@ -2,8 +2,8 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
   name: "AllManga",
-  description: "AllManga - custom source (allmanga.to). Converted from keiyoushi.",
-  version: "1.4.19.1",
+  description: "AllManga - custom source (mkissa.to). Converted from keiyoushi.",
+  version: "1.4.20.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

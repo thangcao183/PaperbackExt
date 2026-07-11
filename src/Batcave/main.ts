@@ -427,12 +427,30 @@ export class BatCaveExtension implements BatCaveImplementation {
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const url = this.chapterUrl(chapter.chapterId);
-    const $ = await this.fetchCheerio({ url, method: "GET" });
+    // Pages are served by a JSON API rather than being embedded in the reader
+    // HTML (`window.__DATA__`). The chapterId is stored as
+    // `reader/<news_id>/<chap.id><xhash>`; extract the numeric news_id and the
+    // leading-digit chapter_id (dropping the trailing xhash), then POST them to
+    // the getChapterData endpoint.
+    const decoded = this.safeDecode(chapter.chapterId);
+    const afterReader = decoded.includes("reader/")
+      ? decoded.substring(decoded.indexOf("reader/") + "reader/".length)
+      : decoded;
+    const slashIdx = afterReader.indexOf("/");
+    const newsId =
+      slashIdx >= 0 ? afterReader.substring(0, slashIdx) : afterReader;
+    const rawId = slashIdx >= 0 ? afterReader.substring(slashIdx + 1) : "";
+    const chapterId = rawId.match(/^\d+/)?.[0] ?? rawId;
 
-    const data = this.extractData<BatCaveImagesData>($);
+    const data = await this.fetchJson<{ data?: BatCaveImagesData }>({
+      url: `${BASE_URL}/engine/ajax/controller.php?mod=api&action=reader/getChapterData`,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ news_id: newsId, chapter_id: chapterId }),
+    });
+
     const pages: string[] = [];
-    for (const img of data?.images ?? []) {
+    for (const img of data?.data?.images ?? []) {
       const trimmed = (img || "").trim();
       if (!trimmed) continue;
       pages.push(
@@ -478,12 +496,6 @@ export class BatCaveExtension implements BatCaveImplementation {
 
   private mangaUrl(mangaId: string): string {
     const slug = this.safeDecode(mangaId);
-    if (slug.startsWith("http")) return slug;
-    return `${BASE_URL}/${slug.replace(/^\/+/, "")}`;
-  }
-
-  private chapterUrl(chapterId: string): string {
-    const slug = this.safeDecode(chapterId);
     if (slug.startsWith("http")) return slug;
     return `${BASE_URL}/${slug.replace(/^\/+/, "")}`;
   }
@@ -568,6 +580,19 @@ export class BatCaveExtension implements BatCaveImplementation {
     const htmlStr = Application.arrayBufferToUTF8String(data);
     const dom = htmlparser2.parseDocument(htmlStr);
     return cheerio.load(dom);
+  }
+
+  async fetchJson<T>(request: Request): Promise<T | undefined> {
+    const [response, data] = await Application.scheduleRequest(request);
+    if (response.status === 404) {
+      throw new Error(`Content not found: ${request.url}`);
+    }
+    const str = Application.arrayBufferToUTF8String(data);
+    try {
+      return JSON.parse(str) as T;
+    } catch {
+      return undefined;
+    }
   }
 
   async fetchCheerioPost(url: string, body: string): Promise<CheerioAPI> {

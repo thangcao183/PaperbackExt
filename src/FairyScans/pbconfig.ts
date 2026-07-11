@@ -3,8 +3,8 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Fairy Scans",
   description:
-    "Fairy Scans - WordPress manga scraper (fairyscans.com). Converted from keiyoushi.",
-  version: "1.4.33.1",
+    "Fairy Scans - WordPress manga scraper (fairyscans.org). Converted from keiyoushi.",
+  version: "1.4.34.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

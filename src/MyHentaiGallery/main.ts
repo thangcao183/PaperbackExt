@@ -32,6 +32,15 @@ import * as htmlparser2 from "htmlparser2";
 
 const BASE_URL = "https://myhentaigallery.com";
 
+// Prefixes used to tag artist/parody chips so that tapping one can be routed
+// to its dedicated tag listing instead of a plain title search. Mirrors the
+// upstream keiyoushi behaviour (#17418). The colon is a Paperback-safe tag-id
+// character (spaces are not), so we use a space-free sentinel here.
+const ARTIST_GENRE_PREFIX = "artist:";
+const PARODY_GENRE_PREFIX = "parody:";
+const TAG_COUNT_SUFFIX_REGEX = /\s*\(\d+\)\s*$/;
+const WHITESPACE_REGEX = /\s+/g;
+
 interface MyHentaiGalleryMetadata {
   page?: number;
 }
@@ -193,6 +202,9 @@ export class MyHentaiGalleryExtension
     ignoreImages: true,
   });
 
+  // Caches artist/parody name -> tag id maps, keyed by uriPart.
+  private tagLookupCache = new Map<string, Map<string, string>>();
+
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
     this.cookieStorageInterceptor.registerInterceptor();
@@ -289,12 +301,18 @@ export class MyHentaiGalleryExtension
     const page = meta?.page ?? 1;
     const titleQuery = (query.title || "").trim();
 
+    // A tapped artist/parody chip arrives as a prefixed title query. Route it
+    // to the corresponding tag listing rather than a plain text search.
+    const genreUrl = await this.genreSearchUrl(titleQuery, page);
+
     const category = (
       query.metadata as { category?: string } | undefined
     )?.category;
 
     let url: string;
-    if (titleQuery !== "") {
+    if (genreUrl) {
+      url = genreUrl;
+    } else if (titleQuery !== "") {
       url = `${BASE_URL}/search/${page}?query=${encodeURIComponent(titleQuery)}`;
     } else if (category) {
       url = `${BASE_URL}/g/category/${encodeURIComponent(category)}/${page}`;
@@ -375,14 +393,20 @@ export class MyHentaiGalleryExtension
       tagGroups.push({
         id: "artists",
         title: "Artists",
-        tags: artists.map((g) => ({ id: g, title: g })),
+        tags: artists.map((g) => ({
+          id: `${ARTIST_GENRE_PREFIX}${this.toSafeId(g)}`,
+          title: g,
+        })),
       });
     }
     if (parodies.length > 0) {
       tagGroups.push({
         id: "parodies",
         title: "Parodies",
-        tags: parodies.map((g) => ({ id: g, title: g })),
+        tags: parodies.map((g) => ({
+          id: `${PARODY_GENRE_PREFIX}${this.toSafeId(g)}`,
+          title: g,
+        })),
       });
     }
 
@@ -500,6 +524,71 @@ export class MyHentaiGalleryExtension
       ? cleaned.replace(/^https?:\/\/[^/]+\//, "")
       : cleaned.replace(/^\/+/, "");
     return this.toSafeId(slug);
+  }
+
+  // Routes a tapped artist/parody chip to its tag listing instead of a title
+  // search. Returns the listing URL, or undefined when `query` is not a
+  // prefixed artist/parody id. Faithful port of upstream `genreSearchRequest`.
+  private async genreSearchUrl(
+    query: string,
+    page: number,
+  ): Promise<string | undefined> {
+    let uriPart: string;
+    let name: string;
+    if (query.startsWith(ARTIST_GENRE_PREFIX)) {
+      uriPart = "artist";
+      name = this.safeDecode(query.slice(ARTIST_GENRE_PREFIX.length));
+    } else if (query.startsWith(PARODY_GENRE_PREFIX)) {
+      uriPart = "parody";
+      name = this.safeDecode(query.slice(PARODY_GENRE_PREFIX.length));
+    } else {
+      return undefined;
+    }
+
+    const id = await this.lookupTagId(uriPart, name);
+    if (!id) {
+      throw new Error(`No ${uriPart} "${name}" was found.`);
+    }
+    return `${BASE_URL}/a/${uriPart}/${id}/${page}`;
+  }
+
+  private async lookupTagId(
+    uriPart: string,
+    name: string,
+  ): Promise<string | undefined> {
+    let lookup = this.tagLookupCache.get(uriPart);
+    if (!lookup) {
+      lookup = await this.loadTagLookup(uriPart);
+      this.tagLookupCache.set(uriPart, lookup);
+    }
+    return lookup.get(this.normalizeTagName(name));
+  }
+
+  private async loadTagLookup(
+    uriPart: string,
+  ): Promise<Map<string, string>> {
+    const $ = await this.fetchCheerio({
+      url: `${BASE_URL}/tag/${uriPart}`,
+      method: "GET",
+    });
+    const tagUrlRegex = new RegExp(`/${uriPart}/(\\d+)(?:[/?#]|$)`, "i");
+    const map = new Map<string, string>();
+    $(`a[href*='/${uriPart}/']`).each((_, el) => {
+      const href = $(el).attr("href") || "";
+      const match = tagUrlRegex.exec(href);
+      if (!match) return;
+      const name = this.normalizeTagName($(el).text());
+      if (name) map.set(name, match[1]);
+    });
+    return map;
+  }
+
+  private normalizeTagName(name: string): string {
+    return name
+      .replace(TAG_COUNT_SUFFIX_REGEX, "")
+      .trim()
+      .toLowerCase()
+      .replace(WHITESPACE_REGEX, " ");
   }
 
   private toSafeId(slug: string): string {

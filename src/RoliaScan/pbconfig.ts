@@ -4,7 +4,7 @@ export default {
   name: "Rolia Scan",
   description:
     "Rolia Scan - JSON API source (roliascan.com). Converted from keiyoushi.",
-  version: "1.4.8.1",
+  version: "1.4.9.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

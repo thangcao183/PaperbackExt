@@ -74,6 +74,16 @@ export interface MangaThemesiaConfig {
   chapterNameSelector?: string;
   chapterDateSelector?: string;
   pageSelector?: string;
+  // MangaThemesiaAlt: some sites (e.g. Thunder Scans) prefix manga slugs
+  // with a rotating "<digits>-" segment that changes periodically, which
+  // breaks stored URLs. When enabled, the permanent slug (prefix stripped)
+  // is stored as the mangaId and the current rotating slug is resolved on
+  // demand from the site's "/list-mode/" index (cached for an hour).
+  randomUrl?: boolean;
+  // Selector for the title inside a search/browse card, with a fallback to
+  // the card anchor's `title` attribute. Used by Alt forks whose card title
+  // markup differs from the standard MangaThemesia layout.
+  searchTitleSelector?: string;
 }
 
 interface MangaThemesiaMetadata {
@@ -154,6 +164,15 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
   readonly chapterDateSelectorOverride?: string;
   readonly pageSelectorOverride?: string;
 
+  // MangaThemesiaAlt random-url support.
+  readonly randomUrl: boolean;
+  readonly searchTitleSelectorOverride?: string;
+  private static readonly SLUG_PREFIX_REGEX = /^(\d+-)/;
+  private static readonly URL_MAP_TTL_MS = 60 * 60 * 1000; // 1 hour
+  // Maps permanent slug -> current rotating slug.
+  private urlMap: Map<string, string> = new Map();
+  private urlMapFetchedAt = 0;
+
   get baseUrl(): string {
     return getBaseUrlOverride(this.sourceName) ?? this.defaultBaseUrl;
   }
@@ -193,6 +212,8 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
     this.chapterNameSelectorOverride = config.chapterNameSelector;
     this.chapterDateSelectorOverride = config.chapterDateSelector;
     this.pageSelectorOverride = config.pageSelector;
+    this.randomUrl = config.randomUrl ?? false;
+    this.searchTitleSelectorOverride = config.searchTitleSelector;
     this.requestManager = new MangaThemesiaInterceptor(
       "main",
       () => this.baseUrl,
@@ -271,6 +292,9 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
       const href = link.attr("href") || "";
       const img = unit.find("img").first();
       const title = (
+        (this.searchTitleSelectorOverride
+          ? unit.find(this.searchTitleSelectorOverride).first().text().trim()
+          : "") ||
         img.attr("title") ||
         link.attr("title") ||
         link.text()
@@ -431,6 +455,9 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
       const href = link.attr("href") || "";
       const img = unit.find("img").first();
       const title = (
+        (this.searchTitleSelectorOverride
+          ? unit.find(this.searchTitleSelectorOverride).first().text().trim()
+          : "") ||
         img.attr("title") ||
         link.attr("title") ||
         link.text()
@@ -467,9 +494,10 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
   // ----------------------------------------------------------------
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
+    const slug = await this.resolveMangaSlug(mangaId);
     const url = new URLBuilder(this.baseUrl)
       .addPath(this.mangaUrlDirectory)
-      .addPath(mangaId)
+      .addPath(slug)
       .build();
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
@@ -598,9 +626,10 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const mangaId = sourceManga.mangaId;
+    const slug = await this.resolveMangaSlug(mangaId);
     const mangaUrl = new URLBuilder(this.baseUrl)
       .addPath(this.mangaUrlDirectory)
-      .addPath(mangaId)
+      .addPath(slug)
       .build();
 
     const $ = await this.fetchCheerio({ url: mangaUrl, method: "GET" });
@@ -711,11 +740,70 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
   private parseMangaId(href: string): string {
     const marker = `/${this.mangaUrlDirectory}/`;
     const cleaned = href.replace(/[?#].*$/, "").replace(/\/$/, "");
+    let slug: string;
     const idx = cleaned.indexOf(marker);
     if (idx !== -1) {
-      return this.toSafeId(cleaned.slice(idx + marker.length).split("/")[0]);
+      slug = cleaned.slice(idx + marker.length).split("/")[0];
+    } else {
+      slug = cleaned.split("/").pop() ?? "";
     }
-    return this.toSafeId(cleaned.split("/").pop() ?? "");
+    // MangaThemesiaAlt: strip the rotating "<digits>-" prefix so the stored
+    // mangaId is stable across the site's periodic slug rotation.
+    if (this.randomUrl) {
+      slug = slug.replace(MangaThemesiaExtension.SLUG_PREFIX_REGEX, "");
+    }
+    return this.toSafeId(slug);
+  }
+
+  // MangaThemesiaAlt: resolves a stored permanent slug to the current
+  // rotating slug using the site's "/list-mode/" index. Falls back to the
+  // permanent slug itself if the map has no entry.
+  private async resolveMangaSlug(mangaId: string): Promise<string> {
+    if (!this.randomUrl) return mangaId;
+    await this.ensureUrlMap();
+    const permaSlug = mangaId.replace(
+      MangaThemesiaExtension.SLUG_PREFIX_REGEX,
+      "",
+    );
+    return this.urlMap.get(permaSlug) ?? mangaId;
+  }
+
+  private async ensureUrlMap(): Promise<void> {
+    const now = Date.now();
+    if (
+      this.urlMap.size > 0 &&
+      now - this.urlMapFetchedAt < MangaThemesiaExtension.URL_MAP_TTL_MS
+    ) {
+      return;
+    }
+
+    const url = new URLBuilder(this.baseUrl)
+      .addPath(this.mangaUrlDirectory)
+      .addPath("list-mode")
+      .build();
+
+    try {
+      const $ = await this.fetchCheerio({ url, method: "GET" });
+      const map = new Map<string, string>();
+      $("div#content div.soralist ul li a.series").each((_, element) => {
+        const href = $(element).attr("href") || "";
+        const cleaned = href.replace(/[?#].*$/, "").replace(/\/$/, "");
+        const slug = cleaned.split("/").pop() ?? "";
+        if (!slug) return;
+        const permaSlug = slug.replace(
+          MangaThemesiaExtension.SLUG_PREFIX_REGEX,
+          "",
+        );
+        map.set(permaSlug, slug);
+      });
+      if (map.size > 0) {
+        this.urlMap = map;
+        this.urlMapFetchedAt = now;
+      }
+    } catch {
+      // Network/parse failure: keep any previous map and fall back to
+      // requesting the permanent slug directly.
+    }
   }
 
   private parseChapterId(href: string, _mangaId: string): string {
