@@ -241,11 +241,18 @@ export class HentaiHereExtension implements HentaiHereImplementation {
       metadata: undefined,
     }));
 
+    // Only include `category` when defined - emitting an explicit
+    // `undefined` produces a nil JSValue the native bridge rejects.
+    let nextMetadata: Metadata | undefined;
+    if (parsed.hasNextPage) {
+      nextMetadata = category
+        ? { page: page + 1, category }
+        : { page: page + 1 };
+    }
+
     return {
       items: results,
-      metadata: parsed.hasNextPage
-        ? { page: page + 1, category }
-        : undefined,
+      metadata: nextMetadata,
     };
   }
 
