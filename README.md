@@ -199,7 +199,7 @@ If a source is broken, please open an issue.
 | Manga18fx | 1.4.56.3 | Mature |  |
 | MangaGeko | 1.4.32.1 | Mature |  |
 | MangaFox | 1.4.9.1 | Mature |  |
-| Mangahere | 1.4.23.1 | Mature |  |
+| Mangahere | 1.4.23.1 | Mature | Page images load slowly — each page URL must be fetched and de-obfuscated via a separate sequential request. |
 | MangaHere.onl | 1.4.35.4 | Mature |  |
 | MangaHub | 1.4.45.4 | Mature |  |
 | MangaKatana | 1.4.12.2 | Mature |  |
