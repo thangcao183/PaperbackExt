@@ -59,7 +59,7 @@ class XOXOComicsInterceptor extends PaperbackInterceptor {
     response: Response,
     data: ArrayBuffer,
   ): Promise<ArrayBuffer> {
-    if (response.headers?.["cf-mitigated"] === "challenge") {
+    if (isCloudflareChallenge(response, data)) {
       throw new CloudflareError({
         url: request.url,
         method: request.method ?? "GET",
@@ -70,6 +70,59 @@ class XOXOComicsInterceptor extends PaperbackInterceptor {
     }
     return data;
   }
+}
+
+function normalizeHeader(
+  headers: Record<string, string> | undefined,
+  name: string,
+): string | undefined {
+  if (!headers) {
+    return undefined;
+  }
+  const lower = name.toLowerCase();
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === lower) {
+      return headers[key];
+    }
+  }
+  return undefined;
+}
+
+function isCloudflareChallenge(response: Response, data: ArrayBuffer): boolean {
+  const headers = response.headers as Record<string, string> | undefined;
+
+  // Newer managed / Turnstile challenges expose this header directly.
+  if (normalizeHeader(headers, "cf-mitigated") === "challenge") {
+    return true;
+  }
+
+  // Classic "Just a moment..." JS interstitial: HTTP 403/503 served by
+  // Cloudflare with no cf-mitigated header. Confirm via the server header
+  // and challenge markers in the body to avoid false positives on ordinary
+  // 403/503 pages.
+  const status = response.status ?? 0;
+  if (status !== 403 && status !== 503) {
+    return false;
+  }
+
+  const server = normalizeHeader(headers, "server")?.toLowerCase() ?? "";
+  if (!server.includes("cloudflare")) {
+    return false;
+  }
+
+  let body: string;
+  try {
+    body = Application.arrayBufferToUTF8String(data);
+  } catch {
+    return false;
+  }
+
+  return (
+    body.includes("challenge-platform") ||
+    body.includes("cf-browser-verification") ||
+    body.includes("_cf_chl_opt") ||
+    body.includes("Just a moment")
+  );
 }
 
 type XOXOComicsImplementation = Extension &
