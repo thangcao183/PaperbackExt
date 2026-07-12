@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (73)
+### ✅ Tested (74)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -192,6 +192,7 @@ If a source is broken, please open an issue.
 | Lily Manga | 1.4.58.4 | Mature |  |
 | MadaraDex | 1.4.54.4 | Mature |  |
 | Magus Manga | 1.4.69.3 | Everyone |  |
+| MangaBolt | 1.4.1.2 | Everyone |  |
 | Mangadotnet | 1.4.11.2 | Mature |  |
 | Mangago | 1.4.36.1 | Mature |  |
 | Manga Demon | 1.4.20.1 | Everyone |  |
@@ -251,7 +252,7 @@ site is currently down.
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | XOXO Comics | 1.4.13.1 | Everyone | Images unavailable to headless clients — every chapter page image is self-hosted on xoxocomic.com (`/comic/<slug>/<issue>/<id>/<n>.jpg`) but those URLs return HTTP 200 with a ~106 KB HTML "404!" reader page instead of image bytes for any non-browser request (verified across iOS/Googlebot UAs, image-only Accept, with/without referer/cookies). The site gates page images behind JS/Cloudflare/adblock detection, so Paperback can never retrieve them. Affects all headless clients. |
 
-### 🧪 Not yet tested (336)
+### 🧪 Not yet tested (335)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -398,7 +399,6 @@ site is currently down.
 | Manga18Free | 1.4.52.2 | Mature |
 | Mangabat | 1.4.21.1 | Mature |
 | MangaBlaze | 1.4.51.3 | Everyone |
-| MangaBolt | 1.4.1.2 | Everyone |
 | MangaBTT | 1.4.5.1 | Mature |
 | Mangack | 1.4.2.1 | Everyone |
 | MangaCloud | 1.4.7.1 | Everyone |
