@@ -40,15 +40,30 @@ type XOXOComicsSearchMeta = {
   genre?: string;
 };
 
+// XOXO/wpcomics performs content negotiation on its page-image endpoints
+// (e.g. /comic/<slug>/<chapterId>/<n>.jpg). When the request carries a
+// document-preferring "Accept: text/html" header the server returns the site
+// homepage HTML with a 200 status instead of the JPEG bytes, which the reader's
+// image serializer then rejects (Alamofire imageSerializationFailed). Image
+// requests must advertise an image Accept header to get the real bytes.
+const IMAGE_EXTENSION_REGEX = /\.(jpe?g|png|gif|webp|avif|bmp)$/i;
+
+function isImageRequestUrl(url: string): boolean {
+  const path = url.split(/[?#]/, 1)[0];
+  return IMAGE_EXTENSION_REGEX.test(path);
+}
+
 class XOXOComicsInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
+    const accept = isImageRequestUrl(request.url)
+      ? "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
+      : "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
     request.headers = {
       ...request.headers,
       referer: `${BASE_URL}/`,
       origin: BASE_URL,
       "user-agent": await Application.getDefaultUserAgent(),
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      accept,
       "accept-language": "en-US,en;q=0.5",
     };
     return request;
@@ -123,63 +138,6 @@ function isCloudflareChallenge(response: Response, data: ArrayBuffer): boolean {
     body.includes("_cf_chl_opt") ||
     body.includes("Just a moment")
   );
-}
-
-function toBase64String(value: string | ArrayBuffer): string {
-  if (typeof value === "string") return value;
-  return Application.arrayBufferToUTF8String(value);
-}
-
-// Sniff the image type from the leading magic bytes, falling back to the file
-// extension. Returns undefined when the bytes are clearly not an image (e.g. an
-// HTML error/challenge page), so callers can avoid wrapping junk in a data URI.
-function detectImageMime(
-  data: ArrayBuffer,
-  url: string,
-): string | undefined {
-  const bytes = new Uint8Array(data);
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-    return "image/jpeg";
-  }
-  if (
-    bytes.length >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47
-  ) {
-    return "image/png";
-  }
-  if (bytes.length >= 6 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
-    return "image/gif";
-  }
-  if (
-    bytes.length >= 12 &&
-    bytes[0] === 0x52 &&
-    bytes[1] === 0x49 &&
-    bytes[2] === 0x46 &&
-    bytes[3] === 0x46 &&
-    bytes[8] === 0x57 &&
-    bytes[9] === 0x45 &&
-    bytes[10] === 0x42 &&
-    bytes[11] === 0x50
-  ) {
-    return "image/webp";
-  }
-
-  // Reject obvious non-image payloads (HTML pages start with '<').
-  if (bytes.length >= 1 && (bytes[0] === 0x3c || bytes[0] === 0x7b)) {
-    return undefined;
-  }
-
-  const lower = url.toLowerCase();
-  if (lower.includes(".png")) return "image/png";
-  if (lower.includes(".gif")) return "image/gif";
-  if (lower.includes(".webp")) return "image/webp";
-  if (lower.includes(".jpg") || lower.includes(".jpeg")) return "image/jpeg";
-
-  // Unknown but non-HTML: assume JPEG (the site's default) rather than dropping.
-  return "image/jpeg";
 }
 
 type XOXOComicsImplementation = Extension &
@@ -523,70 +481,22 @@ export class XOXOComicsExtension implements XOXOComicsImplementation {
     const url = `${this.chapterUrl(chapter.chapterId)}/all`;
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
-    const imageUrls: string[] = [];
+    const pages: string[] = [];
     const seen = new Set<string>();
     $("div.page-chapter > img, li.blocks-gallery-item img").each(
       (_, element) => {
         const src = this.imageFromElement($(element));
         if (!src || seen.has(src)) return;
         seen.add(src);
-        imageUrls.push(src);
+        pages.push(src);
       },
     );
-
-    // XOXO/wpcomics serves page images with an HTTP 404 status even when the
-    // image bytes are valid (see the upstream XoxoComics image interceptor,
-    // which rewrites 404 -> 200). Paperback's native image serializer rejects
-    // that response before the bytes are decoded, surfacing as an Alamofire
-    // "imageSerializationFailed" error. Response.status is read-only and the
-    // response interceptor can only return the body, so we cannot rewrite the
-    // status. Instead, fetch each page ourselves (scheduleRequest returns the
-    // bytes regardless of status) and hand the reader inline data URIs.
-    const pages: string[] = [];
-    for (const imageUrl of imageUrls) {
-      pages.push(await this.fetchImageAsDataUri(imageUrl));
-    }
 
     return {
       id: chapter.chapterId,
       mangaId: chapter.sourceManga.mangaId,
       pages,
     };
-  }
-
-  private async fetchImageAsDataUri(imageUrl: string): Promise<string> {
-    try {
-      const [response, data] = await Application.scheduleRequest({
-        url: imageUrl,
-        method: "GET",
-      });
-
-      // If Cloudflare interposes a challenge on the image request, escalate so
-      // the reader shows the bypass flow instead of a broken image.
-      if (isCloudflareChallenge(response, data)) {
-        throw new CloudflareError({
-          url: imageUrl,
-          method: "GET",
-          headers: {
-            "user-agent": await Application.getDefaultUserAgent(),
-          },
-        });
-      }
-
-      const mimeType = detectImageMime(data, imageUrl);
-      if (!mimeType) {
-        // Not image bytes (e.g. an HTML error page) — fall back to the raw URL
-        // so the reader can at least attempt its own fetch.
-        return imageUrl;
-      }
-
-      const b64 = toBase64String(Application.base64Encode(data));
-      return `data:${mimeType};base64,${b64}`;
-    } catch (error) {
-      if (error instanceof CloudflareError) throw error;
-      // Any other failure: fall back to the plain URL.
-      return imageUrl;
-    }
   }
 
   getMangaShareUrl(mangaId: string): string {
