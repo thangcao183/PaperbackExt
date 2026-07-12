@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (72)
+### ✅ Tested (73)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -178,6 +178,7 @@ If a source is broken, please open an issue.
 | Flame Comics | 1.4.49.3 | Everyone |  |
 | Gourmet Scans | 1.4.51.7 | Mature |  |
 | Guya | 1.4.25.1 | Everyone |  |
+| HentaiHere | 1.4.7.2 | Mature |  |
 | HentaiNexus | 1.4.17.2 | Mature |  |
 | HentaiRead | 1.4.61.7 | Mature |  |
 | Hiperdex | 1.4.81.1 | Mature |  |
@@ -250,7 +251,7 @@ site is currently down.
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | XOXO Comics | 1.4.13.1 | Everyone | Images unavailable to headless clients — every chapter page image is self-hosted on xoxocomic.com (`/comic/<slug>/<issue>/<id>/<n>.jpg`) but those URLs return HTTP 200 with a ~106 KB HTML "404!" reader page instead of image bytes for any non-browser request (verified across iOS/Googlebot UAs, image-only Accept, with/without referer/cookies). The site gates page images behind JS/Cloudflare/adblock detection, so Paperback can never retrieve them. Affects all headless clients. |
 
-### 🧪 Not yet tested (337)
+### 🧪 Not yet tested (336)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -341,7 +342,6 @@ site is currently down.
 | Hentai3z.CC | 1.4.3.1 | Mature |
 | Hentai4Free | 1.4.51.2 | Mature |
 | HentaiDex | 1.4.34.1 | Mature |
-| HentaiHere | 1.4.7.1 | Mature |
 | HentaiKisu | 1.4.1.1 | Mature |
 | HentaiKun | 1.4.1.1 | Mature |
 | HentaiRead.io | 1.4.1.1 | Mature |
