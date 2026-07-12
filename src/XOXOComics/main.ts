@@ -40,12 +40,15 @@ type XOXOComicsSearchMeta = {
   genre?: string;
 };
 
-// XOXO/wpcomics performs content negotiation on its page-image endpoints
-// (e.g. /comic/<slug>/<chapterId>/<n>.jpg). When the request carries a
-// document-preferring "Accept: text/html" header the server returns the site
-// homepage HTML with a 200 status instead of the JPEG bytes, which the reader's
-// image serializer then rejects (Alamofire imageSerializationFailed). Image
-// requests must advertise an image Accept header to get the real bytes.
+// XOXO/wpcomics serves the page images from its own document endpoints
+// (e.g. /comic/<slug>/<chapterId>/<n>.jpg). The server rejects requests that
+// look like a cross-origin fetch/XHR: when an "Origin" header is present it
+// responds with the site homepage HTML (200 OK, Content-Type text/html)
+// instead of the JPEG bytes, which the reader's image serializer then rejects
+// (Alamofire imageSerializationFailed). A real browser loading an <img> via a
+// same-origin GET sends no Origin header, and upstream's okhttp client never
+// sets one either. So we must NOT send Origin here. Image requests also
+// advertise an image Accept header to match browser behaviour.
 const IMAGE_EXTENSION_REGEX = /\.(jpe?g|png|gif|webp|avif|bmp)$/i;
 
 function isImageRequestUrl(url: string): boolean {
@@ -61,7 +64,6 @@ class XOXOComicsInterceptor extends PaperbackInterceptor {
     request.headers = {
       ...request.headers,
       referer: `${BASE_URL}/`,
-      origin: BASE_URL,
       "user-agent": await Application.getDefaultUserAgent(),
       accept,
       "accept-language": "en-US,en;q=0.5",
