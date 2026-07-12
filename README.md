@@ -157,7 +157,7 @@ work). **Can’t test** sources can’t be verified right now — either they ne
 an account or credentials I don’t have, or the site itself is currently down.
 If a source is broken, please open an issue.
 
-### ✅ Tested (74)
+### ✅ Tested (75)
 
 | Source | Version | Content | Note |
 | ------ | ------- | ------- | ---- |
@@ -210,6 +210,7 @@ If a source is broken, please open an issue.
 | MangaNow | 1.4.4.2 | Mature |  |
 | Mangafreak | 1.4.14.1 | Mature |  |
 | MangaPill | 1.4.9.1 | Mature |  |
+| MangaRead.org | 1.4.53.2 | Mature |  |
 | Mangatellers | 1.4.5.3 | Everyone |  |
 | Mangatown | 1.4.10.2 | Mature |  |
 | ManhuaPlus (unoriginal) | 1.4.5.1 | Everyone |  |
@@ -252,7 +253,7 @@ site is currently down.
 | VyvyManga.org | 1.4.51.3 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | XOXO Comics | 1.4.13.1 | Everyone | Images unavailable to headless clients — every chapter page image is self-hosted on xoxocomic.com (`/comic/<slug>/<issue>/<id>/<n>.jpg`) but those URLs return HTTP 200 with a ~106 KB HTML "404!" reader page instead of image bytes for any non-browser request (verified across iOS/Googlebot UAs, image-only Accept, with/without referer/cookies). The site gates page images behind JS/Cloudflare/adblock detection, so Paperback can never retrieve them. Affects all headless clients. |
 
-### 🧪 Not yet tested (335)
+### 🧪 Not yet tested (334)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -418,7 +419,6 @@ site is currently down.
 | MangaOnline.fun | 1.4.35.4 | Mature |
 | MangaOwl.io (unoriginal) | 1.4.52.2 | Mature |
 | MangaPanda.onl | 1.4.35.4 | Everyone |
-| MangaRead.org | 1.4.53.2 | Mature |
 | MangaReader.site | 1.4.35.4 | Everyone |
 | Mangasushi | 1.4.54.2 | Everyone |
 | MangaToday | 1.4.35.4 | Mature |
