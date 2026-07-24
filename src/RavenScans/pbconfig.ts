@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Raven Scans",
   description: "Raven Scans - MangaThemesia source (ravenscans.org). Converted from keiyoushi.",
-  version: "1.4.34.2",
+  version: "1.4.35.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

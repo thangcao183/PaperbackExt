@@ -58,9 +58,17 @@ interface SeriesListResponse {
   meta?: { has_more?: boolean };
 }
 
-interface SeriesDetailResponse {
-  data?: { series?: MangaDto };
-  series?: MangaDto;
+interface MangaDetailsDto {
+  title?: string;
+  coverUrl?: string;
+  author?: string;
+  artist?: string;
+  description?: string;
+  rating?: number;
+  popularityRank?: number;
+  alternativeTitles?: string;
+  genres?: { name: string; slug?: string }[];
+  status?: string;
 }
 
 interface ChapterDto {
@@ -248,10 +256,8 @@ class AsuraScansExtension implements AsuraScansImplementation {
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
     const slug = this.safeDecode(mangaId);
-    const response = await this.fetchJson<SeriesDetailResponse>(
-      `${API_URL}/series/${slug}`,
-    );
-    const series = response.data?.series ?? response.series;
+    const $ = await this.fetchCheerio(`${BASE_URL}/comics/${slug}`);
+    const series = this.extractAstroProp<MangaDetailsDto>($, "title");
     if (!series) throw new Error("Series not found");
 
     const genres = (series.genres ?? []).map((g) => g.name).filter(Boolean);
@@ -274,7 +280,7 @@ class AsuraScansExtension implements AsuraScansImplementation {
       mangaInfo: {
         primaryTitle: series.title ?? slug,
         secondaryTitles: [],
-        thumbnailUrl: series.cover ?? "",
+        thumbnailUrl: series.coverUrl ?? "",
         author: series.author,
         artist: series.artist,
         synopsis: this.buildDescription(series),
@@ -389,15 +395,19 @@ class AsuraScansExtension implements AsuraScansImplementation {
     }
   }
 
-  private buildDescription(series: MangaDto): string {
+  private buildDescription(series: MangaDetailsDto): string {
     const parts: string[] = [];
     const plain = this.stripHtml(series.description ?? "");
     if (plain) parts.push(plain);
+    if (series.popularityRank != null) parts.push(`Rank: #${series.popularityRank}`);
     if (series.rating != null) parts.push(`Rating: ${series.rating.toFixed(2)}`);
-    if (series.popularity_rank != null) parts.push(`Rank: #${series.popularity_rank}`);
-    if (series.alt_titles && series.alt_titles.length > 0) {
+    const altSource = series.alternativeTitles ?? "";
+    const altTitles = (altSource.includes("•") ? altSource.split("•") : altSource.split(","))
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (altTitles.length > 0) {
       parts.push(
-        "Alternative Titles:\n" + series.alt_titles.map((t) => `- ${t}`).join("\n"),
+        "Alternative Titles:\n" + altTitles.map((t) => `- ${t}`).join("\n"),
       );
     }
     return parts.join("\n\n");

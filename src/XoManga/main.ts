@@ -277,7 +277,7 @@ class XoMangaExtension implements XoMangaImplementation {
   }
 
   private async fetchExclusiveTitles(): Promise<Set<string>> {
-    const html = await this.fetchString({ url: `${BASE_URL}/our-works.html`, method: "GET" });
+    const html = await this.fetchString({ url: `${BASE_URL}/our-works`, method: "GET" });
     const block = EXCLUSIVE_REGEX.exec(html)?.[1];
     const titles = new Set<string>();
     if (!block) return titles;

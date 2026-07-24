@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "MangaDia",
   description: "MangaDia - Madara source (mangadia.com). Converted from keiyoushi.",
-  version: "1.4.51.4",
+  version: "1.4.52.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

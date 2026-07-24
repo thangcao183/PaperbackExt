@@ -4,7 +4,7 @@ export default {
   name: "MangaGeko",
   description:
     "MangaGeko - custom source (mgeko.cc). Converted from keiyoushi.",
-  version: "1.4.32.1",
+  version: "1.4.33.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

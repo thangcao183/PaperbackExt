@@ -34,7 +34,7 @@ import { AllMangaSearchForm, AllMangaSearchMeta } from "./forms";
 import { AllMangaSettingsForm, getImageQuality, getShowAdult } from "./settings";
 
 const BASE_URL = "https://mkissa.to";
-const API_URL = "https://api.allanime.day/api";
+const API_URL = "https://api.mkissa.net/api";
 const THUMBNAIL_CDN = "https://wp.youtube-anime.com/aln.youtube-anime.com/";
 const IMAGE_CDN = "https://wp.youtube-anime.com";
 const LIMIT = 20;

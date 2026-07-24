@@ -7,4 +7,5 @@ export const KaynScans = new IkenExtension({
   apiUrl: "https://api.kaynscan.org",
   contentRating: ContentRating.EVERYONE,
   langCode: "🇬🇧",
+  useChaptersApi: true,
 });

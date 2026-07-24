@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "ManhwaDen",
   description: "ManhwaDen - Madara source (www.manhwaden.com). Converted from keiyoushi.",
-  version: "1.4.51.4",
+  version: "1.4.52.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

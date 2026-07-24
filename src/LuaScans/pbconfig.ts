@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Lua Scans",
   description: "Lua Scans - HeanCms source (luacomic.org). Converted from keiyoushi.",
-  version: "1.4.51.1",
+  version: "1.4.52.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

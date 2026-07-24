@@ -296,7 +296,20 @@ export class KeyoappExtension implements KeyoappImplementation {
     const image = this.imageFromStyle($("html"), "div[class*=photoURL]");
 
     // Keyoapp uses ":containsOwn" in jsoup; cheerio only has ":contains".
-    const description = $("div:contains(Synopsis) ~ div").first().text().trim();
+    const synopsis = $("#expand_content p").first().text().trim();
+    const altNames: string[] = [];
+    $("div.font-medium:contains(Alternative titles) ~ div span").each(
+      (_, el) => {
+        const t = $(el).text().trim();
+        if (t && t !== "No alternative titles.") altNames.push(t);
+      },
+    );
+    let description = synopsis;
+    if (altNames.length > 0) {
+      if (description) description += "\n\n";
+      description +=
+        "Alternative Titles:\n" + altNames.map((t) => `- ${t}`).join("\n");
+    }
 
     const statusText = $("div:has(span:contains(Status)) ~ div")
       .first()
@@ -333,7 +346,7 @@ export class KeyoappExtension implements KeyoappImplementation {
       mangaId,
       mangaInfo: {
         primaryTitle: title,
-        secondaryTitles: [],
+        secondaryTitles: altNames,
         thumbnailUrl: image,
         author: author || undefined,
         artist: artist || undefined,

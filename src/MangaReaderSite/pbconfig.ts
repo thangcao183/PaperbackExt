@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "MangaReader.site",
   description: "MangaReader.site - MangaHub source (mangareader.site). Converted from keiyoushi.",
-  version: "1.4.35.4",
+  version: "1.4.36.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

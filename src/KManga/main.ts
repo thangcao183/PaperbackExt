@@ -82,6 +82,12 @@ interface TitleListResponse {
   title_list?: TitleDetail[];
 }
 
+interface LatestResponse {
+  today_weekday_index?: number;
+  weekly_list?: { weekday_index?: number; title_id_list?: number[] }[];
+  title_list?: TitleDetail[];
+}
+
 interface WebTitle {
   title_name: string;
   author_text?: string | null;
@@ -120,7 +126,9 @@ interface EpisodeDto {
 
 interface ViewerApiResponse {
   page_list?: string[];
-  scramble_seed?: number;
+  scramble_seed?: string;
+  title_id?: number;
+  episode_id?: number;
 }
 
 // ================================================================
@@ -469,17 +477,19 @@ class KMangaInterceptor extends PaperbackInterceptor {
       });
     }
 
-    // Scrambled page images carry their xorshift32 seed in the URL fragment.
+    // Scrambled page images carry their seed + ids in the URL fragment as
+    // `#<scrambleSeed>:<titleId>:<episodeId>` (matches upstream ImageInterceptor).
     const fragment = request.url.split("#")[1] ?? "";
-    if (fragment.startsWith("scramble_seed=")) {
-      const seedStr = fragment.slice("scramble_seed=".length);
-      const seed = parseInt(seedStr, 10);
-      // seed === 0 means the image is not scrambled; pass it through.
-      if (Number.isFinite(seed) && seed !== 0) {
+    if (fragment.includes(":")) {
+      const [seedStr, titleIdStr, episodeIdStr] = fragment.split(":");
+      const titleId = parseInt(titleIdStr, 10);
+      const episodeId = parseInt(episodeIdStr, 10);
+      if (Number.isFinite(titleId) && Number.isFinite(episodeId)) {
         try {
           const contentType = response.headers?.["content-type"] ?? "";
           const mimeType = contentType.split(";")[0].trim() || "image/jpeg";
-          return await unscrambleImage(data, seed >>> 0, mimeType);
+          const seed32 = decodeScrambleSeed(seedStr, titleId, episodeId);
+          return await unscrambleImage(data, seed32, mimeType);
         } catch {
           // On any failure, return the original (scrambled) bytes rather
           // than nothing — never throw out of interceptResponse.
@@ -770,19 +780,21 @@ export class KMangaExtension implements KMangaImplementation {
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const episodeId = this.episodeIdFromChapterId(chapter.chapterId);
+    const requestEpisodeId = this.episodeIdFromChapterId(chapter.chapterId);
     const data = await this.hashedGetJson<ViewerApiResponse>(
       `${API_URL}/web/episode/viewer`,
-      { episode_id: episodeId },
+      { episode_id: requestEpisodeId },
     );
-    const seed = data.scramble_seed ?? 0;
+    const scrambleSeed = data.scramble_seed ?? "";
+    const titleId = data.title_id ?? 0;
+    const episodeId = data.episode_id ?? 0;
     // K Manga page images are block-scrambled: a 4x4 grid of cells in the
-    // top-left region is shuffled by an xorshift32 permutation keyed by
-    // scramble_seed. The seed is carried in the URL fragment and the
-    // interceptor unscrambles the bytes via a canvas drawImage cell remap
-    // (mirrors upstream ImageInterceptor.kt / the Mangago descramble path).
+    // top-left region is shuffled by an xorshift32 permutation. The seed is a
+    // string decoded via a titleId-selected charset, XOR'd with titleId+episodeId
+    // (matches upstream ImageInterceptor.kt). We carry the raw values in the URL
+    // fragment and the interceptor unscrambles the bytes via a canvas cell remap.
     const pages = (data.page_list ?? []).map(
-      (p) => `${p}#scramble_seed=${seed}`,
+      (p) => `${p}#${scrambleSeed}:${titleId}:${episodeId}`,
     );
 
     if (pages.length === 0) {
@@ -828,24 +840,30 @@ export class KMangaExtension implements KMangaImplementation {
       `${API_URL}/title/list`,
       { title_id_list: idsToFetch.join(",") },
     );
-    const list = (details.title_list ?? []).slice().reverse();
+    const list = details.title_list ?? [];
     return { list, hasNext };
   }
 
   private async fetchLatest(): Promise<TitleDetail[]> {
+    // Single call: /title/weekly returns the weekly update schedule grouped by
+    // weekday. We return only today's weekday list (matches upstream).
+    const data = await this.hashedGetJson<LatestResponse>(
+      `${API_URL}/title/weekly`,
+      {},
+    );
+    const todayIndex = data.today_weekday_index ?? 0;
+    const todayEntry = (data.weekly_list ?? []).find(
+      (w) => w.weekday_index === todayIndex,
+    );
+    const todayIds = todayEntry?.title_id_list ?? [];
+    const titleById = new Map<number, TitleDetail>();
+    for (const t of data.title_list ?? []) {
+      titleById.set(t.title_id, t);
+    }
     const out: TitleDetail[] = [];
-    let dayOffset = 0;
-    // Bounded loop: walk back day-by-day until a day returns no updates.
-    while (dayOffset < 14) {
-      const dateString = this.jstDateString(dayOffset);
-      const data = await this.hashedGetJson<TitleListResponse>(
-        `${API_URL}/web/top/updated/title`,
-        { base_date: dateString },
-      );
-      const list = data.title_list ?? [];
-      if (list.length === 0) break;
-      out.push(...list.slice().reverse());
-      dayOffset++;
+    for (const id of todayIds) {
+      const t = titleById.get(id);
+      if (t) out.push(t);
     }
     return out;
   }
@@ -1008,20 +1026,6 @@ export class KMangaExtension implements KMangaImplementation {
     return isNaN(d.getTime()) ? new Date(0) : d;
   }
 
-  private jstDateString(dayOffset: number): string {
-    // Build a date in JST (UTC+9). Manga updates ~10 AM JST; if before that,
-    // step back a day (mirrors the upstream logic).
-    const nowJst = new Date(Date.now() + 9 * 3600 * 1000);
-    let target = new Date(nowJst.getTime() - dayOffset * 86400 * 1000);
-    if (target.getUTCHours() < 10) {
-      target = new Date(target.getTime() - 86400 * 1000);
-    }
-    const y = target.getUTCFullYear();
-    const mo = (target.getUTCMonth() + 1).toString().padStart(2, "0");
-    const da = target.getUTCDate().toString().padStart(2, "0");
-    return `${y}-${mo}-${da}`;
-  }
-
   // ----------------------------------------------------------------
   // ID / URL helpers
   // ----------------------------------------------------------------
@@ -1102,6 +1106,34 @@ export class KMangaExtension implements KMangaImplementation {
 // remapKMangaCells in utils/descramble/canvas) — no Application.executeInWebView
 // round-trip, which was unreliable and ignored Paperback's Y-up getImageData.
 // ================================================================
+
+// The scramble seed arrives as a string encoded with a titleId-selected
+// substitution charset. Each char maps to its index in the charset to build a
+// base-10 integer, which is then XOR'd with (titleId + episodeId) to yield the
+// final 32-bit xorshift seed (matches upstream ImageInterceptor.kt).
+const CHARSET_EVEN = "we7ru3ty8i";
+const CHARSET_ODD = "h4xm9bqz1p";
+
+function decodeScrambleSeed(
+  seedStr: string,
+  titleId: number,
+  episodeId: number,
+): number {
+  const charset = titleId % 2 === 0 ? CHARSET_EVEN : CHARSET_ODD;
+  let parsed = 0;
+  for (const ch of seedStr) {
+    const index = charset.indexOf(ch);
+    if (index === -1) break;
+    // Keep the accumulator within 32 bits each step. Upstream uses ULong then
+    // .toUInt() (low 32 bits); (a*10+b) mod 2^32 == ((a mod 2^32)*10+b) mod 2^32,
+    // so stepwise masking is equivalent and avoids JS float precision loss.
+    parsed = (parsed * 10 + index) % 4294967296;
+  }
+  // XOR with (titleId + episodeId) (also 32-bit).
+  const parsed32 = parsed >>> 0;
+  const key = (titleId + episodeId) >>> 0;
+  return (parsed32 ^ key) >>> 0;
+}
 
 // 32-bit xorshift, matching the Kotlin UInt implementation.
 function xorshift32(seed: number): number {

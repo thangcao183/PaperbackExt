@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Asmodeus Scans",
   description: "Asmodeus Scans - Keyoapp source (asmotoon.com). Converted from keiyoushi.",
-  version: "1.4.22.4",
+  version: "1.4.23.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

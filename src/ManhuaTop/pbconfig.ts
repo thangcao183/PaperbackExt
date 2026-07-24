@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "ManhuaTop",
   description: "ManhuaTop - Madara source (manhuatop.org). Converted from keiyoushi.",
-  version: "1.4.52.4",
+  version: "1.4.53.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

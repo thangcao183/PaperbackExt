@@ -29,7 +29,7 @@ import {
 const BASE_URL = "https://infinityscans.org";
 const CDN_HOST = "cv.infinityscans.org";
 const PAGE_CDN_HOST = "ch.infinityscans.org";
-const SLUG_HASH = "cf675243bcc3";
+const SLUG_HASH = "8f7a9fc97197";
 
 // The API only returns data when a valid session cookie is present. The
 // cookie is established by the site's client JS POSTing to /api/validate.

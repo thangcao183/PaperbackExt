@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Firescans",
   description: "Firescans - Madara source (firescans.xyz). Converted from keiyoushi.",
-  version: "1.4.55.4",
+  version: "1.4.56.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

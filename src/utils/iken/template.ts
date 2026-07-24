@@ -42,6 +42,13 @@ export interface IkenConfig {
   perPage?: number;
   contentRating?: ContentRating;
   langCode?: string;
+  /**
+   * When true, chapters are fetched from the dedicated
+   * `/api/chapters?postId=<id>` endpoint instead of being read from the
+   * embedded list in `/api/post?postSlug=<slug>`. Matches the upstream Iken
+   * `useChaptersApi` flag.
+   */
+  useChaptersApi?: boolean;
 }
 
 // --- JSON DTO shapes (subset of the keiyoushi Iken DTOs) ---
@@ -177,6 +184,7 @@ export class IkenExtension implements IkenImplementation {
   readonly perPage: number;
   readonly contentRating: ContentRating;
   readonly langCode: string;
+  readonly useChaptersApi: boolean;
 
   static readonly MAX_SEARCH_PAGES = 5;
 
@@ -215,6 +223,7 @@ export class IkenExtension implements IkenImplementation {
     this.perPage = config.perPage ?? 18;
     this.contentRating = config.contentRating ?? ContentRating.EVERYONE;
     this.langCode = config.langCode ?? "🇬🇧";
+    this.useChaptersApi = config.useChaptersApi ?? false;
     this.requestManager = new IkenInterceptor("main", () => this.baseUrl);
   }
 
@@ -463,11 +472,17 @@ export class IkenExtension implements IkenImplementation {
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const slug = this.slugFromId(sourceManga.mangaId);
-    const url = new URLBuilder(this.apiUrl)
-      .addPath("api")
-      .addPath("post")
-      .addQuery("postSlug", slug)
-      .build();
+    const url = this.useChaptersApi
+      ? new URLBuilder(this.apiUrl)
+          .addPath("api")
+          .addPath("chapters")
+          .addQuery("postId", this.postIdFromId(sourceManga.mangaId))
+          .build()
+      : new URLBuilder(this.apiUrl)
+          .addPath("api")
+          .addPath("post")
+          .addQuery("postSlug", slug)
+          .build();
 
     const data = await this.fetchJson<{ post: IkenChapterListResponse }>({
       url,
@@ -581,6 +596,15 @@ export class IkenExtension implements IkenImplementation {
   private slugFromId(mangaId: string): string {
     const decoded = this.safeDecode(mangaId);
     return decoded.split("#")[0];
+  }
+
+  /**
+   * Manga IDs are stored as `{slug}#{postId}`. The `/api/chapters` endpoint
+   * needs the numeric post id after `#`.
+   */
+  private postIdFromId(mangaId: string): string {
+    const decoded = this.safeDecode(mangaId);
+    return decoded.substring(decoded.lastIndexOf("#") + 1);
   }
 
   /**

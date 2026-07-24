@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Omega Scans",
   description: "Omega Scans - HeanCms source (omegascans.org). Converted from keiyoushi.",
-  version: "1.4.50.1",
+  version: "1.4.51.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

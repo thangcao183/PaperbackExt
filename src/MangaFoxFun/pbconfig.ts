@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "MangaFox.fun",
   description: "MangaFox.fun - MangaHub source (mangafox.fun). Converted from keiyoushi.",
-  version: "1.4.35.4",
+  version: "1.4.36.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

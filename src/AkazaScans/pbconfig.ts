@@ -1,19 +1,22 @@
 import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
-  name: "YaoiToon",
+  name: "Akaza Scans",
   description:
-    "YaoiToon - HTML scraper source (yaoitoon.net). Converted from keiyoushi.",
-  version: "1.4.48.1",
+    "Akaza Scans - MangaThemesia source (akazascans.org). Converted from keiyoushi.",
+  version: "1.4.32.1",
   icon: "icon.png",
   language: "en",
-  contentRating: ContentRating.MATURE,
+  contentRating: ContentRating.EVERYONE,
   capabilities: [
     SourceIntents.DISCOVER_SECTION_PROVIDING,
     SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.CHAPTER_PROVIDING,
     SourceIntents.CLOUDFLARE_BYPASS_PROVIDING,
+    SourceIntents.SETTINGS_FORM_PROVIDING,
   ],
-  badges: [{ label: "Mature", textColor: "#FFFFFF", backgroundColor: "#C62828" }],
+  badges: [
+    { label: "MangaThemesia", textColor: "#FFFFFF", backgroundColor: "#1565C0" },
+  ],
   developers: [{ name: "nicartjay" }, { name: "keiyoushi" }],
 } satisfies ExtensionInfo;
