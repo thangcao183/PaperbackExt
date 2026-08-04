@@ -4,6 +4,7 @@ export interface MangaDotNetSearchMeta extends JSONObject {
     sort: string[]
     order: string[]
     status: string[]
+    scanlator: string[]
     types: string[]
     demographics: string[]
 }
@@ -30,6 +31,12 @@ export const STATUS_OPTIONS = [
     { id: 'Hiatus', title: 'Hiatus' },
 ]
 
+export const SCANLATOR_OPTIONS = [
+    { id: '', title: 'Any' },
+    { id: 'with', title: 'Scanlator Group' },
+    { id: 'without', title: 'No Scanlator Group' },
+]
+
 export const TYPE_OPTIONS = [
     { id: 'JP', title: 'Manga' },
     { id: 'KR', title: 'Manhwa' },
@@ -48,6 +55,7 @@ export class MangaDotNetSearchForm extends AdvancedSearchForm {
     private sort: string[]
     private order: string[]
     private status: string[]
+    private scanlator: string[]
     private types: string[]
     private demographics: string[]
 
@@ -56,6 +64,7 @@ export class MangaDotNetSearchForm extends AdvancedSearchForm {
         this.sort = initialMeta?.sort ?? []
         this.order = initialMeta?.order ?? []
         this.status = initialMeta?.status ?? []
+        this.scanlator = initialMeta?.scanlator ?? []
         this.types = initialMeta?.types ?? []
         this.demographics = initialMeta?.demographics ?? []
     }
@@ -75,6 +84,11 @@ export class MangaDotNetSearchForm extends AdvancedSearchForm {
         this.reloadForm()
     }
 
+    async updateScanlator(value: string[]): Promise<void> {
+        this.scanlator = value
+        this.reloadForm()
+    }
+
     async updateTypes(value: string[]): Promise<void> {
         this.types = value
         this.reloadForm()
@@ -91,6 +105,7 @@ export class MangaDotNetSearchForm extends AdvancedSearchForm {
                 sort: this.sort,
                 order: this.order,
                 status: this.status,
+                scanlator: this.scanlator,
                 types: this.types,
                 demographics: this.demographics,
             } satisfies MangaDotNetSearchMeta,
@@ -123,6 +138,17 @@ export class MangaDotNetSearchForm extends AdvancedSearchForm {
                     minItemCount: 0,
                     maxItemCount: 1,
                     onValueChange: Application.Selector(this as MangaDotNetSearchForm, 'updateStatus'),
+                }),
+                SelectRow('scanlator', {
+                    title: 'Scanlator Group',
+                    value: this.scanlator,
+                    options: SCANLATOR_OPTIONS,
+                    minItemCount: 0,
+                    maxItemCount: 1,
+                    onValueChange: Application.Selector(
+                        this as MangaDotNetSearchForm,
+                        'updateScanlator',
+                    ),
                 }),
                 SelectRow('types', {
                     title: 'Types',

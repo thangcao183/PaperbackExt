@@ -4,7 +4,7 @@ export default {
   name: "Atsumaru",
   description:
     "Atsumaru - JSON API manga source (atsu.moe). Converted from keiyoushi.",
-  version: "1.4.19.1",
+  version: "1.4.20.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

@@ -5,6 +5,7 @@ export const RizzComic = new MangaThemesiaExtension({
   name: "Rizz Comic",
   baseUrl: "https://rizzfables.com",
   mangaUrlDirectory: "/series",
+  pageSelector: "div#readerarea > img",
   contentRating: ContentRating.EVERYONE,
   langCode: "🇬🇧",
 });

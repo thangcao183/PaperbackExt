@@ -359,18 +359,22 @@ export class FoolSlideExtension implements FoolSlideImplementation {
     const info = $("div.info");
     const infoHtml = info.html() ?? "";
 
-    const author = this.matchInfo(
-      infoHtml,
-      /(?:Author|Autore)<\/b>:\s?([^\n<]*)[\n<]/i,
-    );
-    const artist = this.matchInfo(
-      infoHtml,
-      /Artist<\/b>:\s?([^\n<]*)[\n<]/i,
-    );
-    const description = this.matchInfo(
-      infoHtml,
-      /(?:Synopsis|Description|Trama)<\/b>:\s?([^\n<]*)[\n<]/i,
-    );
+    // Upstream switched from HTML regex scraping to walking the `<b>` labels
+    // and reading the text node that follows each one. Do the same, keeping the
+    // old regexes as a fallback for markup the DOM walk misses.
+    const labelled = this.parseInfoLabels($, info);
+
+    const author =
+      labelled.author ??
+      this.matchInfo(infoHtml, /(?:Author|Autore)<\/b>:\s?([^\n<]*)[\n<]/i);
+    const artist =
+      labelled.artist ?? this.matchInfo(infoHtml, /Artist<\/b>:\s?([^\n<]*)[\n<]/i);
+    const description =
+      labelled.description ??
+      this.matchInfo(
+        infoHtml,
+        /(?:Synopsis|Description|Trama)<\/b>:\s?([^\n<]*)[\n<]/i,
+      );
 
     let thumbnailUrl = "";
     const thumb = $("div.thumbnail img, table.thumb img").first();
@@ -603,6 +607,43 @@ export class FoolSlideExtension implements FoolSlideImplementation {
   private matchInfo(html: string, regex: RegExp): string {
     const match = html.match(regex);
     return match && match[1] ? match[1].trim() : "";
+  }
+
+  /**
+   * Port of upstream's DOM-based info parsing: each fact is a `<b>Label</b>`
+   * followed by a text node holding the value. More robust than regexing the
+   * raw HTML because it tolerates arbitrary whitespace and nesting.
+   */
+  private parseInfoLabels(
+    $: CheerioAPI,
+    info: ReturnType<CheerioAPI>,
+  ): { author?: string; artist?: string; description?: string } {
+    const out: { author?: string; artist?: string; description?: string } = {};
+
+    info.find("b").each((_: number, element) => {
+      const label = $(element).text().toLowerCase();
+      const next = element.nextSibling;
+      if (!next || next.type !== "text") return;
+      const value = ((next as unknown as { data?: string }).data ?? "")
+        .trim()
+        .replace(/^:/, "")
+        .trim();
+      if (!value) return;
+
+      if (label.includes("author") || label.includes("autore")) {
+        out.author ??= value;
+      } else if (label.includes("artist")) {
+        out.artist ??= value;
+      } else if (
+        label.includes("synopsis") ||
+        label.includes("description") ||
+        label.includes("trama")
+      ) {
+        out.description ??= value;
+      }
+    });
+
+    return out;
   }
 
   private parseChapterNumber(name: string, href: string): number {

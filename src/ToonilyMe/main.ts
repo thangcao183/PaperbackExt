@@ -1,9 +1,9 @@
 import { ContentRating } from "@paperback/types";
-import { MadThemeExtension } from "../utils/madtheme/template";
+import { MangaKExtension } from "../utils/mangak/template";
 
-export const ToonilyMe = new MadThemeExtension({
+export const ToonilyMe = new MangaKExtension({
   name: "Toonily.me",
-  baseUrl: "https://toonily.me",
+  baseUrl: "https://toontop.io",
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
 });

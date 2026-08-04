@@ -3,7 +3,7 @@ import { MangaCatalogExtension } from "../utils/mangacatalog/template";
 
 export const ReadTokyoGhoulReTokyoGhoulMangaOnline = new MangaCatalogExtension({
   name: "Read Tokyo Ghoul Re & Tokyo Ghoul Manga Online",
-  baseUrl: "https://ww11.tokyoghoulre.com",
+  baseUrl: "https://ww12.tokyoghoulre.com",
   contentRating: ContentRating.EVERYONE,
   langCode: "🇬🇧",
   mangaList: [

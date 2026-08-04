@@ -239,6 +239,10 @@ export class MangaDotNetExtension implements MangaDotNetImplementation {
         const status = searchMeta?.status?.[0]
         if (status) params.push(`status=${encodeURIComponent(status)}`)
 
+        // Upstream #18163: scanlator-group filter.
+        const scanlator = searchMeta?.scanlator?.[0]
+        if (scanlator) params.push(`scanlator=${encodeURIComponent(scanlator)}`)
+
         for (const t of searchMeta?.types ?? []) {
             params.push(`origin=${encodeURIComponent(t)}`)
         }

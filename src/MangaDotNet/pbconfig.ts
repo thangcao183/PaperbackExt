@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from '@paperback/types'
 export default {
     name: 'Mangadotnet',
     description: 'Mangadotnet - custom source (mangadot.net). Converted from keiyoushi.',
-    version: '1.4.15.1',
+    version: '1.4.16.1',
     icon: 'icon.png',
     language: 'en',
     contentRating: ContentRating.MATURE,

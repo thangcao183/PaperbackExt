@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Rizz Comic",
   description: "Rizz Comic - MangaThemesia source (rizzfables.com). Converted from keiyoushi.",
-  version: "1.4.45.2",
+  version: "1.4.46.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

@@ -3,7 +3,7 @@ import { MangaCatalogExtension } from "../utils/mangacatalog/template";
 
 export const ReadKingdomMangaOnline = new MangaCatalogExtension({
   name: "Read Kingdom Manga Online",
-  baseUrl: "https://ww5.readkingdom.com",
+  baseUrl: "https://ww6.readkingdom.com",
   contentRating: ContentRating.EVERYONE,
   langCode: "🇬🇧",
   mangaList: [

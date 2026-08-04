@@ -9,6 +9,7 @@ import {
 
 const BASE_URL_KEY_PREFIX = "iken.baseUrlOverride.";
 const SHOW_LOCKED_KEY_PREFIX = "iken.showLockedChapters.";
+const USE_CHAPTERS_API_KEY_PREFIX = "iken.useChaptersApi.";
 
 function baseUrlKey(sourceName: string): string {
   return `${BASE_URL_KEY_PREFIX}${sourceName}`;
@@ -16,6 +17,10 @@ function baseUrlKey(sourceName: string): string {
 
 function showLockedKey(sourceName: string): string {
   return `${SHOW_LOCKED_KEY_PREFIX}${sourceName}`;
+}
+
+function useChaptersApiKey(sourceName: string): string {
+  return `${USE_CHAPTERS_API_KEY_PREFIX}${sourceName}`;
 }
 
 /**
@@ -48,6 +53,21 @@ export function getShowLockedChapters(sourceName: string): boolean {
 
 function setShowLockedChapters(sourceName: string, value: boolean): void {
   Application.setState(value, showLockedKey(sourceName));
+}
+
+/**
+ * Whether the dedicated `/api/chapters` endpoint should be used instead of the
+ * chapter list embedded in `/api/post`. Upstream latches this on automatically
+ * once a chapter-count mismatch is observed (keiyoushi PR #17902), so it is
+ * persisted state rather than a static per-source flag.
+ */
+export function getUseChaptersApi(sourceName: string): boolean {
+  const value = Application.getState(useChaptersApiKey(sourceName));
+  return typeof value === "boolean" ? value : false;
+}
+
+export function setUseChaptersApi(sourceName: string, value: boolean): void {
+  Application.setState(value, useChaptersApiKey(sourceName));
 }
 
 /**

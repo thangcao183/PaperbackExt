@@ -3,7 +3,7 @@ import { MangaCatalogExtension } from "../utils/mangacatalog/template";
 
 export const ReadAttackOnTitanShingekiNoKyojinManga = new MangaCatalogExtension({
   name: "Read Attack on Titan Shingeki no Kyojin Manga",
-  baseUrl: "https://ww11.readsnk.com",
+  baseUrl: "https://ww12.readsnk.com",
   contentRating: ContentRating.EVERYONE,
   langCode: "🇬🇧",
   chapterVariant: "gridCol",

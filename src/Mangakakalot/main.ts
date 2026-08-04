@@ -7,4 +7,7 @@ export const Mangakakalot = new MangaBoxExtension({
   mirrors: ["https://www.mangakakalot.gg","https://www.mangakakalove.com"],
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
+  // Listings occasionally expose opaque id slugs (e.g. `mw123456`); recompute
+  // the canonical slug from the title in that case.
+  legacySlugRegex: /^[a-z]{2}\d+$/,
 });

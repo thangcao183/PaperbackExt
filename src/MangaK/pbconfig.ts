@@ -3,8 +3,8 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "MangaK",
   description:
-    "MangaK - JSON API + Next.js scraper source (mangak.io). Converted from keiyoushi.",
-  version: "1.4.30.1",
+    "MangaK - MangaK theme source (mangak.io). Converted from keiyoushi.",
+  version: "1.4.34.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
@@ -13,7 +13,11 @@ export default {
     SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.CHAPTER_PROVIDING,
     SourceIntents.CLOUDFLARE_BYPASS_PROVIDING,
+    SourceIntents.SETTINGS_FORM_PROVIDING,
   ],
-  badges: [{ label: "Mature", textColor: "#FFFFFF", backgroundColor: "#C62828" }],
+  badges: [
+    { label: "MangaK", textColor: "#FFFFFF", backgroundColor: "#AD1457" },
+    { label: "Mature", textColor: "#FFFFFF", backgroundColor: "#C62828" },
+  ],
   developers: [{ name: "nicartjay" }, { name: "keiyoushi" }],
 } satisfies ExtensionInfo;

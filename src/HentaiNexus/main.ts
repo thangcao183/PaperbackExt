@@ -13,6 +13,7 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
+  Form,
   MangaProviding,
   Metadata,
   PagedResults,
@@ -22,6 +23,7 @@ import {
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
+  SettingsFormProviding,
   SourceManga,
   TagSection,
 } from "@paperback/types";
@@ -29,6 +31,12 @@ import * as cheerio from "cheerio";
 import { CheerioAPI, Cheerio } from "cheerio";
 import type { AnyNode } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
+import {
+  getImageField,
+  getImageFormat,
+  getImageFormatLabel,
+  HentaiNexusSettingsForm,
+} from "./settings";
 
 const BASE_URL = "https://hentainexus.com";
 const POPULAR_NOW_PATH = "/explore/hot";
@@ -74,6 +82,7 @@ type HentaiNexusImplementation = Extension &
   MangaProviding &
   ChapterProviding &
   CloudflareBypassRequestProviding &
+  SettingsFormProviding &
   DiscoverSectionProviding;
 
 export class HentaiNexusExtension implements HentaiNexusImplementation {
@@ -91,6 +100,10 @@ export class HentaiNexusExtension implements HentaiNexusImplementation {
     this.requestManager.registerInterceptor();
     this.cookieStorageInterceptor.registerInterceptor();
     this.globalRateLimiter.registerInterceptor();
+  }
+
+  async getSettingsForm(): Promise<Form> {
+    return new HentaiNexusSettingsForm();
   }
 
   // ----------------------------------------------------------------
@@ -376,7 +389,7 @@ export class HentaiNexusExtension implements HentaiNexusImplementation {
     const data = this.decryptData(encoded);
     const parsed = JSON.parse(data) as unknown;
 
-    const pages: string[] = [];
+    const images: Record<string, unknown>[] = [];
     if (Array.isArray(parsed)) {
       for (const entry of parsed) {
         if (
@@ -384,17 +397,32 @@ export class HentaiNexusExtension implements HentaiNexusImplementation {
           typeof entry === "object" &&
           (entry as Record<string, unknown>).type === "image"
         ) {
-          const record = entry as Record<string, unknown>;
-          const image =
-            typeof record.image === "string" && record.image
-              ? record.image
-              : typeof record.image_fallback === "string"
-                ? record.image_fallback
-                : "";
-          if (image) {
-            pages.push(this.absoluteUrl(image));
-          }
+          images.push(entry as Record<string, unknown>);
         }
+      }
+    }
+
+    if (images.length === 0) {
+      throw new Error(
+        "No pages found for this chapter; the reader payload may have changed",
+      );
+    }
+
+    const format = getImageFormat();
+    const field = getImageField(format);
+
+    if (typeof images[0][field] !== "string" || !images[0][field]) {
+      const label = getImageFormatLabel(format);
+      throw new Error(
+        `Selected quality '${label}' is not available. Login or select another quality.`,
+      );
+    }
+
+    const pages: string[] = [];
+    for (const image of images) {
+      const value = image[field];
+      if (typeof value === "string" && value) {
+        pages.push(this.absoluteUrl(value));
       }
     }
 

@@ -4,7 +4,7 @@ export default {
   name: "Voyce.Me",
   description:
     "Voyce.Me - GraphQL API source (voyce.me). Converted from keiyoushi.",
-  version: "1.4.6.1",
+  version: "1.4.7.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

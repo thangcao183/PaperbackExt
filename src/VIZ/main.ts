@@ -224,10 +224,14 @@ export class VIZExtension implements VIZImplementation {
 
     const results: SearchResultItem[] = [];
     const seen = new Set<string>();
+    const needle = titleQuery.toLowerCase();
     // Search results are laid out as "div.p-cs-tile a.o_property-link".
     $("div.p-cs-tile a.o_property-link").each((_, element) => {
       const item = this.mangaFromElement($(element));
       if (!item || seen.has(item.mangaId)) return;
+      // Upstream filters the returned tiles on the query again because the
+      // site's search endpoint also returns loosely related series.
+      if (!item.title.toLowerCase().includes(needle)) return;
       seen.add(item.mangaId);
       results.push({
         mangaId: item.mangaId,

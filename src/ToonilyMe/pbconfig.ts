@@ -2,8 +2,9 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
   name: "Toonily.me",
-  description: "Toonily.me - MadTheme source (toonily.me). Converted from keiyoushi.",
-  version: "1.4.24.4",
+  description:
+    "Toonily.me - MangaK theme source (toontop.io). Converted from keiyoushi.",
+  version: "1.4.4.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
@@ -15,7 +16,7 @@ export default {
     SourceIntents.SETTINGS_FORM_PROVIDING,
   ],
   badges: [
-    { label: "MadTheme", textColor: "#FFFFFF", backgroundColor: "#AD1457" },
+    { label: "MangaK", textColor: "#FFFFFF", backgroundColor: "#AD1457" },
     { label: "Mature", textColor: "#FFFFFF", backgroundColor: "#C62828" },
   ],
   developers: [

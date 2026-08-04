@@ -3,7 +3,7 @@ import { MangaCatalogExtension } from "../utils/mangacatalog/template";
 
 export const ReadJujutsuKaisenMangaOnline = new MangaCatalogExtension({
   name: "Read Jujutsu Kaisen Manga Online",
-  baseUrl: "https://ww5.readjujutsukaisen.com",
+  baseUrl: "https://ww6.readjujutsukaisen.com",
   contentRating: ContentRating.EVERYONE,
   langCode: "🇬🇧",
   mangaList: [

@@ -357,15 +357,29 @@ class AllMangaExtension implements AllMangaImplementation {
     const inject = `
       (function(){
         window.__cap = null;
-        var orig = JSON.parse;
-        JSON.parse = function(text){
-          var obj = orig.apply(this, arguments);
+        var capture = function(obj){
           try {
             if (obj && obj.data && obj.data.chapterPages) { window.__cap = obj.data; }
             else if (obj && obj.chapterPages) { window.__cap = obj; }
           } catch(e){}
+        };
+        var orig = JSON.parse;
+        JSON.parse = function(text){
+          var obj = orig.apply(this, arguments);
+          capture(obj);
           return obj;
         };
+        // Upstream #18050: the site may read the GraphQL payload through
+        // Response.json() (which never goes through JSON.parse), so hook it too.
+        try {
+          var originalJson = Response.prototype.json;
+          Response.prototype.json = function(){
+            return originalJson.call(this).then(function(data){
+              capture(data);
+              return data;
+            });
+          };
+        } catch(e){}
       })();
       new Promise(function(resolve){
         var start = Date.now();

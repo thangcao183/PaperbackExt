@@ -3,7 +3,7 @@ import { MangaCatalogExtension } from "../utils/mangacatalog/template";
 
 export const ReadChainsawManMangaOnline = new MangaCatalogExtension({
   name: "Read Chainsaw Man Manga Online",
-  baseUrl: "https://ww5.readchainsawman.com",
+  baseUrl: "https://ww6.readchainsawman.com",
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",
   mangaList: [

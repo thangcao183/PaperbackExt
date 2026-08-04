@@ -220,7 +220,7 @@ export class Manhwa18Extension implements Manhwa18Implementation {
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
     const title =
-      $(".series-name a").first().text().trim() || this.safeDecode(mangaId);
+      $(".series-name a, .au-bento h1, .au-crumb a:last-child").first().text().trim() || this.safeDecode(mangaId);
     const thumbnailUrl = this.styleBgUrl(
       $(".series-cover .img-in-ratio").first().attr("style"),
     );
@@ -296,15 +296,24 @@ export class Manhwa18Extension implements Manhwa18Implementation {
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
     const chapters: Chapter[] = [];
-    $("ul.list-chapters a").each((_, element) => {
+    // Upstream #18130: the site moved from `ul.list-chapters a` to a tile grid.
+    $("div.au-chgrid a.au-chtile").each((_, element) => {
       const el = $(element);
       const href = el.attr("href") || "";
       if (!href) return;
-      const name = el.find(".chapter-name").first().text().trim();
-      const dateText = el.find(".chapter-time").first().text();
-      const trimmedDate = dateText.includes("-")
-        ? dateText.substring(dateText.indexOf("-") + 1).trim()
-        : dateText.trim();
+      const name = (el.attr("data-name") || el.attr("title") || "").trim();
+      const newDateText = el.find(".au-chtile-date").first().text();
+      let trimmedDate: string;
+      if (newDateText) {
+        trimmedDate = newDateText.includes("·")
+          ? newDateText.substring(newDateText.indexOf("·") + 1).trim()
+          : newDateText.trim();
+      } else {
+        const dateText = el.find(".chapter-time").first().text();
+        trimmedDate = dateText.includes("-")
+          ? dateText.substring(dateText.indexOf("-") + 1).trim()
+          : dateText.trim();
+      }
 
       chapters.push({
         chapterId: this.parsePath(href),

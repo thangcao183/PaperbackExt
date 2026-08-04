@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Nyx Scans",
   description: "Nyx Scans - Iken source (nyxscans.com). Converted from keiyoushi.",
-  version: "1.4.27.1",
+  version: "1.4.29.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

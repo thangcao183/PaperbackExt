@@ -32,7 +32,9 @@ import { IkenSearchForm, IkenSearchMeta } from "./forms";
 import {
   getBaseUrlOverride,
   getShowLockedChapters,
+  getUseChaptersApi,
   IkenSettingsForm,
+  setUseChaptersApi,
 } from "./settings";
 
 export interface IkenConfig {
@@ -42,13 +44,6 @@ export interface IkenConfig {
   perPage?: number;
   contentRating?: ContentRating;
   langCode?: string;
-  /**
-   * When true, chapters are fetched from the dedicated
-   * `/api/chapters?postId=<id>` endpoint instead of being read from the
-   * embedded list in `/api/post?postSlug=<slug>`. Matches the upstream Iken
-   * `useChaptersApi` flag.
-   */
-  useChaptersApi?: boolean;
 }
 
 // --- JSON DTO shapes (subset of the keiyoushi Iken DTOs) ---
@@ -86,9 +81,10 @@ interface IkenChapter {
   createdAt: string;
   updatedAt?: string;
   chapterStatus: string;
-  isAccessible: boolean;
   isLocked?: boolean;
   isTimeLocked?: boolean;
+  price?: number | null;
+  chapterPurchased?: boolean | null;
   mangaPost?: { slug?: string | null } | null;
 }
 
@@ -97,6 +93,15 @@ interface IkenChapterListResponse {
   slug?: string | null;
   id?: number | null;
   chapters: IkenChapter[];
+}
+
+interface IkenPostResponse {
+  post: IkenChapterListResponse;
+  /**
+   * Authoritative chapter count. When it disagrees with `post.chapters.length`
+   * the embedded list is truncated and the chapters endpoint must be used.
+   */
+  totalChapterCount?: number | null;
 }
 
 interface IkenPageImage {
@@ -184,7 +189,6 @@ export class IkenExtension implements IkenImplementation {
   readonly perPage: number;
   readonly contentRating: ContentRating;
   readonly langCode: string;
-  readonly useChaptersApi: boolean;
 
   static readonly MAX_SEARCH_PAGES = 5;
 
@@ -223,7 +227,6 @@ export class IkenExtension implements IkenImplementation {
     this.perPage = config.perPage ?? 18;
     this.contentRating = config.contentRating ?? ContentRating.EVERYONE;
     this.langCode = config.langCode ?? "🇬🇧";
-    this.useChaptersApi = config.useChaptersApi ?? false;
     this.requestManager = new IkenInterceptor("main", () => this.baseUrl);
   }
 
@@ -472,40 +475,64 @@ export class IkenExtension implements IkenImplementation {
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const slug = this.slugFromId(sourceManga.mangaId);
-    const url = this.useChaptersApi
-      ? new URLBuilder(this.apiUrl)
-          .addPath("api")
-          .addPath("chapters")
-          .addQuery("postId", this.postIdFromId(sourceManga.mangaId))
-          .build()
-      : new URLBuilder(this.apiUrl)
-          .addPath("api")
-          .addPath("post")
-          .addQuery("postSlug", slug)
-          .build();
 
-    const data = await this.fetchJson<{ post: IkenChapterListResponse }>({
+    if (getUseChaptersApi(this.sourceName)) {
+      const url = new URLBuilder(this.apiUrl)
+        .addPath("api")
+        .addPath("chapters")
+        .addQuery("postId", this.postIdFromId(sourceManga.mangaId))
+        .build();
+      const data = await this.fetchJson<IkenPostResponse>({
+        url,
+        method: "GET",
+      });
+      return this.mapChapters(sourceManga, data.post, slug);
+    }
+
+    const url = new URLBuilder(this.apiUrl)
+      .addPath("api")
+      .addPath("post")
+      .addQuery("postSlug", slug)
+      .build();
+    const data = await this.fetchJson<IkenPostResponse>({
       url,
       method: "GET",
     });
 
+    // The embedded chapter list is sometimes truncated. When the post reports a
+    // different authoritative count, latch on the chapters endpoint for good
+    // and retry through it (upstream keiyoushi PR #17902).
+    const embedded = data.post.chapters ?? [];
+    const total = data.totalChapterCount;
+    if (typeof total === "number" && total !== embedded.length) {
+      setUseChaptersApi(this.sourceName, true);
+      return this.getChapters(sourceManga);
+    }
+
+    return this.mapChapters(sourceManga, data.post, slug);
+  }
+
+  private mapChapters(
+    sourceManga: SourceManga,
+    post: IkenChapterListResponse,
+    fallbackSlug: string,
+  ): Chapter[] {
     const showLocked = getShowLockedChapters(this.sourceName);
     const chapters: Chapter[] = [];
-    const seriesSlug = data.post.slug ?? slug;
+    const seriesSlug = post.slug ?? fallbackSlug;
 
-    for (const ch of data.post.chapters ?? []) {
-      // Only PUBLIC chapters; accessible ones always, locked ones only if the
-      // user opted in.
+    for (const ch of post.chapters ?? []) {
+      // Only PUBLIC chapters. `isAccessible` was dropped upstream as
+      // unreliable (keiyoushi PR #18064); locked-ness alone now decides
+      // visibility and the lock marker.
       const isPublic = ch.chapterStatus === "PUBLIC";
-      const isLocked = ch.isLocked === true || ch.isTimeLocked === true;
-      const visible =
-        isPublic && (ch.isAccessible || (showLocked && isLocked));
-      if (!visible) continue;
+      const isLocked = this.isChapterLocked(ch);
+      if (!isPublic || (isLocked && !showLocked)) continue;
 
       const chSeriesSlug = ch.mangaPost?.slug ?? seriesSlug;
       const chapterId = this.toSafeId(`/series/${chSeriesSlug}/${ch.slug}#${ch.id}`);
 
-      const prefix = !ch.isAccessible ? "🔒 " : "";
+      const prefix = isLocked ? "🔒 " : "";
       const suffix = ch.title && ch.title.trim() ? ` - ${ch.title.trim()}` : "";
       const chNum =
         typeof ch.number === "number"
@@ -525,6 +552,16 @@ export class IkenExtension implements IkenImplementation {
     }
 
     return chapters;
+  }
+
+  /**
+   * Mirrors upstream `Chapter.isLocked()`: an explicit lock, a timed lock, or a
+   * priced chapter the user has not purchased.
+   */
+  private isChapterLocked(ch: IkenChapter): boolean {
+    if (ch.isLocked === true || ch.isTimeLocked === true) return true;
+    const price = ch.price ?? 0;
+    return ch.chapterPurchased !== true && price !== 0;
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {

@@ -40,6 +40,13 @@ export interface MangaBoxConfig {
   mirrors?: string[];
   contentRating?: ContentRating;
   langCode?: string;
+  /**
+   * Some MangaBox sites hand out opaque id-style slugs (e.g. `manga-aa12345`)
+   * in listings while the canonical URL uses a title slug. When the last path
+   * segment of a manga id matches this pattern, the slug is recomputed from
+   * the manga title instead.
+   */
+  legacySlugRegex?: RegExp;
 }
 
 interface MangaBoxSearchMetadata {
@@ -55,10 +62,10 @@ interface MangaBoxApiChapter {
 }
 
 interface MangaBoxApiResponse {
+  success?: boolean;
   data?: {
     chapters?: MangaBoxApiChapter[];
-    pagination?: { hasMore?: boolean };
-  };
+  } | null;
 }
 
 class MangaBoxInterceptor extends PaperbackInterceptor {
@@ -95,13 +102,10 @@ class MangaBoxInterceptor extends PaperbackInterceptor {
     };
     // Browsers omit Origin on <img> loads. The page images live on a
     // cross-origin S3-backed CDN (*.2xstorage.com); sending an Origin to it
-    // confuses the S3 front (intermittent 400/IncompleteBody). Keep Origin
-    // only for same-origin (HTML/JSON) requests to the site itself.
-    if (isImage) {
-      delete request.headers["origin"];
-    } else {
-      request.headers["origin"] = baseUrl;
-    }
+    // confuses the S3 front (intermittent 400/IncompleteBody). Upstream also
+    // strips Origin from HTML/JSON requests because it causes Cloudflare cache
+    // misses which significantly increase response time.
+    delete request.headers["origin"];
     return request;
   }
 
@@ -138,6 +142,7 @@ export class MangaBoxExtension implements MangaBoxImplementation {
   readonly mirrors: string[];
   readonly contentRating: ContentRating;
   readonly langCode: string;
+  readonly legacySlugRegex?: RegExp;
 
   /** CDN URLs extracted from the last chapter page load (primary + backup). */
   _chapterCdns: string[] = [];
@@ -164,6 +169,7 @@ export class MangaBoxExtension implements MangaBoxImplementation {
     this.mirrors = config.mirrors ?? [];
     this.contentRating = config.contentRating ?? ContentRating.EVERYONE;
     this.langCode = config.langCode ?? "🇬🇧";
+    this.legacySlugRegex = config.legacySlugRegex;
     this.requestManager = new MangaBoxInterceptor("main", () => this.baseUrl);
   }
 
@@ -363,7 +369,7 @@ export class MangaBoxExtension implements MangaBoxImplementation {
   // ----------------------------------------------------------------
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
-    const slug = this.slugFromMangaId(sourceManga.mangaId);
+    const slug = this.mangaSlug(sourceManga);
     const chapters: Chapter[] = [];
     const seen = new Set<string>();
 
@@ -396,7 +402,9 @@ export class MangaBoxExtension implements MangaBoxImplementation {
     }
 
     if (json) {
-      const list = json.data?.chapters ?? [];
+      // Upstream treats `success: false` as an empty list; our webview
+      // fallback below then takes over.
+      const list = json.success === false ? [] : (json.data?.chapters ?? []);
       for (const c of list) {
         const chapterSlug = c.chapter_slug ?? "";
         if (!chapterSlug) continue;
@@ -490,7 +498,7 @@ export class MangaBoxExtension implements MangaBoxImplementation {
       }
 
       const json = JSON.parse(resultStr) as MangaBoxApiResponse;
-      const list = json.data?.chapters ?? [];
+      const list = json.success === false ? [] : (json.data?.chapters ?? []);
       console.log(`[MangaBox] webview parsed ${list.length} chapters from JSON`);
       const chapters: Chapter[] = [];
       const seen = new Set<string>();
@@ -785,6 +793,29 @@ export class MangaBoxExtension implements MangaBoxImplementation {
     const decoded = this.safeDecode(mangaId);
     const parts = decoded.split("/").filter((p) => p.length > 0);
     return parts[parts.length - 1] ?? decoded;
+  }
+
+  /**
+   * Upstream `computeMangaSlug` override: listings sometimes expose an opaque
+   * id slug instead of the canonical title slug. Recompute from the title when
+   * the source declares such a pattern.
+   */
+  private mangaSlug(sourceManga: SourceManga): string {
+    const slug = this.slugFromMangaId(sourceManga.mangaId);
+    if (!this.legacySlugRegex?.test(slug)) return slug;
+    const fromTitle = MangaBoxExtension.titleToSlug(
+      sourceManga.mangaInfo.primaryTitle,
+    );
+    return fromTitle || slug;
+  }
+
+  static titleToSlug(title: string): string {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim()
+      .replace(/[\s-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
   }
 
   private parseMangaId(href: string): string {

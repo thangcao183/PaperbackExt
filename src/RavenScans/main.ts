@@ -3,7 +3,7 @@ import { MangaThemesiaExtension } from "../utils/mangathemesia/template";
 
 export const RavenScans = new MangaThemesiaExtension({
   name: "Raven Scans",
-  baseUrl: "https://ravenscans.org",
+  baseUrl: "https://ravenscans.net",
   mangaUrlDirectory: "/series",
   contentRating: ContentRating.MATURE,
   langCode: "🇬🇧",

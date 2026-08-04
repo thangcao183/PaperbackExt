@@ -4,7 +4,7 @@ export default {
   name: "Webcomics",
   description:
     "Webcomics - HTML scraper source (webcomicsapp.com). Converted from keiyoushi.",
-  version: "1.4.10.1",
+  version: "1.4.11.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

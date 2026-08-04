@@ -4,7 +4,7 @@ export default {
   name: "War For Rayuba",
   description:
     "War For Rayuba - community art battle webcomic source (xrabohrok.github.io/WarMap). Converted from keiyoushi.",
-  version: "1.4.3.1",
+  version: "1.4.4.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
