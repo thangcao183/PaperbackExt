@@ -144,12 +144,12 @@ images, unscrambled in-process via Paperback's canvas polyfill),
 **Manhwalike**, **ScansGG**, **HeyToon**, **Kappa Beast**, **AsiaToon**,
 **StoneScape**, **Manga Mirai**, **Alandal**, **Swords Comic**,
 **Mangadotnet**, **XoManga**, **One Punch Man Online**, **Clone Manga**,
-**The Duck Webcomics** and **Oglaf**.
+**Alpha Manga**, **The Duck Webcomics** and **Oglaf**.
 
 ## Available Sources
 
-**417** sources are currently published. Sources marked **Mature** contain
-adult/NSFW content (225 Mature, 192 Everyone).
+**418** sources are currently published. Sources marked **Mature** contain
+adult/NSFW content (225 Mature, 193 Everyone).
 
 The lists below group sources by manual testing status. **Tested** sources
 have been verified working on a device. **Not yet tested** sources are plain
@@ -235,7 +235,7 @@ If a source is broken, please open an issue.
 | VIZ | 1.4.29.1 | Everyone | Free chapters only; full library is region-gated (US). |
 | Vortex Scans | 1.4.87.1 | Everyone |  |
 | VyvyManga | 1.4.41.1 | Mature |  |
-| Weeb Central | 1.4.24.1 | Mature |  |
+| Weeb Central | 1.4.25.1 | Mature |  |
 
 ### ⚠️ Can’t test (8)
 
@@ -253,7 +253,7 @@ site is currently down.
 | VyvyManga.org | 1.4.52.1 | Mature | Server down — vyvymanga.org returns Cloudflare 521 (web server is down). Affects all clients, not just Paperback. Will re-test when the site is back. |
 | XOXO Comics | 1.4.13.5 | Everyone | Images unavailable to headless clients — every chapter page image is self-hosted on xoxocomic.com (`/comic/<slug>/<issue>/<id>/<n>.jpg`) but those URLs return HTTP 200 with a ~106 KB HTML "404!" reader page instead of image bytes for any non-browser request (verified across iOS/Googlebot UAs, image-only Accept, with/without referer/cookies). The site gates page images behind JS/Cloudflare/adblock detection, so Paperback can never retrieve them. Affects all headless clients. |
 
-### 🧪 Not yet tested (335)
+### 🧪 Not yet tested (336)
 
 | Source | Version | Content |
 | ------ | ------- | ------- |
@@ -262,9 +262,10 @@ site is currently down.
 | Akai Comic | 1.4.3.1 | Everyone |
 | Akaza Scans | 1.4.32.1 | Everyone |
 | Alandal | 1.4.2.1 | Everyone |
-| AllManga | 1.4.25.1 | Mature |
+| AllManga | 1.4.26.1 | Mature |
 | AllPornComic | 1.4.54.1 | Mature |
 | AllPornComic.io | 1.4.52.1 | Mature |
+| Alpha Manga | 1.4.1.1 | Everyone |
 | Anisa Scans | 1.4.53.1 | Mature |
 | AP Comics | 1.4.52.1 | Mature |
 | Arena Scans | 1.4.32.2 | Everyone |
@@ -309,7 +310,7 @@ site is currently down.
 | DFlowScans | 1.4.1.1 | Everyone |
 | Digital Comic Museum | 1.4.4.1 | Everyone |
 | Diva Scans | 1.4.25.1 | Mature |
-| Doujin.io - J18 | 1.4.3.1 | Mature |
+| Doujin.io - J18 | 1.4.4.1 | Mature |
 | Doujins | 1.4.6.1 | Mature |
 | Eggporncomics | 1.4.3.1 | Mature |
 | El Goonish Shive | 1.4.2.1 | Everyone |
@@ -749,11 +750,15 @@ and should be reviewed; reset its internal revision to `.1` when you do.
   content: **Mangago** (grid descramble), **Omoi** (Azuki, XOR), **K Manga**
   (cell descramble), **VIZ** (EXIF grid unshuffle), **Comix** (tile descramble +
   byte-XOR), **Coolmic** (PBKDF2 + AES-CBC), **Philia Scans** (AES-CTR/ChaCha20 +
-  tile unscramble), **emaqi** (RSA-OAEP + AES-GCM). HentaiNexus and Sunshine
+  tile unscramble), **emaqi** (RSA-OAEP + AES-GCM), **Doujin.io - J18**
+  (AES-ECB watermark patch composited over the page). HentaiNexus and Sunshine
   Butterfly encrypt only metadata (already handled), not image bytes.
   `Application.executeInWebView` is still used where a source's own JavaScript
   must run (e.g. Mangago's per-image descrambling-key derivation), not for the
   pixel work.
+  WebCrypto has no ECB mode, so Doujin.io's AES-ECB layer is emulated with
+  zero-IV CBC plus manual un-chaining (verified off-device against Node's
+  `aes-128-ecb`/`aes-256-ecb`).
 - **Canvas-polyfill caveat for tile remaps.** Paperback's in-process canvas
   polyfill does **not** reliably honour the 9-argument
   `drawImage(src, sx,sy,sw,sh, dx,dy,dw,dh)` source-crop form (the source
@@ -785,59 +790,55 @@ and should be reviewed; reset its internal revision to `.1` when you do.
      LAST_REVIEWED_DATE=<ISO 8601>
      LAST_APPLIED_COMMIT=<full sha of newest commit that resulted in a code change>
      LAST_APPLIED_PR=<PR number>
-     REVIEW_SCOPE=all English sources in our repo (~417 sources)
+     REVIEW_SCOPE=all English sources in our repo (~418 sources)
 -->
 
 ```
-LAST_REVIEWED_COMMIT=2c87e829edf351e2cb3a9c55d63cce53c87bd1e3
-LAST_REVIEWED_DATE=2026-08-04
-LAST_APPLIED_COMMIT=6b2f61efcd63f978a79409e1db9c7a2f1567ea77
-LAST_APPLIED_PR=#18163
+LAST_REVIEWED_COMMIT=3dca99407b0163a8937bec3a80953aac3ca6c17f
+LAST_REVIEWED_DATE=2026-08-07
+LAST_APPLIED_COMMIT=96f07184123d5e082b28361cda78164bb530ea6c
+LAST_APPLIED_PR=#18189
 BASELINE_PORT_DATE=2026-06-20
 ```
 
 **How to read:** All keiyoushi commits up to and including `LAST_REVIEWED_COMMIT`
 have been evaluated against our sources. `LAST_APPLIED_COMMIT` is the newest
-upstream commit that produced an actual code change here (Mangadotnet scanlator
-filter, PR #18163). This review covered the 123 upstream commits since the
-previous baseline. Roughly half were non-English (`src/<lang>`) or
-multi-language (`src/all`) sources plus CI/dependency chores, both out of scope;
-of the rest, most were the continuing "ext-lib 1.6" (KeiSource) migration, which
-is a no-op for our TypeScript port and only moves the version number.
+upstream commit that produced an actual code change here (AllManga page-list fix,
+PR #18189). This review covered the 13 upstream commits since the previous
+baseline. Most were out of scope: non-English sources (MangaTales `ar`,
+RavenManga `es`, DGManga `uk`), multi-language (`src/all` MangaPlus), the
+`hentaihand` theme and `ext-bootstrap`/`core` chores — none of which we ship.
 
 What actually changed here:
 
-- **New shared theme `mangak`** (upstream `lib-multisrc/mangak`, base 3). The
-  hand-written MangaK source became `src/utils/mangak/`
-  (template + search form + settings), gaining the site's full filter set
-  (sort/content-rating/status/type/demographic/author/min-chapters plus
-  include & exclude genres), a runtime genre list, a *Global Genre Blacklist*
-  setting and the `rx.qvzr?.org` → `rx.rzyn.net` image-mirror retry.
-  **Toonily.me** was re-platformed off MadTheme onto it and moved to
-  `toontop.io`.
-- **Theme base bumps with real fixes:** `iken` 23 → 25 (locked-chapter detection
-  now derives from `price`/`chapterPurchased` instead of the removed
-  `isAccessible` flag, and the `/api/chapters` endpoint is latched
-  automatically when `/api/post` truncates the list — the per-source
-  `useChaptersApi` override is gone); `mangabox` 15 (legacy id → slug recovery
-  for Mangakakalot, `Origin` header always stripped to avoid Cloudflare cache
-  misses); `foolslide` 6 (author/artist/synopsis now read from the `<b>` label
-  nodes).
-- **Rewrites:** **InfinityScans** (details and pages now come from Next.js RSC
-  payloads and a server action, with automatic slug-hash recovery) and
-  **Webcomics** (new site and `official-website-api` v4 endpoints, new genre /
-  status / sort filters).
-- **Smaller source fixes:** RizzComic page selector, AllManga `Response.json`
-  hook, Asmodeus Scans legacy-slug repair, Manhwa18 new chapter grid, VIZ
-  client-side search filter, HentaiNexus image-quality preference (WebP by
-  default), Mangadotnet scanlator filter, plus six domain updates (RavenScans,
-  Read Chainsaw Man, Read Kingdom, Read Attack on Titan, Read Tokyo Ghoul,
-  Read Jujutsu Kaisen).
-- **Two removals** (24HNovel, MangaBTT — deleted upstream as dead) and **two new
-  ports** (Vixen Logic, Vision Haze), leaving the total at 417 sources.
-- **Vortex Scans** version realigned to the documented scheme (it is a
-  standalone port of the same API the `iken` theme serves, so its number is now
-  `iken` base + upstream `versionCode`); no behavioural change.
+- **AllManga** (`allanime` 25 → 26, PR #18189): the page-list capture hooks moved
+  out of the post-load injection and into the served document `<head>`, so they
+  are installed before the site's own bundle can read the chapter payload, and
+  `iframe.contentWindow` is now forced to `null` on every element created through
+  `createElement`/`createElementNS` to defeat the site's automation probe.
+- **Weeb Central** (24 → 25, PR #18165): the `Origin` header is no longer sent
+  (it made the site return mismatched thumbnails), and chapters whose title names
+  a season ("Season 2 Chapter 5") are numbered by their position in the
+  descending list instead of by the first number in the string, which previously
+  collapsed every season onto the same chapter numbers. The commit's
+  `scanlator` rework is not portable — Paperback's `Chapter` type has no
+  scanlator field.
+- **Doujin.io - J18** (3 → 4, PR #18164): **watermark removal implemented.** Each
+  page JPEG hides an AES-ECB encrypted clean patch in a "MILF"-tagged APP10
+  marker segment; the per-chapter key comes from `/api/mangas/{m}/{c}/chm` and is
+  handed to the response interceptor through a private URL fragment (fragments
+  are never transmitted, the same trick Mangago uses). Also adds the new
+  `sort`/`sort_dir` search parameters as a sorting dropdown and the invisible
+  chapter-title prefix that stops titles identical to the manga name from being
+  trimmed to nothing.
+- **One new port:** **Alpha Manga** (`alphamanga` 1, PR #18205) — `search.json` /
+  `episodes.json` JSON endpoints with an HTML detail page, desktop UA for details
+  and mobile UA for high-resolution pages, a Progress/Genres filter form and a
+  *Hide locked chapters* setting. Locked chapters need a rental or purchase on
+  the site and are marked 🔒. This brings the total to 418 sources.
+- **HentaiRead.io** (PR #18178) was reviewed and needs **no change**: the diff is
+  purely the ext-lib 1.6 (`KeiSource`) restructure with identical selectors and
+  URLs, and its upstream `versionCode` is unchanged at 1.
 
 To check for new upstream changes, compare `LAST_REVIEWED_COMMIT` against
 `https://github.com/keiyoushi/extensions-source/commits/main`.

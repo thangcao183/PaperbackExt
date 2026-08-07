@@ -352,35 +352,9 @@ class AllMangaExtension implements AllMangaImplementation {
     const chapterUrl = this.chapterShareUrl(chapter.chapterId);
     const [response, data] = await Application.scheduleRequest({ url: chapterUrl, method: "GET" });
     if (response.status === 404) throw new Error("Content not found");
-    const html = Application.arrayBufferToUTF8String(data);
+    const html = this.injectPageListHooks(Application.arrayBufferToUTF8String(data));
 
     const inject = `
-      (function(){
-        window.__cap = null;
-        var capture = function(obj){
-          try {
-            if (obj && obj.data && obj.data.chapterPages) { window.__cap = obj.data; }
-            else if (obj && obj.chapterPages) { window.__cap = obj; }
-          } catch(e){}
-        };
-        var orig = JSON.parse;
-        JSON.parse = function(text){
-          var obj = orig.apply(this, arguments);
-          capture(obj);
-          return obj;
-        };
-        // Upstream #18050: the site may read the GraphQL payload through
-        // Response.json() (which never goes through JSON.parse), so hook it too.
-        try {
-          var originalJson = Response.prototype.json;
-          Response.prototype.json = function(){
-            return originalJson.call(this).then(function(data){
-              capture(data);
-              return data;
-            });
-          };
-        } catch(e){}
-      })();
       new Promise(function(resolve){
         var start = Date.now();
         var t = setInterval(function(){
@@ -478,6 +452,86 @@ class AllMangaExtension implements AllMangaImplementation {
     const mangaId = parts[2] ?? "";
     const chapterSlug = parts[4] ?? "";
     return `${BASE_URL}/manga/${mangaId}/${chapterSlug}`;
+  }
+
+  /**
+   * Prepend the page-list capture hooks into the document `<head>` of the HTML
+   * we hand to the webview.
+   *
+   * Upstream #18189 moved these hooks out of the "run after page start" script
+   * and into the served markup for two reasons:
+   *
+   * 1. **Ordering.** Injecting after the page has begun loading races the
+   *    site's own bundle — if AllManga fetches the chapter payload before our
+   *    override lands, `Response.json` / `JSON.parse` are already the originals
+   *    and the payload is never captured (empty page list).
+   * 2. **Iframe bypass.** The site probes `iframe.contentWindow` as an
+   *    anti-automation check. Forcing `contentWindow` to `null` on every
+   *    `<iframe>` created through `createElement`/`createElementNS` makes that
+   *    probe fail closed, which is what the site expects from a plain browser
+   *    here and keeps the reader navigating normally.
+   */
+  private injectPageListHooks(html: string): string {
+    const script = `<script>
+      (function(){
+        window.__cap = null;
+        var capture = function(obj){
+          try {
+            if (obj && obj.data && obj.data.chapterPages) { window.__cap = obj.data; }
+            else if (obj && obj.chapterPages) { window.__cap = obj; }
+          } catch(e){}
+        };
+        var orig = JSON.parse;
+        JSON.parse = function(text){
+          var obj = orig.apply(this, arguments);
+          capture(obj);
+          return obj;
+        };
+        // Upstream #18050: the site may read the GraphQL payload through
+        // Response.json() (which never goes through JSON.parse), so hook it too.
+        try {
+          var originalJson = Response.prototype.json;
+          Response.prototype.json = function(){
+            return originalJson.call(this).then(function(data){
+              capture(data);
+              return data;
+            });
+          };
+        } catch(e){}
+        // Upstream #18189: neuter iframe contentWindow so the site's
+        // anti-automation probe does not stall the reader.
+        try {
+          var hook = function(el){
+            if (el && String(el.tagName).toUpperCase() === "IFRAME") {
+              Object.defineProperty(el, "contentWindow", {
+                get: function(){ return null; },
+                configurable: false,
+              });
+            }
+            return el;
+          };
+          ["createElement", "createElementNS"].forEach(function(key){
+            var original = Document.prototype[key];
+            Document.prototype[key] = function(){
+              return hook(original.apply(this, arguments));
+            };
+          });
+        } catch(e){}
+      })();
+    </script>`;
+
+    // Prefer prepending inside <head> so the hooks run before any site script.
+    const headMatch = html.match(/<head[^>]*>/i);
+    if (headMatch?.index !== undefined) {
+      const insertAt = headMatch.index + headMatch[0].length;
+      return html.slice(0, insertAt) + script + html.slice(insertAt);
+    }
+    const htmlMatch = html.match(/<html[^>]*>/i);
+    if (htmlMatch?.index !== undefined) {
+      const insertAt = htmlMatch.index + htmlMatch[0].length;
+      return html.slice(0, insertAt) + `<head>${script}</head>` + html.slice(insertAt);
+    }
+    return script + html;
   }
 
   private titleToSlug(name: string): string {

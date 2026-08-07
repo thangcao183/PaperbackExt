@@ -35,6 +35,9 @@ import { WeebCentralSearchForm, WeebCentralSearchMeta } from "./forms";
 const BASE_URL = "https://weebcentral.com";
 const FETCH_LIMIT = 32;
 const EXCLUDED_SEARCH_CHARS = /[!#:(),-]/g;
+// Upstream #18165 `seasonRegex`: titles that name a season need positional
+// chapter numbering instead of "first number in the string".
+const SEASON_REGEX = /(Season|S)\s*\d+/i;
 
 interface WeebCentralMetadata {
   page?: number;
@@ -45,12 +48,15 @@ class WeebCentralInterceptor extends PaperbackInterceptor {
     request.headers = {
       ...request.headers,
       referer: `${BASE_URL}/`,
-      origin: BASE_URL,
       "user-agent": await Application.getDefaultUserAgent(),
       accept:
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.5",
     };
+    // Upstream #18165 (`removeAll("Origin")`): sending Origin makes the site
+    // serve mismatched thumbnails, so it must never be set.
+    delete request.headers["origin"];
+    delete request.headers["Origin"];
     return request;
   }
 
@@ -357,7 +363,10 @@ export class WeebCentralExtension implements WeebCentralImplementation {
 
     const chapters: Chapter[] = [];
     const seen = new Set<string>();
-    $("div[x-data] > a").each((_, element) => {
+    // The listing is in descending order (newest first).
+    const anchors = $("div[x-data] > a");
+    const total = anchors.length;
+    anchors.each((index, element) => {
       const el = $(element);
       const href = el.attr("href") || "";
       if (!href) return;
@@ -368,12 +377,21 @@ export class WeebCentralExtension implements WeebCentralImplementation {
       const name = el.find("span.flex > span").first().text().trim();
       const dateText = el.find("time[datetime]").first().attr("datetime");
 
+      // Upstream #18165: when a chapter title carries a season marker
+      // ("Season 2 Chapter 5", "S2 Ch. 5"), the first number in the string is
+      // the season, not the chapter, so naive parsing collapses every season
+      // onto the same number. Fall back to the item's position in the
+      // descending list instead.
+      const chapNum = SEASON_REGEX.test(name)
+        ? total - index
+        : this.parseChapterNumber(name);
+
       chapters.push({
         chapterId,
         sourceManga,
         title: name,
         volume: 0,
-        chapNum: this.parseChapterNumber(name),
+        chapNum,
         publishDate: this.parseDate(dateText),
         langCode: "🇬🇧",
       });

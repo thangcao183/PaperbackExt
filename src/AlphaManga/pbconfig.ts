@@ -1,19 +1,20 @@
 import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
-  name: "Doujin.io - J18",
+  name: "Alpha Manga",
   description:
-    "Doujin.io - J18 - JSON API source (doujin.io). Converted from keiyoushi.",
-  version: "1.4.4.1",
+    "Alpha Manga - JSON API source (alpha-manga.com). Converted from keiyoushi.",
+  version: "1.4.1.1",
   icon: "icon.png",
   language: "en",
-  contentRating: ContentRating.MATURE,
+  contentRating: ContentRating.EVERYONE,
   capabilities: [
     SourceIntents.DISCOVER_SECTION_PROVIDING,
     SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.CHAPTER_PROVIDING,
     SourceIntents.CLOUDFLARE_BYPASS_PROVIDING,
+    SourceIntents.SETTINGS_FORM_PROVIDING,
   ],
-  badges: [{ label: "Mature", textColor: "#FFFFFF", backgroundColor: "#C62828" }],
+  badges: [],
   developers: [{ name: "nicartjay" }, { name: "keiyoushi" }],
 } satisfies ExtensionInfo;

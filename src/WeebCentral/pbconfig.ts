@@ -4,7 +4,7 @@ export default {
   name: "Weeb Central",
   description:
     "Weeb Central - custom source (weebcentral.com). Converted from keiyoushi.",
-  version: "1.4.24.1",
+  version: "1.4.25.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

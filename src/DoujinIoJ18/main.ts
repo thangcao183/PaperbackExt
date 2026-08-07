@@ -22,12 +22,23 @@ import {
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
+  SortingOption,
   SourceManga,
   TagSection,
 } from "@paperback/types";
+import { removeWatermark } from "./watermark";
 
 const BASE_URL = "https://doujin.io";
 const LATEST_LIMIT = 20;
+
+// Upstream `sortOptions` (Filters.kt). The API takes `sort` + `sort_dir`, so
+// each Paperback sorting option encodes both halves.
+const SORT_OPTIONS: { id: string; label: string; sort: string; dir: string }[] = [
+  { id: "published_at:desc", label: "Date (newest)", sort: "published_at", dir: "desc" },
+  { id: "published_at:asc", label: "Date (oldest)", sort: "published_at", dir: "asc" },
+  { id: "hidden_title:asc", label: "Alphabetical (A-Z)", sort: "hidden_title", dir: "asc" },
+  { id: "hidden_title:desc", label: "Alphabetical (Z-A)", sort: "hidden_title", dir: "desc" },
+];
 
 // Tag list ported verbatim from the upstream DoujinioHelper.kt
 const TAGS: { id: number; name: string }[] = [
@@ -131,16 +142,27 @@ interface ApiManifest {
   readingOrder: ApiManifestPage[];
 }
 
+/** `/api/mangas/{manga}/{chapter}/chm` — the per-chapter watermark AES key. */
+interface ApiMangaKeys {
+  chmkeys: number[];
+}
+
 class DoujinIoJ18Interceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
     request.headers = {
       ...request.headers,
       referer: `${BASE_URL}/`,
-      origin: BASE_URL,
       "user-agent": await Application.getDefaultUserAgent(),
       accept: "application/json, text/plain, */*",
       "accept-language": "en-US,en;q=0.5",
     };
+    // Upstream `cleanHeaders`: the search/latest POST endpoints answer 419 when
+    // Referer or Origin is present.
+    if (request.method === "POST") {
+      delete request.headers["referer"];
+    } else {
+      request.headers["origin"] = BASE_URL;
+    }
     return request;
   }
 
@@ -158,8 +180,43 @@ class DoujinIoJ18Interceptor extends PaperbackInterceptor {
         },
       });
     }
+
+    // Upstream #18164: page images hide a clean patch that must be composited
+    // over the watermark. `getChapterDetails` appends the chapter's AES key to
+    // each page URL as a `#chm=...` fragment (fragments are never transmitted
+    // over HTTP, so this is invisible to the server — same approach as Mangago).
+    const keyBytes = parseWatermarkKey(request.url);
+    if (keyBytes && response.status >= 200 && response.status < 300) {
+      try {
+        return await removeWatermark(data, keyBytes);
+      } catch {
+        // Never throw from interceptResponse — show the watermarked page
+        // rather than nothing.
+        return data;
+      }
+    }
+
     return data;
   }
+}
+
+/**
+ * Recover the `chmkeys` bytes that `getChapterDetails` appended to a page URL
+ * as `#chm=<comma-separated bytes>`. Returns undefined when the page is not
+ * watermark-protected (or the chapter's key endpoint was unavailable).
+ */
+function parseWatermarkKey(url: string): Uint8Array | undefined {
+  const fragment = url.split("#")[1];
+  if (!fragment) return undefined;
+  const match = fragment.match(/(?:^|&)chm=([0-9,]+)/);
+  if (!match) return undefined;
+  const parts = match[1].split(",").filter((p) => p.length > 0);
+  if (parts.length === 0) return undefined;
+  const bytes = new Uint8Array(parts.length);
+  for (let i = 0; i < parts.length; i++) {
+    bytes[i] = parseInt(parts[i], 10) & 0xff;
+  }
+  return bytes;
 }
 
 type DoujinIoJ18Implementation = Extension &
@@ -271,9 +328,14 @@ export class DoujinIoJ18Extension implements DoujinIoJ18Implementation {
   // Search
   // ----------------------------------------------------------------
 
+  async getSortingOptions(): Promise<SortingOption[]> {
+    return SORT_OPTIONS.map(({ id, label }) => ({ id, label }));
+  }
+
   async getSearchResults(
     query: SearchQuery<Metadata>,
     metadata: Metadata | undefined,
+    sortingOption?: SortingOption | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
     const meta = metadata as DoujinIoMetadata | undefined;
     const page = meta?.page ?? 1;
@@ -285,11 +347,21 @@ export class DoujinIoJ18Extension implements DoujinIoJ18Implementation {
       tags.push(queryMeta.tagId);
     }
 
+    // Upstream #18164 added `sort` / `sort_dir` to the search payload.
+    const chosen =
+      SORT_OPTIONS.find((o) => o.id === sortingOption?.id) ?? SORT_OPTIONS[0];
+
     const [response, data] = await Application.scheduleRequest({
       url: `${BASE_URL}/api/mangas/search`,
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ keyword: titleQuery, page, tags }),
+      body: JSON.stringify({
+        keyword: titleQuery,
+        page,
+        tags,
+        sort: chosen.sort,
+        sort_dir: chosen.dir,
+      }),
     });
     if (response.status === 404) {
       return { items: [], metadata: undefined };
@@ -383,7 +455,9 @@ export class DoujinIoJ18Extension implements DoujinIoJ18Implementation {
         `manga/${c.manga_optimus_id}/chapter/${c.optimus_id}`,
       ),
       sourceManga,
-      title: c.chapter_name,
+      // Upstream #18164 prefixes an invisible separator because a chapter name
+      // identical to the manga title gets trimmed away to an empty label.
+      title: `\u2063${c.chapter_name}`,
       volume: 0,
       chapNum: c.chapter_order + 1,
       publishDate: this.parseDate(c.published_at),
@@ -420,12 +494,17 @@ export class DoujinIoJ18Extension implements DoujinIoJ18Implementation {
       );
     }
 
+    // Upstream #18164: `/chm` returns the AES key used to decrypt the clean
+    // patch embedded in each page image. It is best-effort — when it fails the
+    // pages simply stay watermarked instead of failing to load.
+    const fragment = await this.fetchWatermarkFragment(mangaId, chapterId);
+
     const manifest = this.parseJson<ApiManifest>(data);
     const pages: string[] = [];
     if (manifest) {
       for (const page of manifest.readingOrder ?? []) {
         if (page.type && page.type.startsWith("image")) {
-          pages.push(this.absoluteUrl(page.href));
+          pages.push(this.absoluteUrl(page.href) + fragment);
         }
       }
     }
@@ -435,6 +514,33 @@ export class DoujinIoJ18Extension implements DoujinIoJ18Implementation {
       mangaId: chapter.sourceManga.mangaId,
       pages,
     };
+  }
+
+  /**
+   * Fetch the chapter's watermark-removal key and encode it as a URL fragment
+   * (`#chm=1,2,3,...`) for the response interceptor to pick up. Returns an
+   * empty string when the key is unavailable.
+   */
+  private async fetchWatermarkFragment(
+    mangaId: string,
+    chapterId: string,
+  ): Promise<string> {
+    try {
+      const [response, data] = await Application.scheduleRequest({
+        url: `${BASE_URL}/api/mangas/${mangaId}/${chapterId}/chm`,
+        method: "GET",
+        headers: {
+          referer: `${BASE_URL}/manga/${mangaId}/chapter/${chapterId}`,
+        },
+      });
+      if (response.status < 200 || response.status >= 300) return "";
+      const keys = this.parseJson<ApiMangaKeys>(data);
+      const chmkeys = keys?.chmkeys;
+      if (!chmkeys || chmkeys.length === 0) return "";
+      return `#chm=${chmkeys.map((k) => k & 0xff).join(",")}`;
+    } catch {
+      return "";
+    }
   }
 
   getMangaShareUrl(mangaId: string): string {
