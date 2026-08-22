@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "MurimScan",
   description: "MurimScan - ZeistManga source (www.murimscans.site). Converted from keiyoushi.",
-  version: "1.4.49.3",
+  version: "1.4.50.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,

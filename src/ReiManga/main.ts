@@ -26,7 +26,7 @@ import {
   TagSection,
 } from "@paperback/types";
 
-const DOMAIN = "reimanga.com";
+const DOMAIN = "reimanga.net";
 const BASE_URL = `https://${DOMAIN}`;
 
 interface ReiMangaMetadata {

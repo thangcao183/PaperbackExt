@@ -13,6 +13,7 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
+  Form,
   MangaProviding,
   Metadata,
   PagedResults,
@@ -22,13 +23,17 @@ import {
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
+  SettingsFormProviding,
   SourceManga,
   TagSection,
 } from "@paperback/types";
+import { AtsumaruSettingsForm, getExcludedGenres } from "./settings";
 
 const BASE_URL = "https://atsu.moe";
 const TYPES = "Manga,Manwha,Manhua,OEL";
 const PER_PAGE = 40;
+// Upstream #18405 `BROWSE_LIMIT`: page size for the /api/home2/* carousels.
+const BROWSE_LIMIT = 40;
 const PROTOCOL_REGEX = /^https?:?\/\//;
 
 // Genre list ported from the upstream Filters.kt (name -> Typesense genreId)
@@ -131,6 +136,7 @@ type AtsumaruImplementation = Extension &
   MangaProviding &
   ChapterProviding &
   CloudflareBypassRequestProviding &
+  SettingsFormProviding &
   DiscoverSectionProviding;
 
 export class AtsumaruExtension implements AtsumaruImplementation {
@@ -148,6 +154,10 @@ export class AtsumaruExtension implements AtsumaruImplementation {
     this.requestManager.registerInterceptor();
     this.cookieStorageInterceptor.registerInterceptor();
     this.globalRateLimiter.registerInterceptor();
+  }
+
+  async getSettingsForm(): Promise<Form> {
+    return new AtsumaruSettingsForm(GENRES);
   }
 
   // ----------------------------------------------------------------
@@ -193,11 +203,16 @@ export class AtsumaruExtension implements AtsumaruImplementation {
 
     const meta = metadata as AtsumaruMetadata | undefined;
     const page = meta?.page ?? 1;
+    // Upstream #18405: the browse endpoints moved from `/api/infinite/*`
+    // (page-indexed) to `/api/home2/*` (offset/limit) and now pass
+    // `mediums=Comic` so light novels are excluded from the carousels.
     const endpoint =
-      section.id === "trending" ? "trending" : "recentlyUpdated";
-    const url = `${BASE_URL}/api/infinite/${endpoint}?page=${
-      page - 1
-    }&types=${TYPES}`;
+      section.id === "trending" ? "popular" : "recentlyUpdated";
+    const offset = (page - 1) * BROWSE_LIMIT;
+    const timeframe = section.id === "trending" ? "&timeframe=daily" : "";
+    const url =
+      `${BASE_URL}/api/home2/${endpoint}?offset=${offset}&limit=${BROWSE_LIMIT}` +
+      `&types=${TYPES}&mediums=Comic${timeframe}${this.excludedGenresQuery()}`;
 
     const json = (await this.fetchJson(url)) as { items?: MangaJson[] };
     const list = json.items ?? [];
@@ -215,8 +230,18 @@ export class AtsumaruExtension implements AtsumaruImplementation {
 
     return {
       items,
-      metadata: items.length > 0 ? { page: page + 1 } : undefined,
+      metadata: list.length >= BROWSE_LIMIT ? { page: page + 1 } : undefined,
     };
+  }
+
+  /**
+   * Upstream #18502: genres blacklisted in the settings are excluded
+   * server-side from the browse carousels.
+   */
+  private excludedGenresQuery(): string {
+    const ids = getExcludedGenres();
+    if (ids.length === 0) return "";
+    return `&excludedTags=${ids.join(",")}`;
   }
 
   // ----------------------------------------------------------------
@@ -248,6 +273,15 @@ export class AtsumaruExtension implements AtsumaruImplementation {
       "(mbContentRating:=[`Safe`,`Suggestive`,`Erotica`] || mbContentRating:!=*)",
     );
     filterBy.push("views:>0");
+    // Upstream #18405: exclude light novels from search results.
+    filterBy.push("medium:!=[`Novel`]");
+    // Upstream #18502: honour the settings-level genre blacklist.
+    const excluded = getExcludedGenres();
+    if (excluded.length > 0) {
+      filterBy.push(
+        `genreIds:!=[${excluded.map((id) => `\`${id}\``).join(",")}]`,
+      );
+    }
 
     params.push(`filter_by=${encodeURIComponent(filterBy.join(" && "))}`);
 

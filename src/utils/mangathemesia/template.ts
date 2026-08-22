@@ -64,11 +64,19 @@ export interface MangaThemesiaConfig {
   useAdvancedSearchParams?: boolean;
   // Override CSS selectors (cheerio). Each defaults to the standard set.
   discoverItemSelector?: string; // selects each manga card/link
+  /**
+   * Container that scopes the details page lookups. Defaults to the standard
+   * `div.bigcontent, div.animefull, div.main-info, div.postbody`. Forks that
+   * rebuild the details markup (e.g. Eva Scans `.series-premium-header`)
+   * override this so the scoped selectors below resolve.
+   */
+  seriesDetailsSelector?: string;
   seriesTitleSelector?: string;
   seriesThumbnailSelector?: string;
   seriesDescriptionSelector?: string;
   seriesGenreSelector?: string;
   seriesStatusSelector?: string;
+  seriesAltNameSelector?: string;
   // Label text used to find the status row (e.g. "Status").
   chapterSelector?: string;
   chapterNameSelector?: string;
@@ -154,11 +162,13 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
   readonly browsePath: string;
   readonly useAdvancedSearchParams: boolean;
   readonly discoverItemSelectorOverride?: string;
+  readonly seriesDetailsSelectorOverride?: string;
   readonly seriesTitleSelectorOverride?: string;
   readonly seriesThumbnailSelectorOverride?: string;
   readonly seriesDescriptionSelectorOverride?: string;
   readonly seriesGenreSelectorOverride?: string;
   readonly seriesStatusSelectorOverride?: string;
+  readonly seriesAltNameSelectorOverride?: string;
   readonly chapterSelectorOverride?: string;
   readonly chapterNameSelectorOverride?: string;
   readonly chapterDateSelectorOverride?: string;
@@ -203,11 +213,13 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
       .replace(/^\/+|\/+$/g, "");
     this.useAdvancedSearchParams = config.useAdvancedSearchParams ?? false;
     this.discoverItemSelectorOverride = config.discoverItemSelector;
+    this.seriesDetailsSelectorOverride = config.seriesDetailsSelector;
     this.seriesTitleSelectorOverride = config.seriesTitleSelector;
     this.seriesThumbnailSelectorOverride = config.seriesThumbnailSelector;
     this.seriesDescriptionSelectorOverride = config.seriesDescriptionSelector;
     this.seriesGenreSelectorOverride = config.seriesGenreSelector;
     this.seriesStatusSelectorOverride = config.seriesStatusSelector;
+    this.seriesAltNameSelectorOverride = config.seriesAltNameSelector;
     this.chapterSelectorOverride = config.chapterSelector;
     this.chapterNameSelectorOverride = config.chapterNameSelector;
     this.chapterDateSelectorOverride = config.chapterDateSelector;
@@ -502,7 +514,8 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
     const $ = await this.fetchCheerio({ url, method: "GET" });
 
     const details = $(
-      "div.bigcontent, div.animefull, div.main-info, div.postbody",
+      this.seriesDetailsSelectorOverride ??
+        "div.bigcontent, div.animefull, div.main-info, div.postbody",
     ).first();
     const scope = details.length > 0 ? details : $("html");
 
@@ -538,7 +551,8 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
     // Alt name appended to description (mirrors Kotlin behaviour).
     const altName = scope
       .find(
-        ".alternative, .wd-full:contains(alt) span, .alter, .seriestualt",
+        this.seriesAltNameSelectorOverride ??
+          ".alternative, .wd-full:contains(alt) span, .alter, .seriestualt",
       )
       .first()
       .text()
@@ -758,7 +772,7 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
   // MangaThemesiaAlt: resolves a stored permanent slug to the current
   // rotating slug using the site's "/list-mode/" index. Falls back to the
   // permanent slug itself if the map has no entry.
-  private async resolveMangaSlug(mangaId: string): Promise<string> {
+  protected async resolveMangaSlug(mangaId: string): Promise<string> {
     if (!this.randomUrl) return mangaId;
     await this.ensureUrlMap();
     const permaSlug = mangaId.replace(
@@ -867,7 +881,7 @@ export class MangaThemesiaExtension implements MangaThemesiaImplementation {
     return src;
   }
 
-  private parseStatus(status: string): string {
+  protected parseStatus(status: string): string {
     const s = status.toLowerCase().trim();
     if (!s) return "Unknown";
     if (s.includes("complet") || s.includes("finished") || s.includes("tamat"))

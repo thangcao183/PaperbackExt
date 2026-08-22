@@ -31,7 +31,7 @@ import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
 import { HeyToonSearchForm, HeyToonSearchMeta } from "./forms";
 
-const BASE_URL = "https://heytoon.net";
+const BASE_URL = "https://toonhey.com";
 
 interface HeyToonComicDto {
   linkComic: string;

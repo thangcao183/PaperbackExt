@@ -186,16 +186,47 @@ export class BatCaveExtension implements BatCaveImplementation {
     const meta = metadata as BatCaveMetadata | undefined;
     const page = meta?.page ?? 1;
 
-    // Popular -> sort "rating" desc, Latest -> sort "editdate" desc, both POST to /comix/.
-    const sort = section.id === "popular" ? "rating" : "editdate";
-    const $ = await this.fetchBrowse(page, sort, "desc");
+    // Upstream #18516: "Latest" no longer goes through the search endpoint
+    // (sorting by editdate there returned the wrong set); it reads the site's
+    // own paginated front page instead, which uses a different item markup.
+    if (section.id === "latest") {
+      const $ = await this.fetchCheerio({
+        url: `${BASE_URL}/page/${page}`,
+        method: "GET",
+      });
+
+      const items: DiscoverSectionItem[] = [];
+      $("#content-load > .latest.grid-item").each((_, element) => {
+        const el = $(element);
+        const link = el.find(".latest__title > a").first();
+        const href = link.attr("href") || "";
+        // ownText(): the anchor's own text node, excluding child elements.
+        const title = link.clone().children().remove().end().text().trim();
+        if (!href || !title) return;
+        const img = el.find(".latest__img img").first();
+        const imageUrl = this.absoluteUrl(
+          img.attr("data-src") || img.attr("src") || "",
+        );
+        items.push({
+          type: "simpleCarouselItem",
+          mangaId: this.parsePath(href),
+          imageUrl,
+          title,
+          metadata: undefined,
+        });
+      });
+
+      const hasNextPage = $("li.pagination a[href]").length > 0;
+      return { items, metadata: hasNextPage ? { page: page + 1 } : undefined };
+    }
+
+    // Popular -> sort "rating" desc, POST to /comix/.
+    const $ = await this.fetchBrowse(page, "rating", "desc");
 
     const items: DiscoverSectionItem[] = [];
-    const itemType =
-      section.id === "popular" ? "featuredCarouselItem" : "simpleCarouselItem";
     this.eachListItem($, (parsed) => {
       items.push({
-        type: itemType,
+        type: "featuredCarouselItem",
         mangaId: parsed.mangaId,
         imageUrl: parsed.imageUrl,
         title: parsed.title,

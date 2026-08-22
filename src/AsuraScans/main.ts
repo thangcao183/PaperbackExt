@@ -75,7 +75,12 @@ interface ChapterDto {
   number: number;
   title?: string;
   created_at?: string;
+  // Upstream #18485: the API renamed `is_locked` to `is_premium` and added a
+  // timed early-access window. Both keys are accepted so the source keeps
+  // working whichever one the site sends.
   is_locked?: boolean;
+  is_premium?: boolean;
+  early_access_until?: string | null;
 }
 
 interface ChapterListDto {
@@ -301,9 +306,10 @@ class AsuraScansExtension implements AsuraScansImplementation {
 
     const result: Chapter[] = [];
     for (const chap of chapters) {
-      if (hidePremium && chap.is_locked) continue;
+      const locked = this.isChapterLocked(chap);
+      if (hidePremium && locked) continue;
       const numberStr = String(chap.number).replace(/\.0$/, "");
-      const lock = chap.is_locked ? "🔒 " : "";
+      const lock = locked ? "🔒 " : "";
       const title = chap.title ? ` - ${chap.title}` : "";
       result.push({
         chapterId: `${slug}/chapter/${numberStr}`,
@@ -316,6 +322,19 @@ class AsuraScansExtension implements AsuraScansImplementation {
       });
     }
     return result;
+  }
+
+  /**
+   * Upstream #18485: a chapter is premium either when the flag says so, or
+   * while its early-access window is still in the future. The flag was renamed
+   * `is_locked` -> `is_premium`, so both are honoured.
+   */
+  private isChapterLocked(chap: ChapterDto): boolean {
+    if (chap.is_premium === true || chap.is_locked === true) return true;
+    const until = chap.early_access_until;
+    if (!until) return false;
+    const t = Date.parse(until);
+    return !isNaN(t) && t > Date.now();
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {

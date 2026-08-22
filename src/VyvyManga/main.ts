@@ -32,7 +32,7 @@ import type { AnyNode } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
 import { VyvyMangaSearchForm, VyvyMangaSearchMeta } from "./forms";
 
-const BASE_URL = "https://vymanga.net";
+const BASE_URL = "https://mangavyvy.net";
 
 interface VyvyMangaMetadata {
   page?: number;

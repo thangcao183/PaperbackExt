@@ -31,6 +31,12 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
+import {
+  descrambleAlphaManga,
+  encodeKeyFragment,
+  extractPageKeys,
+  parseKeyFragment,
+} from "./descramble";
 import { AlphaMangaSearchForm, AlphaMangaSearchMeta } from "./forms";
 import { AlphaMangaSettingsForm, getHideLocked } from "./settings";
 
@@ -110,6 +116,21 @@ class AlphaMangaInterceptor extends PaperbackInterceptor {
         },
       });
     }
+
+    // Upstream #18522: page images are tile-scrambled; the per-page key rides
+    // along in the URL fragment set by getChapterDetails.
+    const key = parseKeyFragment(request.url);
+    if (key && response.status >= 200 && response.status < 300) {
+      try {
+        const mimeType = response.mimeType || "image/webp";
+        return await descrambleAlphaManga(data, key, mimeType);
+      } catch {
+        // Never throw from interceptResponse — a scrambled page still beats a
+        // blank one.
+        return data;
+      }
+    }
+
     return data;
   }
 }
@@ -337,7 +358,8 @@ export class AlphaMangaExtension implements AlphaMangaImplementation {
       headers: { "user-agent": MOBILE_UA },
     });
 
-    const raw = $("viewer-manga-vertical").first().attr("v-bind:pages");
+    const viewer = $("viewer-manga-vertical").first();
+    const raw = viewer.attr("v-bind:pages");
     if (!raw) {
       throw new Error(
         "Log in via the browser and rent or purchase this chapter to read it.",
@@ -350,12 +372,23 @@ export class AlphaMangaExtension implements AlphaMangaImplementation {
     }
 
     // The list is padded with "first"/"last" sentinels that are not images.
-    const pages = parsed
-      .filter(
-        (p): p is string =>
-          typeof p === "string" && p !== "first" && p !== "last",
-      )
-      .map((p) => this.absoluteUrl(p));
+    const urls = parsed.filter(
+      (p): p is string =>
+        typeof p === "string" && p !== "first" && p !== "last",
+    );
+
+    // Upstream #18522: pages are tile-scrambled and each one has its own key,
+    // packed into the viewer's `placeholder` PNG. Attach the key to the URL as
+    // a fragment (never transmitted over HTTP) so the response interceptor can
+    // unscramble the bytes. When the keys are missing or don't line up we fall
+    // back to the plain URLs rather than failing the chapter.
+    const keys = extractPageKeys(viewer.attr("placeholder") ?? "");
+    const keyed = keys.length === urls.length;
+
+    const pages = urls.map((p, i) => {
+      const absolute = this.absoluteUrl(p);
+      return keyed ? absolute + encodeKeyFragment(keys[i]) : absolute;
+    });
 
     return {
       id: chapter.chapterId,

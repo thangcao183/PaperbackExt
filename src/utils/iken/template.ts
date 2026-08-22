@@ -477,16 +477,35 @@ export class IkenExtension implements IkenImplementation {
     const slug = this.slugFromId(sourceManga.mangaId);
 
     if (getUseChaptersApi(this.sourceName)) {
-      const url = new URLBuilder(this.apiUrl)
+      // Upstream #18314: the `/api/chapters` endpoint is not always better than
+      // the list embedded in `/api/post` — on some series it returns fewer
+      // chapters. Fetch both, keep whichever is longer, and un-latch the
+      // endpoint when it turns out not to help so the source self-heals.
+      const chaptersUrl = new URLBuilder(this.apiUrl)
         .addPath("api")
         .addPath("chapters")
         .addQuery("postId", this.postIdFromId(sourceManga.mangaId))
         .build();
-      const data = await this.fetchJson<IkenPostResponse>({
-        url,
-        method: "GET",
-      });
-      return this.mapChapters(sourceManga, data.post, slug);
+      const postUrl = new URLBuilder(this.apiUrl)
+        .addPath("api")
+        .addPath("post")
+        .addQuery("postSlug", slug)
+        .build();
+
+      const [apiChapters, embeddedChapters] = await Promise.all([
+        this.fetchJson<IkenPostResponse>({ url: chaptersUrl, method: "GET" })
+          .then((data) => this.mapChapters(sourceManga, data.post, slug))
+          .catch(() => [] as Chapter[]),
+        this.fetchJson<IkenPostResponse>({ url: postUrl, method: "GET" })
+          .then((data) => this.mapChapters(sourceManga, data.post, slug))
+          .catch(() => [] as Chapter[]),
+      ]);
+
+      if (apiChapters.length <= embeddedChapters.length) {
+        setUseChaptersApi(this.sourceName, false);
+        return embeddedChapters;
+      }
+      return apiChapters;
     }
 
     const url = new URLBuilder(this.apiUrl)
@@ -500,11 +519,13 @@ export class IkenExtension implements IkenImplementation {
     });
 
     // The embedded chapter list is sometimes truncated. When the post reports a
-    // different authoritative count, latch on the chapters endpoint for good
-    // and retry through it (upstream keiyoushi PR #17902).
+    // HIGHER authoritative count, latch on the chapters endpoint and retry
+    // through it. Upstream #18314 tightened this from `!==` to `>`: a lower
+    // reported total is not a truncation and previously caused a pointless
+    // (and sometimes lossy) switch.
     const embedded = data.post.chapters ?? [];
     const total = data.totalChapterCount;
-    if (typeof total === "number" && total !== embedded.length) {
+    if (typeof total === "number" && total > embedded.length) {
       setUseChaptersApi(this.sourceName, true);
       return this.getChapters(sourceManga);
     }

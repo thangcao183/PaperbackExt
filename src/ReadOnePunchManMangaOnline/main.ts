@@ -3,7 +3,7 @@ import { MangaCatalogExtension } from "../utils/mangacatalog/template";
 
 export const ReadOnePunchManMangaOnline = new MangaCatalogExtension({
   name: "Read One-Punch Man Manga Online",
-  baseUrl: "https://ww6.readopm.com",
+  baseUrl: "https://ww7.readopm.com",
   contentRating: ContentRating.EVERYONE,
   langCode: "🇬🇧",
   detailVariant: "card",

@@ -445,7 +445,12 @@ export class MangaGekoExtension implements MangaGekoImplementation {
     const pages: string[] = [];
     $("#chapter-reader img").each((_, element) => {
       const src = $(element).attr("src") || "";
-      if (src) pages.push(this.absoluteUrl(src));
+      if (!src) return;
+      const absolute = this.absoluteUrl(src);
+      // Upstream #18226: the reader appends a site-credits image that 404s,
+      // which showed up as a broken final page.
+      if (absolute.includes("credits-mgeko.png")) return;
+      pages.push(absolute);
     });
 
     return {
