@@ -13,11 +13,11 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
+          packages = with pkgs; [
             nodejs_22
-            corepack_22 # Quản lý yarn/pnpm đi kèm node
-            nodePackages.pnpm
-            nodePackages.yarn
+            corepack
+            pnpm
+            yarn
             bun
           ];
 

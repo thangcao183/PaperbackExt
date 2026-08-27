@@ -1,0 +1,9 @@
+import { ContentRating } from "@paperback/types";
+import { MadaraExtension } from "../utils/madara/template";
+export const Manhuanext = new MadaraExtension({
+    name: "Manhuanext",
+    baseUrl: "https://manhuanext.com",
+    useNewChapterEndpoint: true,
+    contentRating: ContentRating.EVERYONE,
+    langCode: "🇬🇧",
+});

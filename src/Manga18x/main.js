@@ -1,0 +1,9 @@
+import { ContentRating } from "@paperback/types";
+import { MadaraExtension } from "../utils/madara/template";
+export const Manga18x = new MadaraExtension({
+    name: "Manga 18x",
+    baseUrl: "https://manga18x.net",
+    useNewChapterEndpoint: true,
+    contentRating: ContentRating.MATURE,
+    langCode: "🇬🇧",
+});

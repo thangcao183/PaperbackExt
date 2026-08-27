@@ -1,0 +1,794 @@
+import { BasicRateLimiter, CloudflareError, ContentRating, CookieStorageInterceptor, DiscoverSectionType, PaperbackInterceptor, } from "@paperback/types";
+import * as cheerio from "cheerio";
+import * as htmlparser2 from "htmlparser2";
+import { URLBuilder } from "../url-builder/base";
+import { getBaseUrlOverride, MangaBoxSettingsForm } from "./settings";
+class MangaBoxInterceptor extends PaperbackInterceptor {
+    getBaseUrl;
+    constructor(id, getBaseUrl) {
+        super(id);
+        this.getBaseUrl = getBaseUrl;
+    }
+    /** Page images are served from cross-origin S3 CDNs (*.2xstorage.com). */
+    static isImageRequest(url) {
+        return /\.(jpe?g|png|webp|gif|avif|bmp|svg|apng)(\?|#|$)/i.test(url);
+    }
+    async interceptRequest(request) {
+        const baseUrl = this.getBaseUrl();
+        const incoming = request.headers ?? {};
+        const isImage = MangaBoxInterceptor.isImageRequest(request.url);
+        // CF-critical headers (user-agent/referer/origin/accept-language) must be
+        // forced LAST so they always match the Cloudflare clearance cookie -
+        // letting a caller's user-agent win breaks the bypass. But the chapters
+        // JSON API needs `accept: application/json` + `x-requested-with`, so seed
+        // a default `accept` first and let the caller's accept/x-requested-with
+        // override it before the CF headers are pinned.
+        request.headers = {
+            accept: isImage
+                ? "image/avif,image/webp,image/apng,image/png,image/svg+xml,*/*;q=0.8"
+                : "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            ...incoming,
+            referer: `${baseUrl}/`,
+            "user-agent": await Application.getDefaultUserAgent(),
+            "accept-language": "en-US,en;q=0.5",
+        };
+        // Browsers omit Origin on <img> loads. The page images live on a
+        // cross-origin S3-backed CDN (*.2xstorage.com); sending an Origin to it
+        // confuses the S3 front (intermittent 400/IncompleteBody). Upstream also
+        // strips Origin from HTML/JSON requests because it causes Cloudflare cache
+        // misses which significantly increase response time.
+        delete request.headers["origin"];
+        return request;
+    }
+    async interceptResponse(request, response, data) {
+        const cfMitigated = response.headers?.["cf-mitigated"];
+        if (cfMitigated === "challenge") {
+            throw new CloudflareError({
+                url: request.url,
+                method: request.method ?? "GET",
+                headers: {
+                    "user-agent": await Application.getDefaultUserAgent(),
+                },
+            });
+        }
+        return data;
+    }
+}
+export class MangaBoxExtension {
+    sourceName;
+    defaultBaseUrl;
+    mirrors;
+    contentRating;
+    langCode;
+    legacySlugRegex;
+    /** CDN URLs extracted from the last chapter page load (primary + backup). */
+    _chapterCdns = [];
+    static MAX_SEARCH_PAGES = 5;
+    get baseUrl() {
+        return getBaseUrlOverride(this.sourceName) ?? this.defaultBaseUrl;
+    }
+    requestManager;
+    cookieStorageInterceptor = new CookieStorageInterceptor({
+        storage: "stateManager",
+    });
+    globalRateLimiter = new BasicRateLimiter("rateLimiter", {
+        numberOfRequests: 5,
+        bufferInterval: 4,
+        ignoreImages: true,
+    });
+    constructor(config) {
+        this.sourceName = config.name;
+        this.defaultBaseUrl = config.baseUrl.replace(/\/+$/, "");
+        this.mirrors = config.mirrors ?? [];
+        this.contentRating = config.contentRating ?? ContentRating.EVERYONE;
+        this.langCode = config.langCode ?? "🇬🇧";
+        this.legacySlugRegex = config.legacySlugRegex;
+        this.requestManager = new MangaBoxInterceptor("main", () => this.baseUrl);
+    }
+    async getSettingsForm() {
+        return new MangaBoxSettingsForm(this.sourceName, this.defaultBaseUrl, this.mirrors);
+    }
+    async initialise() {
+        this.requestManager.registerInterceptor();
+        this.cookieStorageInterceptor.registerInterceptor();
+        this.globalRateLimiter.registerInterceptor();
+    }
+    // ----------------------------------------------------------------
+    // Discover sections
+    // ----------------------------------------------------------------
+    async getDiscoverSections() {
+        return [
+            {
+                id: "popular_section",
+                title: "Hot Manga",
+                type: DiscoverSectionType.featured,
+            },
+            {
+                id: "latest_section",
+                title: "Latest Updates",
+                type: DiscoverSectionType.simpleCarousel,
+            },
+        ];
+    }
+    async getDiscoverSectionItems(section, _metadata) {
+        const listPath = section.id === "popular_section" ? "hot-manga" : "latest-manga";
+        const url = new URLBuilder(this.baseUrl)
+            .addPath("manga-list")
+            .addPath(listPath)
+            .addQuery("page", 1)
+            .build();
+        const $ = await this.fetchCheerio({ url, method: "GET" });
+        const items = [];
+        const seen = new Set();
+        const itemType = section.id === "popular_section"
+            ? "featuredCarouselItem"
+            : "simpleCarouselItem";
+        this.eachListItem($, (mangaId, title, image) => {
+            if (title && mangaId && !seen.has(mangaId)) {
+                seen.add(mangaId);
+                items.push({
+                    type: itemType,
+                    mangaId,
+                    imageUrl: image,
+                    title,
+                    metadata: undefined,
+                });
+            }
+        });
+        return { items, metadata: undefined };
+    }
+    // ----------------------------------------------------------------
+    // Search
+    // ----------------------------------------------------------------
+    async getSearchResults(query, metadata) {
+        const meta = metadata;
+        const page = meta?.page ?? 1;
+        const collectedIds = meta?.collectedIds ?? [];
+        const titleQuery = (query.title || "").trim();
+        let url;
+        if (titleQuery) {
+            url = new URLBuilder(this.baseUrl)
+                .addPath("search")
+                .addPath("story")
+                .addPath(this.normalizeSearchQuery(titleQuery))
+                .addQuery("page", page)
+                .build();
+        }
+        else {
+            url = new URLBuilder(this.baseUrl)
+                .addPath("manga-list")
+                .addPath("hot-manga")
+                .addQuery("page", page)
+                .build();
+        }
+        const $ = await this.fetchCheerio({ url, method: "GET" });
+        const results = [];
+        const seen = new Set(collectedIds);
+        this.eachListItem($, (mangaId, title, image) => {
+            if (!title || !mangaId || seen.has(mangaId))
+                return;
+            seen.add(mangaId);
+            results.push({
+                mangaId,
+                imageUrl: image,
+                title,
+                subtitle: undefined,
+                metadata: undefined,
+            });
+        });
+        const hasNextPage = this.hasNextPageLink($);
+        const reachedLimit = page >= MangaBoxExtension.MAX_SEARCH_PAGES;
+        return {
+            items: results,
+            metadata: hasNextPage && !reachedLimit
+                ? { page: page + 1, collectedIds: [...seen] }
+                : undefined,
+        };
+    }
+    // ----------------------------------------------------------------
+    // Manga details
+    // ----------------------------------------------------------------
+    async getMangaDetails(mangaId) {
+        const url = this.getMangaShareUrl(mangaId);
+        const $ = await this.fetchCheerio({ url, method: "GET" });
+        const info = $("div.manga-info-top, div.panel-story-info").first();
+        const title = info.find("h1, h2").first().text().trim();
+        const image = this.imageFromElement($("div.manga-info-pic img, span.info-image img").first());
+        // The info block lists facts as either `<li>Label : value</li>` (old
+        // layout) or `<td>Label</td><td>value</td>` (table layout). jQuery
+        // pseudo-classes (`:contains`, `:containsOwn`, `:has`) are NOT supported
+        // by Paperback's CSS engine ("Unknown pseudo-class :containsown"), so
+        // match the label text in JS instead.
+        const author = this.infoRowLinks($, info, "author").join(", ");
+        const statusText = this.infoRowText($, info, "status");
+        const genres = this.infoRowLinks($, info, "genres");
+        const description = $("div#noidungm, div#panel-story-info-description, div#contentBox")
+            .first()
+            .text()
+            .trim();
+        const altName = this.findAltName($)
+            .replace(/alternative\s*:?/i, "")
+            .trim();
+        const tagGroups = [];
+        if (genres.length > 0) {
+            tagGroups.push({
+                id: "genres",
+                title: "Genres",
+                tags: genres.map((g) => ({
+                    id: g.toLowerCase().replace(/\s+/g, "-"),
+                    title: g,
+                })),
+            });
+        }
+        return {
+            mangaId,
+            mangaInfo: {
+                primaryTitle: title,
+                secondaryTitles: altName ? [altName] : [],
+                thumbnailUrl: image,
+                author: author || undefined,
+                synopsis: description,
+                contentRating: this.contentRating,
+                status: this.parseStatus(statusText),
+                tagGroups,
+                shareUrl: url,
+            },
+        };
+    }
+    // ----------------------------------------------------------------
+    // Chapters (JSON API with pagination)
+    // ----------------------------------------------------------------
+    async getChapters(sourceManga) {
+        const slug = this.mangaSlug(sourceManga);
+        const chapters = [];
+        const seen = new Set();
+        // Fetch all chapters in one request (limit=-1 returns all, matching
+        // upstream keiyoushi behavior).
+        const url = new URLBuilder(this.baseUrl)
+            .addPath("api")
+            .addPath("manga")
+            .addPath(slug)
+            .addPath("chapters")
+            .addQuery("limit", -1)
+            .build();
+        let json;
+        try {
+            json = await this.fetchJson({
+                url,
+                method: "GET",
+                headers: {
+                    accept: "application/json, text/plain, */*",
+                    "x-requested-with": "XMLHttpRequest",
+                    referer: new URLBuilder(this.baseUrl)
+                        .addPath("manga")
+                        .addPath(slug)
+                        .build(),
+                },
+            });
+        }
+        catch {
+            // API blocked — fall through to webview fallback
+        }
+        if (json) {
+            // Upstream treats `success: false` as an empty list; our webview
+            // fallback below then takes over.
+            const list = json.success === false ? [] : (json.data?.chapters ?? []);
+            for (const c of list) {
+                const chapterSlug = c.chapter_slug ?? "";
+                if (!chapterSlug)
+                    continue;
+                const chapterId = this.toSafeId(`manga/${slug}/${chapterSlug}`);
+                if (seen.has(chapterId))
+                    continue;
+                seen.add(chapterId);
+                const name = c.chapter_name ?? `Chapter ${c.chapter_num ?? 0}`;
+                chapters.push({
+                    chapterId,
+                    sourceManga,
+                    title: name,
+                    volume: 0,
+                    chapNum: c.chapter_num ?? 0,
+                    publishDate: this.parseDate(c.updated_at),
+                    langCode: this.langCode,
+                });
+            }
+        }
+        // Fallback: if the API returned nothing (403/blocked), load the manga
+        // page in a webview and scrape the chapter list after JS renders it.
+        if (chapters.length === 0) {
+            console.log(`[MangaBox] API returned 0 chapters for ${slug}, trying webview fallback`);
+            const webChapters = await this.getChaptersViaWebView(slug, sourceManga);
+            console.log(`[MangaBox] webview fallback returned ${webChapters.length} chapters`);
+            return webChapters;
+        }
+        return chapters;
+    }
+    /**
+     * When the chapters JSON API is blocked (403 from Cloudflare outside the
+     * browser context), fetch it from within a webview where the CF clearance
+     * cookie and challenge state are available.
+     */
+    async getChaptersViaWebView(slug, sourceManga) {
+        const apiUrl = new URLBuilder(this.baseUrl)
+            .addPath("api")
+            .addPath("manga")
+            .addPath(slug)
+            .addPath("chapters")
+            .addQuery("limit", -1)
+            .addQuery("offset", 0)
+            .build();
+        // executeInWebView inject must be synchronous. Use a synchronous XHR
+        // (deprecated but functional in webviews) to fetch the API from within
+        // the browser context where Cloudflare passes.
+        const inject = `
+(function() {
+  try {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', ${JSON.stringify(apiUrl)}, false);
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.send(null);
+    if (xhr.status === 200) return xhr.responseText;
+    return JSON.stringify({error: 'status ' + xhr.status});
+  } catch(e) {
+    return JSON.stringify({error: e.message});
+  }
+})()
+    `.trim();
+        try {
+            const result = await Application.executeInWebView({
+                source: {
+                    html: "<html><head></head><body></body></html>",
+                    baseUrl: this.baseUrl,
+                    loadCSS: false,
+                    loadImages: false,
+                },
+                inject,
+                storage: { cookies: [...this.cookieStorageInterceptor.cookies] },
+            });
+            console.log(`[MangaBox] webview result type: ${typeof result.result}, len: ${String(result.result).length}`);
+            const resultStr = String(result.result);
+            if (!resultStr || resultStr === "undefined" || resultStr.length < 10) {
+                console.log(`[MangaBox] webview returned empty/undefined`);
+                return [];
+            }
+            if (resultStr.includes('"error"')) {
+                console.log(`[MangaBox] webview error: ${resultStr.substring(0, 200)}`);
+                return [];
+            }
+            const json = JSON.parse(resultStr);
+            const list = json.success === false ? [] : (json.data?.chapters ?? []);
+            console.log(`[MangaBox] webview parsed ${list.length} chapters from JSON`);
+            const chapters = [];
+            const seen = new Set();
+            for (const c of list) {
+                const chapterSlug = c.chapter_slug ?? "";
+                if (!chapterSlug)
+                    continue;
+                const chapterId = this.toSafeId(`manga/${slug}/${chapterSlug}`);
+                if (seen.has(chapterId))
+                    continue;
+                seen.add(chapterId);
+                const name = c.chapter_name ?? `Chapter ${c.chapter_num ?? 0}`;
+                chapters.push({
+                    chapterId,
+                    sourceManga,
+                    title: name,
+                    volume: 0,
+                    chapNum: c.chapter_num ?? 0,
+                    publishDate: this.parseDate(c.updated_at),
+                    langCode: this.langCode,
+                });
+            }
+            return chapters;
+        }
+        catch {
+            return [];
+        }
+    }
+    parseChapterNum(title) {
+        const m = title.match(/(?:chapter|ch)[.\s-]*(\d+(?:\.\d+)?)/i);
+        return m ? parseFloat(m[1]) : -1;
+    }
+    async getChapterDetails(chapter) {
+        const url = new URLBuilder(this.baseUrl)
+            .addPath(this.safeDecode(chapter.chapterId))
+            .build();
+        const $ = await this.fetchCheerio({ url, method: "GET" });
+        const pages = [];
+        // Preferred: cdns=[...], backupImage=[...], and chapterImages=[...] in
+        // a script tag. Mirrors keiyoushi's pageListParse which combines cdns +
+        // backupImage into a linked CDN set for fallback.
+        let allCdns = [];
+        let chapterImages = [];
+        $("script").each((_, el) => {
+            if (chapterImages.length > 0)
+                return; // already found
+            const html = $(el).html() || "";
+            if (!html.includes("cdns"))
+                return;
+            const cdnsMatch = html.match(/cdns\s*=\s*\[([^\]]*)\]/);
+            const backupMatch = html.match(/backupImage\s*=\s*\[([^\]]*)\]/);
+            const imagesMatch = html.match(/chapterImages\s*=\s*\[([^\]]*)\]/);
+            if (!cdnsMatch || !imagesMatch)
+                return;
+            try {
+                const cdns = JSON.parse(`[${cdnsMatch[1]}]`);
+                chapterImages = JSON.parse(`[${imagesMatch[1]}]`);
+                let backups = [];
+                if (backupMatch) {
+                    backups = JSON.parse(`[${backupMatch[1]}]`);
+                }
+                // Combine all CDNs (primary + backup) — deduplicated, primary first.
+                for (const c of [...cdns, ...backups]) {
+                    if (typeof c === "string" && c && !allCdns.includes(c)) {
+                        allCdns.push(c);
+                    }
+                }
+            }
+            catch {
+                chapterImages = [];
+                allCdns = [];
+            }
+        });
+        if (chapterImages.length > 0 && allCdns.length > 0) {
+            // Determine the working CDN. Keiyoushi retries failed image requests
+            // against alternate CDNs via an OkHttp interceptor; Paperback can't
+            // retry from interceptors, so we probe CDNs upfront using the first
+            // image and pick the one that responds successfully.
+            const cdn = await this.pickWorkingCdn(allCdns, chapterImages[0]);
+            for (const img of chapterImages) {
+                if (typeof img !== "string" || !img)
+                    continue;
+                if (img.startsWith("http")) {
+                    pages.push(img);
+                }
+                else if (cdn) {
+                    // Proper URL construction matching keiyoushi's encodedPath():
+                    // Extract the CDN origin (scheme + host + port) and replace
+                    // its entire path with the image path.
+                    const cdnOrigin = this.extractOrigin(cdn);
+                    const path = img.startsWith("/") ? img : `/${img}`;
+                    pages.push(`${cdnOrigin}${path}`);
+                }
+            }
+            this._chapterCdns = allCdns;
+        }
+        // Fallback: plain image elements.
+        if (pages.length === 0) {
+            $("div.container-chapter-reader > img").each((_, el) => {
+                const image = this.imageFromElement($(el));
+                if (image)
+                    pages.push(image);
+            });
+        }
+        return {
+            id: chapter.chapterId,
+            mangaId: chapter.sourceManga.mangaId,
+            pages: [...new Set(pages)],
+        };
+    }
+    getMangaShareUrl(mangaId) {
+        return new URLBuilder(this.baseUrl)
+            .addPath(this.safeDecode(mangaId))
+            .build();
+    }
+    // ----------------------------------------------------------------
+    // Helpers
+    // ----------------------------------------------------------------
+    /**
+     * Find an info row by its label (e.g. "author", "status", "genres") and
+     * return the text of each anchor inside it. Handles both the `<li>Label :
+     * <a>value</a></li>` layout and the `<td>Label</td><td><a>value</a></td>`
+     * table layout, matching the label in JS (Paperback's CSS engine rejects
+     * `:contains`/`:containsOwn`).
+     */
+    infoRowLinks($, info, label) {
+        const out = [];
+        const want = label.toLowerCase();
+        info.find("li").each((_, el) => {
+            const row = $(el);
+            if (row.text().toLowerCase().includes(want)) {
+                row.find("a").each((__, a) => {
+                    const t = $(a).text().trim();
+                    if (t)
+                        out.push(t);
+                });
+            }
+        });
+        if (out.length === 0) {
+            info.find("td").each((_, el) => {
+                const cell = $(el);
+                if (cell.text().trim().toLowerCase().startsWith(want)) {
+                    const next = cell.next("td");
+                    const anchors = next.find("a");
+                    if (anchors.length > 0) {
+                        anchors.each((__, a) => {
+                            const t = $(a).text().trim();
+                            if (t)
+                                out.push(t);
+                        });
+                    }
+                    else {
+                        const t = next.text().trim();
+                        if (t)
+                            out.push(t);
+                    }
+                }
+            });
+        }
+        return out.filter((s) => s.length > 0);
+    }
+    /** Like infoRowLinks but returns the row's plain text value (no anchors). */
+    infoRowText($, info, label) {
+        const want = label.toLowerCase();
+        let value = "";
+        info.find("li").each((_, el) => {
+            if (value)
+                return;
+            const row = $(el);
+            const text = row.text().trim();
+            if (text.toLowerCase().includes(want)) {
+                value = text.replace(new RegExp(`^[^:]*${want}[^:]*:?\\s*`, "i"), "").trim() || text;
+            }
+        });
+        if (!value) {
+            info.find("td").each((_, el) => {
+                if (value)
+                    return;
+                const cell = $(el);
+                if (cell.text().trim().toLowerCase().startsWith(want)) {
+                    value = cell.next("td").text().trim();
+                }
+            });
+        }
+        return value;
+    }
+    /** Find the alternative-title text without using `:has()`. */
+    findAltName($) {
+        const direct = $(".story-alternative").first().text().trim();
+        if (direct)
+            return direct;
+        let alt = "";
+        $("tr").each((_, el) => {
+            if (alt)
+                return;
+            const row = $(el);
+            if (row.find(".info-alternative").length > 0) {
+                alt = row.find("h2").first().text().trim();
+            }
+        });
+        return alt;
+    }
+    /** Detect a "next page" pagination link without `:contains()`. */
+    hasNextPageLink($) {
+        let found = false;
+        $("div.group_page a, div.group-page a, a.page_select + a, a.page-select + a").each((_, el) => {
+            if (found)
+                return;
+            const a = $(el);
+            const text = a.text().trim().toLowerCase();
+            const cls = (a.attr("class") || "").toLowerCase();
+            // A usable "next" link points to another page and is not the
+            // first/last/selected control.
+            if (cls.includes("page_last") || cls.includes("page-last"))
+                return;
+            if (text === "last" || text.includes("last"))
+                return;
+            if (a.attr("href"))
+                found = true;
+        });
+        return found;
+    }
+    eachListItem($, cb) {
+        $("div.truyen-list > div.list-truyen-item-wrap, div.comic-list > .list-comic-item-wrap, .panel_story_list .story_item, div.list-truyen-item-wrap, div.list-comic-item-wrap").each((_, element) => {
+            const unit = $(element);
+            const link = unit.find("h3 a").first();
+            const anchor = link.length > 0 ? link : unit.find("a").first();
+            const href = (anchor.attr("href") || "").trim();
+            // Skip injected advertisements: they sit in the same list-item wrappers
+            // but link off-site (e.g. bit.ly) and open in a new tab
+            // (target="_blank"/rel="sponsored"). Real entries link to an on-site
+            // manga path on the source's own host.
+            if (this.isExternalOrAdLink(href, anchor.attr("target"), anchor.attr("rel"))) {
+                return;
+            }
+            const title = (link.text() || unit.find("a").first().attr("title") || "")
+                .trim();
+            const mangaId = this.parseMangaId(href);
+            const image = this.imageFromElement(unit.find("img").first());
+            cb(mangaId, title, image);
+        });
+    }
+    /**
+     * True when a list-item link is an injected ad rather than a manga entry:
+     * an off-site host, a `target="_blank"` pop-out, or a sponsored `rel`.
+     */
+    isExternalOrAdLink(href, target, rel) {
+        if (!href)
+            return true;
+        if (target && target.toLowerCase() === "_blank")
+            return true;
+        if (rel && /sponsored|nofollow/i.test(rel))
+            return true;
+        if (/^https?:\/\//i.test(href)) {
+            const hostMatch = href.match(/^https?:\/\/([^/]+)/i);
+            const linkHost = (hostMatch?.[1] ?? "").toLowerCase();
+            const baseHost = this.baseUrl
+                .replace(/^https?:\/\//i, "")
+                .replace(/\/.*$/, "")
+                .toLowerCase();
+            // Compare registrable host loosely (ignore leading "www.").
+            const strip = (h) => h.replace(/^www\./, "");
+            if (linkHost && strip(linkHost) !== strip(baseHost))
+                return true;
+        }
+        return false;
+    }
+    normalizeSearchQuery(query) {
+        return query
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]+/g, "_")
+            .replace(/_{2,}/g, "_")
+            .replace(/^_|_$/g, "");
+    }
+    slugFromMangaId(mangaId) {
+        const decoded = this.safeDecode(mangaId);
+        const parts = decoded.split("/").filter((p) => p.length > 0);
+        return parts[parts.length - 1] ?? decoded;
+    }
+    /**
+     * Upstream `computeMangaSlug` override: listings sometimes expose an opaque
+     * id slug instead of the canonical title slug. Recompute from the title when
+     * the source declares such a pattern.
+     */
+    mangaSlug(sourceManga) {
+        const slug = this.slugFromMangaId(sourceManga.mangaId);
+        if (!this.legacySlugRegex?.test(slug))
+            return slug;
+        const fromTitle = MangaBoxExtension.titleToSlug(sourceManga.mangaInfo.primaryTitle);
+        return fromTitle || slug;
+    }
+    static titleToSlug(title) {
+        return title
+            .toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, "")
+            .trim()
+            .replace(/[\s-]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+    }
+    parseMangaId(href) {
+        let cleaned = href.replace(/[?#].*$/, "").replace(/\/$/, "");
+        cleaned = cleaned.replace(/^https?:\/\/[^/]+/, "");
+        cleaned = cleaned.replace(/^\/+/, "");
+        return this.toSafeId(cleaned);
+    }
+    toSafeId(slug) {
+        return slug.replace(/[^A-Za-z0-9._\-@()[\]%?#+=/&:]/g, (c) => {
+            const enc = encodeURIComponent(c);
+            if (enc !== c)
+                return enc;
+            return "%" + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0");
+        });
+    }
+    safeDecode(id) {
+        try {
+            return decodeURIComponent(id);
+        }
+        catch {
+            return id;
+        }
+    }
+    /**
+     * Extract origin (scheme + host + port) from a URL string.
+     * e.g. "https://cm.mangakakalot.gg/assets/img" → "https://cm.mangakakalot.gg"
+     * Matches keiyoushi's behavior of using encodedPath() which replaces the
+     * entire path of the CDN URL.
+     */
+    extractOrigin(url) {
+        const match = url.match(/^(https?:\/\/[^/]+)/i);
+        return match ? match[1] : url.replace(/\/+$/, "");
+    }
+    /**
+     * Probe CDNs with the first image to find one that responds successfully.
+     * Falls back to the first CDN if all probes fail (best-effort).
+     * Mirrors keiyoushi's MangaBoxLinkedCdnSet fallback behavior but done
+     * upfront since Paperback interceptors cannot retry requests.
+     */
+    async pickWorkingCdn(cdns, firstImage) {
+        if (cdns.length === 0)
+            return "";
+        if (cdns.length === 1 || !firstImage || firstImage.startsWith("http")) {
+            return cdns[0];
+        }
+        const path = firstImage.startsWith("/") ? firstImage : `/${firstImage}`;
+        for (const cdn of cdns) {
+            const origin = this.extractOrigin(cdn);
+            const testUrl = `${origin}${path}`;
+            try {
+                const [response] = await Application.scheduleRequest({
+                    url: testUrl,
+                    method: "HEAD",
+                });
+                if (response.status >= 200 && response.status < 400) {
+                    return cdn;
+                }
+            }
+            catch {
+                // CDN unreachable, try next
+            }
+        }
+        // All probes failed — use first CDN as best effort
+        return cdns[0];
+    }
+    imageFromElement(img) {
+        if (!img || img.length === 0)
+            return "";
+        let src = img.attr("data-src") ||
+            img.attr("data-lazy-src") ||
+            img.attr("data-cfsrc") ||
+            img.attr("src") ||
+            "";
+        src = src.trim();
+        if (src && !src.startsWith("http")) {
+            src = src.startsWith("/")
+                ? `${this.baseUrl}${src}`
+                : `${this.baseUrl}/${src}`;
+        }
+        return src;
+    }
+    parseStatus(status) {
+        const s = status.toLowerCase().trim();
+        if (!s)
+            return "Unknown";
+        if (s.includes("complet"))
+            return "Completed";
+        if (s.includes("ongoing") || s.includes("on going"))
+            return "Ongoing";
+        if (s.includes("hiatus"))
+            return "Hiatus";
+        if (s.includes("cancel") || s.includes("drop"))
+            return "Cancelled";
+        return "Unknown";
+    }
+    parseDate(dateText) {
+        if (!dateText)
+            return new Date();
+        const direct = new Date(dateText);
+        if (!isNaN(direct.getTime()))
+            return direct;
+        return new Date();
+    }
+    // ----------------------------------------------------------------
+    // Cloudflare + fetch
+    // ----------------------------------------------------------------
+    async cloudflareBypassCompleted(_request, cookies, _localStorage) {
+        for (const cookie of this.cookieStorageInterceptor.cookies) {
+            this.cookieStorageInterceptor.deleteCookie(cookie);
+        }
+        for (const cookie of cookies) {
+            if (cookie.expires && cookie.expires.getTime() <= Date.now())
+                continue;
+            this.cookieStorageInterceptor.setCookie(cookie);
+        }
+    }
+    async fetchCheerio(request) {
+        const [response, data] = await Application.scheduleRequest(request);
+        if (response.status === 404) {
+            throw new Error("Content not found");
+        }
+        const htmlStr = Application.arrayBufferToUTF8String(data);
+        const dom = htmlparser2.parseDocument(htmlStr);
+        return cheerio.load(dom);
+    }
+    async fetchJson(request) {
+        const [response, data] = await Application.scheduleRequest(request);
+        if (response.status === 404) {
+            throw new Error("Content not found");
+        }
+        const str = Application.arrayBufferToUTF8String(data);
+        return JSON.parse(str);
+    }
+}
