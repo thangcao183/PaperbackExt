@@ -112,6 +112,9 @@ export class DilibExtension implements DilibImplementation {
     const url = this.mangaUrl(mangaId);
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const title = $("h1").first().text().trim() || $("title").text().split("|")[0]?.trim() || mangaId;
+    const author = $("p").filter((_, element) => {
+      return $(element).find("b").first().text().trim().startsWith("Tác giả");
+    }).find("a").first().text().trim();
     const genres: string[] = [];
     $("a[href*='the-loai'], a[href*='genre'], a[href*='category']").each((_, element) => {
       const genre = $(element).text().trim();
@@ -128,6 +131,7 @@ export class DilibExtension implements DilibImplementation {
         thumbnailUrl: this.findCover($),
         synopsis: $(".description, .summary, .detail-content, .story-detail-info, .content").first().text().trim() || "",
         contentRating: ContentRating.EVERYONE,
+        author,
         status,
         tagGroups,
         shareUrl: url,
