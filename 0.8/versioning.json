@@ -1,0 +1,27 @@
+{
+  "buildTime": "2026-08-27T10:26:37Z",
+  "sources": [
+    {
+      "id": "Dilib",
+      "name": "Dilib",
+      "author": "thangcao183",
+      "desc": "Extension that pulls Vietnamese manga from Dilib.vn",
+      "website": "https://github.com/thangcao183/PaperbackExt",
+      "contentRating": "EVERYONE",
+      "version": "0.1.0",
+      "icon": "icon.png",
+      "tags": [
+        {
+          "text": "Vietnamese",
+          "type": "default"
+        }
+      ],
+      "websiteBaseURL": "https://dilib.vn/",
+      "intents": 5
+    }
+  ],
+  "builtWith": {
+    "toolchain": "0.8.0",
+    "types": "0.8.0"
+  }
+}
